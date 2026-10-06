@@ -95,9 +95,43 @@ class OfflineEngine {
       );
     }
 
+    // Device controls - handled fully on-device, never sent to a model.
+    if (t.contains('flashlight') || t.contains('torch')) {
+      final off = RegExp(r'\boff\b').hasMatch(t);
+      return FridayResponse(
+        reply: off ? 'Turning the flashlight off.' : 'Turning the flashlight on.',
+        action: FridayAction(
+            type: off ? FridayActionType.torchOff : FridayActionType.torchOn),
+        source: FridaySource.offline,
+      );
+    }
+    if (t.contains('volume') || t.contains('louder') || t.contains('quieter')) {
+      final down = RegExp(r'decrease|down|lower|quieter|reduce').hasMatch(t);
+      return FridayResponse(
+        reply: down ? 'Turning the volume down.' : 'Turning the volume up.',
+        action: FridayAction(
+            type: down ? FridayActionType.volumeDown : FridayActionType.volumeUp),
+        source: FridaySource.offline,
+      );
+    }
+    if (RegExp(r'wi-?fi').hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Opening Wi-Fi settings.',
+        action: FridayAction(type: FridayActionType.wifiSettings),
+        source: FridaySource.offline,
+      );
+    }
+    if (t.contains('bluetooth')) {
+      return const FridayResponse(
+        reply: 'Opening Bluetooth settings.',
+        action: FridayAction(type: FridayActionType.bluetoothSettings),
+        source: FridaySource.offline,
+      );
+    }
+
     return const FridayResponse(
       reply:
-          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, or set a reminder.",
+          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth.",
       source: FridaySource.offline,
     );
   }

@@ -36,6 +36,23 @@ class ReminderService {
     await init();
     try {
       final when = tz.TZDateTime.now(tz.local).add(after);
+      // Exact alarms need SCHEDULE_EXACT_ALARM - on Android 13+ it starts
+      // denied. Ask once; if still denied, fall back to inexact so the
+      // reminder still fires (possibly a few minutes late) instead of
+      // silently failing.
+      var mode = AndroidScheduleMode.exactAllowWhileIdle;
+      try {
+        final android = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        var canExact = await android?.canScheduleExactNotifications() ?? false;
+        if (!canExact) {
+          await android?.requestExactAlarmsPermission();
+          canExact = await android?.canScheduleExactNotifications() ?? false;
+        }
+        if (!canExact) mode = AndroidScheduleMode.inexactAllowWhileIdle;
+      } catch (_) {
+        mode = AndroidScheduleMode.inexactAllowWhileIdle;
+      }
       await _plugin.zonedSchedule(
         _nextId++,
         title.isEmpty ? 'Reminder' : 'Friday: $title',
@@ -50,7 +67,7 @@ class ReminderService {
             priority: Priority.high,
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: mode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );

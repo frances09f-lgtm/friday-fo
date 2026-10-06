@@ -70,6 +70,34 @@ class DeviceHub {
     }
   }
 
+  Future<bool> setTorch(bool on) async {
+    try {
+      return await _channel.invokeMethod<bool>('setTorch', {'on': on}) ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> adjustVolume({required bool up}) async {
+    try {
+      return await _channel
+              .invokeMethod<bool>(up ? 'volumeUp' : 'volumeDown') ??
+          false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> openSystemPanel(String which) async {
+    try {
+      return await _channel
+              .invokeMethod<bool>('openPanel', {'which': which}) ??
+          false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   /// Fuzzy-matches the app the user (or the model) named against the
   /// installed list, then launches it. Returns the app label, or null when
   /// nothing on the phone matches.

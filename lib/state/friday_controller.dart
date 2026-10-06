@@ -55,7 +55,9 @@ class FridayController extends ChangeNotifier {
 
     var reply = response.reply;
     final outcome = await router.execute(response.action);
-    if (outcome.isNotEmpty) reply = '$reply\n$outcome';
+    // When an action ran, the router's outcome is the truth - the brain's
+    // reply only guessed at the result ("Reminder set" before it was).
+    if (outcome.isNotEmpty) reply = outcome;
 
     messages.add(ChatMessage(
       id: '${DateTime.now().microsecondsSinceEpoch}r',

@@ -60,4 +60,29 @@ void main() {
     expect(r.source, FridaySource.offline);
     expect(r.reply, contains('open an app'));
   });
+
+  group('device controls route locally', () {
+    test('flashlight on/off', () {
+      const e = OfflineEngine();
+      expect(e.handle('flashlight on').action.type, FridayActionType.torchOn);
+      expect(e.handle('turn the torch off').action.type, FridayActionType.torchOff);
+    });
+    test('volume up/down', () {
+      const e = OfflineEngine();
+      expect(e.handle('increase volume').action.type, FridayActionType.volumeUp);
+      expect(e.handle('turn the volume down').action.type, FridayActionType.volumeDown);
+    });
+    test('wifi and bluetooth open panels', () {
+      const e = OfflineEngine();
+      expect(e.handle('turn wifi off').action.type, FridayActionType.wifiSettings);
+      expect(e.handle('bluetooth on').action.type, FridayActionType.bluetoothSettings);
+    });
+    test('device commands never fall through to the cloud fallback', () {
+      const e = OfflineEngine();
+      for (final c in ['flashlight on', 'increase volume', 'wifi off', 'bluetooth off']) {
+        expect(e.handle(c).reply, isNot(contains("couldn't reach the cloud")));
+      }
+    });
+  });
 }
+

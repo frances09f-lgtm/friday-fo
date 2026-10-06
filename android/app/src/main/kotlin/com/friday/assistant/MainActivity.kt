@@ -3,6 +3,9 @@ package com.friday.assistant
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.camera2.CameraManager
+import android.media.AudioManager
+import android.provider.Settings
 import android.provider.Telephony
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -35,6 +38,10 @@ class MainActivity : FlutterActivity() {
                         )
                     )
                     "hasSmsPermission" -> result.success(hasSmsPermission())
+                    "setTorch" -> result.success(setTorch(call.argument<Boolean>("on") == true))
+                    "volumeUp" -> result.success(adjustVolume(AudioManager.ADJUST_RAISE))
+                    "volumeDown" -> result.success(adjustVolume(AudioManager.ADJUST_LOWER))
+                    "openPanel" -> result.success(openPanel(call.argument<String>("which") ?: "wifi"))
                     "requestSmsPermission" -> {
                         ActivityCompat.requestPermissions(
                             this,
@@ -78,6 +85,38 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun setTorch(on: Boolean): Boolean = try {
+        val cm = getSystemService(CameraManager::class.java)
+        cm.setTorchMode(cm.cameraIdList[0], on)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    private fun adjustVolume(direction: Int): Boolean = try {
+        val am = getSystemService(AudioManager::class.java)
+        am.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    private fun openPanel(which: String): Boolean = try {
+        val intent = when (which) {
+            "bluetooth" -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+            else -> if (android.os.Build.VERSION.SDK_INT >= 29) {
+                Intent(Settings.Panel.ACTION_WIFI)
+            } else {
+                Intent(Settings.ACTION_WIFI_SETTINGS)
+            }
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        true
+    } catch (e: Exception) {
+        false
     }
 
     private fun hasSmsPermission(): Boolean =

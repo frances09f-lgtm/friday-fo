@@ -1,4 +1,15 @@
-enum FridayActionType { none, openApp, readMessages, setReminder }
+enum FridayActionType {
+  none,
+  openApp,
+  readMessages,
+  setReminder,
+  torchOn,
+  torchOff,
+  volumeUp,
+  volumeDown,
+  wifiSettings,
+  bluetoothSettings,
+}
 
 enum FridaySource { cloud, local, offline }
 
@@ -27,6 +38,18 @@ class FridayAction {
         return FridayActionType.readMessages;
       case 'set_reminder':
         return FridayActionType.setReminder;
+      case 'torch_on':
+        return FridayActionType.torchOn;
+      case 'torch_off':
+        return FridayActionType.torchOff;
+      case 'volume_up':
+        return FridayActionType.volumeUp;
+      case 'volume_down':
+        return FridayActionType.volumeDown;
+      case 'wifi':
+        return FridayActionType.wifiSettings;
+      case 'bluetooth':
+        return FridayActionType.bluetoothSettings;
       default:
         return FridayActionType.none;
     }
