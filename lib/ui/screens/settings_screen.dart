@@ -17,6 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _openRouter = TextEditingController();
   final _modelUrl = TextEditingController();
   bool _localFallback = true;
+  bool _speakReplies = true;
 
   final LocalModelService _local = LocalModelService();
   String _modelStatus = '';
@@ -30,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openRouter.text = s.openRouterKey;
     _modelUrl.text = s.localModelUrl;
     _localFallback = s.localFallbackEnabled;
+    _speakReplies = s.speakReplies;
   }
 
   @override
@@ -48,6 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await s.setApiKey('openrouter', _openRouter.text);
     await s.setLocalModelUrl(_modelUrl.text);
     await s.setLocalFallback(_localFallback);
+    await s.setSpeakReplies(_speakReplies);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved')),
@@ -79,6 +82,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _KeyField(controller: _groq, label: 'Groq API key', hint: 'console.groq.com/keys'),
           _KeyField(controller: _openRouter, label: 'OpenRouter API key', hint: 'openrouter.ai/keys'),
           const SizedBox(height: 24),
+          Text('Voice', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Speak replies out loud'),
+            subtitle: const Text('Turn off to mute Friday'),
+            value: _speakReplies,
+            onChanged: (v) => setState(() => _speakReplies = v),
+          ),
+          const SizedBox(height: 16),
           Text('On-device backup', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           SwitchListTile(

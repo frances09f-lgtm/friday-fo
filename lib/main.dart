@@ -32,6 +32,7 @@ Future<void> main() async {
     router: IntentRouter(deviceHub: DeviceHub(), reminders: reminders),
     chatStore: ChatStore(prefs),
     speech: speech,
+    settings: settings,
   );
   await controller.loadHistory();
 

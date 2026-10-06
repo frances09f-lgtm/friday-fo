@@ -5,6 +5,7 @@ import '../services/ai/ai_brain.dart';
 import '../services/intent_router.dart';
 import '../services/speech/speech_service.dart';
 import '../services/storage/chat_store.dart';
+import '../services/storage/settings_store.dart';
 
 /// Holds the conversation and runs one turn end to end:
 /// user input -> brain (cloud, then local, then offline) -> action -> reply.
@@ -14,12 +15,14 @@ class FridayController extends ChangeNotifier {
     required this.router,
     required this.chatStore,
     required this.speech,
+    required this.settings,
   });
 
   final AIBrain brain;
   final IntentRouter router;
   final ChatStore chatStore;
   final SpeechService speech;
+  final SettingsStore settings;
 
   final List<ChatMessage> messages = [];
   bool busy = false;
@@ -33,7 +36,8 @@ class FridayController extends ChangeNotifier {
     }
   }
 
-  Future<void> send(String text, {bool speakReply = false}) async {
+  /// Every send speaks its reply unless the user muted Friday in Settings.
+  Future<void> send(String text) async {
     final clean = text.trim();
     if (clean.isEmpty || busy) return;
 
@@ -58,14 +62,15 @@ class FridayController extends ChangeNotifier {
       role: MessageRole.friday,
       text: reply,
       at: DateTime.now(),
-      source: response.source,
     ));
     busy = false;
     partialHeard = '';
     notifyListeners();
 
     await chatStore.save(messages);
-    if (speakReply) await speech.speak(response.reply);
+    if (settings.speakReplies) {
+      await speech.speak(response.reply);
+    }
   }
 
   void setPartialHeard(String text) {

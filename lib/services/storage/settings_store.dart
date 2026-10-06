@@ -28,6 +28,9 @@ class SettingsStore extends ChangeNotifier {
   String openRouterModel = 'meta-llama/llama-3.1-8b-instruct:free';
   bool localFallbackEnabled = true;
 
+  /// Mute toggle: when true Friday speaks its replies out loud.
+  bool speakReplies = true;
+
   /// Where the Gemma weights come from (set in Settings; see README).
   String localModelUrl = '';
 
@@ -43,6 +46,7 @@ class SettingsStore extends ChangeNotifier {
     openRouterModel =
         _prefs.getString('friday_openrouter_model') ?? openRouterModel;
     localFallbackEnabled = _prefs.getBool('friday_local_fallback') ?? true;
+    speakReplies = _prefs.getBool('friday_speak_replies') ?? true;
     localModelUrl = _prefs.getString('friday_local_model_url') ?? '';
     notifyListeners();
   }
@@ -70,6 +74,12 @@ class SettingsStore extends ChangeNotifier {
   Future<void> setLocalModelUrl(String value) async {
     localModelUrl = value.trim();
     await _prefs.setString('friday_local_model_url', localModelUrl);
+    notifyListeners();
+  }
+
+  Future<void> setSpeakReplies(bool enabled) async {
+    speakReplies = enabled;
+    await _prefs.setBool('friday_speak_replies', enabled);
     notifyListeners();
   }
 
