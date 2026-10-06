@@ -18,9 +18,13 @@ class ReminderService {
       tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
     } catch (_) {}
     const androidInit = AndroidInitializationSettings('ic_launcher');
-    await _plugin.initialize(
-      const InitializationSettings(android: androidInit),
-    );
+    try {
+      await _plugin.initialize(
+        const InitializationSettings(android: androidInit),
+      );
+    } catch (_) {
+      // Notifications unavailable on this device - reminders just won't fire.
+    }
     _initialized = true;
   }
 

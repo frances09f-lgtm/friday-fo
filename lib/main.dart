@@ -17,13 +17,20 @@ import 'state/friday_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Startup must be fault-tolerant: if any service init fails on a real
+  // device (keystore hiccup, notifications plugin, etc.) the app still
+  // opens instead of hanging on a blank screen before runApp.
   const secure = FlutterSecureStorage();
   final prefs = await SharedPreferences.getInstance();
   final settings = SettingsStore(secure, prefs);
-  await settings.load();
+  try {
+    await settings.load();
+  } catch (_) {}
 
   final reminders = ReminderService();
-  await reminders.init();
+  try {
+    await reminders.init();
+  } catch (_) {}
 
   final speech = SpeechService();
   final brain = AIBrain(settings: settings, local: LocalModelService());
@@ -34,7 +41,9 @@ Future<void> main() async {
     speech: speech,
     settings: settings,
   );
-  await controller.loadHistory();
+  try {
+    await controller.loadHistory();
+  } catch (_) {}
 
   runApp(
     MultiProvider(
