@@ -24,7 +24,7 @@ class SettingsStore extends ChangeNotifier {
 
   /// Comma-separated order cloud brains are tried in.
   String cloudOrder = 'gemini,groq,openrouter';
-  String groqModel = 'llama-3.1-8b-instant';
+  String groqModel = 'openai/gpt-oss-20b';
   String openRouterModel = 'meta-llama/llama-3.1-8b-instruct:free';
   bool localFallbackEnabled = true;
 

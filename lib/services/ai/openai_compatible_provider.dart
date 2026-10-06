@@ -25,7 +25,7 @@ class OpenAiCompatibleProvider implements CloudProvider {
 
   factory OpenAiCompatibleProvider.groq({
     required String apiKey,
-    String model = 'llama-3.1-8b-instant',
+    String model = 'openai/gpt-oss-20b',
   }) =>
       OpenAiCompatibleProvider(
         apiKey: apiKey,
