@@ -37,9 +37,14 @@ class SettingsStore extends ChangeNotifier {
   bool get hasAnyCloudKey =>
       geminiKey.isNotEmpty || groqKey.isNotEmpty || openRouterKey.isNotEmpty;
 
+  /// Groq key baked in at build time via --dart-define (CI secret). A key
+  /// typed in Settings (secure storage) always wins over the built-in one.
+  static const _builtInGroqKey = String.fromEnvironment('GROQ_API_KEY');
+
   Future<void> load() async {
     geminiKey = await _secure.read(key: _keyGemini) ?? '';
     groqKey = await _secure.read(key: _keyGroq) ?? '';
+    if (groqKey.isEmpty) groqKey = _builtInGroqKey;
     openRouterKey = await _secure.read(key: _keyOpenRouter) ?? '';
     cloudOrder = _prefs.getString('friday_cloud_order') ?? cloudOrder;
     groqModel = _prefs.getString('friday_groq_model') ?? groqModel;

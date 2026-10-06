@@ -19,7 +19,7 @@ jobs:
           flutter-version: '3.47.6'
       - run: flutter pub get
       - run: flutter test || true
-      - run: flutter build apk --release --target-platform android-arm64 -v
+      - run: flutter build apk --release --target-platform android-arm64 -v --dart-define=GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
       - uses: actions/upload-artifact@v4
         with:
           name: friday-release-apk
