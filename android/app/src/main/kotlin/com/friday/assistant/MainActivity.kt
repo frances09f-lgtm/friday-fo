@@ -56,6 +56,8 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("who") ?: "",
                         call.argument<String>("text") ?: ""
                     ))
+                    "setVolume" -> result.success(setVolumePercent(call.argument<Int>("percent") ?: -1))
+                    "setBrightness" -> result.success(setBrightnessPercent(call.argument<Int>("percent") ?: -1))
                     else -> result.notImplemented()
                 }
             }
@@ -197,6 +199,54 @@ class MainActivity : FlutterActivity() {
         return try {
             android.telephony.SmsManager.getDefault().sendTextMessage(number, null, text, null, null)
             "sent"
+        } catch (e: Exception) {
+            "error"
+        }
+    }
+
+    private fun setVolumePercent(percent: Int): Boolean {
+        if (percent < 0 || percent > 100) return false
+        return try {
+            val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            audio.setStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                Math.round(max * percent / 100.0f),
+                0
+            )
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun setBrightnessPercent(percent: Int): String {
+        if (percent < 0 || percent > 100) return "error"
+        if (!Settings.canWrite(this)) {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        android.net.Uri.parse("package:" + packageName)
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e: Exception) {
+                return "error"
+            }
+            return "asked"
+        }
+        return try {
+            Settings.System.putInt(
+                contentResolver,
+                Settings.System.SCREEN_BRIGHTNESS_MODE,
+                Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+            )
+            Settings.System.putInt(
+                contentResolver,
+                Settings.System.SCREEN_BRIGHTNESS,
+                Math.round(255 * percent / 100.0f)
+            )
+            "ok"
         } catch (e: Exception) {
             "error"
         }

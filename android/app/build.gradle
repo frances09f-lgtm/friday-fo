@@ -38,8 +38,10 @@ android {
         applicationId = "com.friday.assistant"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // Wired to flutter's --build-number/--build-name (CI bumps per run).
+        // Hardcoding these is why phones refused every update before.
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     signingConfigs {

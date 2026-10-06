@@ -92,6 +92,27 @@ class DeviceHub {
     }
   }
 
+  Future<bool> setVolumePercent(int percent) async {
+    try {
+      return await _channel.invokeMethod<bool>(
+              'setVolume', {'percent': percent}) ??
+          false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Returns ok | asked | error.
+  Future<String> setBrightnessPercent(int percent) async {
+    try {
+      return await _channel.invokeMethod<String>(
+              'setBrightness', {'percent': percent}) ??
+          'error';
+    } on PlatformException {
+      return 'error';
+    }
+  }
+
   Future<bool> setTorch(bool on) async {
     try {
       return await _channel.invokeMethod<bool>('setTorch', {'on': on}) ?? false;

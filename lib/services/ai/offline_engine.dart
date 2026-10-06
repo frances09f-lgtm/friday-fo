@@ -27,6 +27,16 @@ class OfflineEngine {
     caseSensitive: false,
   );
 
+  static final _volumePct = RegExp(
+    r'(?:set\s+)?volume\s+(?:to\s+)?(?<n>\d{1,3})\s*%?',
+    caseSensitive: false,
+  );
+
+  static final _brightnessPct = RegExp(
+    r'brightness\s+(?:to\s+)?(?<n>\d{1,3})\s*%?',
+    caseSensitive: false,
+  );
+
   static final _remindIn = RegExp(
     r'remind me(?:\s+to)?\s+(?<task>.+?)\s+in\s+(?<n>\d+)\s*(?<unit>minutes?|mins?|hours?|hrs?)\b',
   );
@@ -124,6 +134,28 @@ class OfflineEngine {
         reply: 'Texting $who.',
         action: FridayAction(
             type: FridayActionType.sendText, target: who, body: what),
+        source: FridaySource.offline,
+      );
+    }
+
+    final vp = _volumePct.firstMatch(text.trim());
+    if (vp != null) {
+      final n = int.parse(vp.namedGroup('n')!).clamp(0, 100);
+      return FridayResponse(
+        reply: 'Setting volume to $n%.',
+        action: FridayAction(
+            type: FridayActionType.setVolume, target: n.toString()),
+        source: FridaySource.offline,
+      );
+    }
+
+    final bp = _brightnessPct.firstMatch(text.trim());
+    if (bp != null) {
+      final n = int.parse(bp.namedGroup('n')!).clamp(0, 100);
+      return FridayResponse(
+        reply: 'Setting brightness to $n%.',
+        action: FridayAction(
+            type: FridayActionType.setBrightness, target: n.toString()),
         source: FridaySource.offline,
       );
     }

@@ -46,6 +46,10 @@ class IntentRouter {
         return _callContact(action);
       case FridayActionType.sendText:
         return _sendText(action);
+      case FridayActionType.setVolume:
+        return _setVolume(action);
+      case FridayActionType.setBrightness:
+        return _setBrightness(action);
       case FridayActionType.none:
         return '';
     }
@@ -111,6 +115,26 @@ class IntentRouter {
         return "I couldn't find a contact or number for $who.";
       default:
         return "I couldn't send the text.";
+    }
+  }
+
+  Future<String> _setVolume(FridayAction action) async {
+    final n = int.tryParse(action.target);
+    if (n == null) return 'Tell me the volume percent, like "set volume 30%".';
+    final ok = await deviceHub.setVolumePercent(n.clamp(0, 100));
+    return ok ? 'Volume set to ${n.clamp(0, 100)}%.' : "I couldn't set the volume.";
+  }
+
+  Future<String> _setBrightness(FridayAction action) async {
+    final n = int.tryParse(action.target);
+    if (n == null) return 'Tell me the brightness percent, like "brightness 40%".';
+    switch (await deviceHub.setBrightnessPercent(n.clamp(0, 100))) {
+      case 'ok':
+        return 'Brightness set to ${n.clamp(0, 100)}%.';
+      case 'asked':
+        return 'I need permission to change brightness - allow Friday on the screen that just opened, then ask again.';
+      default:
+        return "I couldn't set the brightness.";
     }
   }
 

@@ -11,6 +11,8 @@ enum FridayActionType {
   bluetoothSettings,
   callContact,
   sendText,
+  setVolume,
+  setBrightness,
 }
 
 enum FridaySource { cloud, local, offline }
@@ -58,6 +60,10 @@ class FridayAction {
         return FridayActionType.callContact;
       case 'send_text':
         return FridayActionType.sendText;
+      case 'set_volume':
+        return FridayActionType.setVolume;
+      case 'set_brightness':
+        return FridayActionType.setBrightness;
       default:
         return FridayActionType.none;
     }
