@@ -76,6 +76,20 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setGroqModel(String value) async {
+    final v = value.trim();
+    if (v.isEmpty) return;
+    groqModel = v;
+    await _prefs.setString('friday_groq_model', v);
+  }
+
+  Future<void> setOpenRouterModel(String value) async {
+    final v = value.trim();
+    if (v.isEmpty) return;
+    openRouterModel = v;
+    await _prefs.setString('friday_openrouter_model', v);
+  }
+
   Future<void> setLocalModelUrl(String value) async {
     localModelUrl = value.trim();
     await _prefs.setString('friday_local_model_url', localModelUrl);

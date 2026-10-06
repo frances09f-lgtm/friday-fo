@@ -15,6 +15,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _gemini = TextEditingController();
   final _groq = TextEditingController();
   final _openRouter = TextEditingController();
+  final _groqModel = TextEditingController();
+  final _openRouterModel = TextEditingController();
   final _modelUrl = TextEditingController();
   bool _localFallback = true;
   bool _speakReplies = true;
@@ -29,6 +31,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _gemini.text = s.geminiKey;
     _groq.text = s.groqKey;
     _openRouter.text = s.openRouterKey;
+    _groqModel.text = s.groqModel;
+    _openRouterModel.text = s.openRouterModel;
     _modelUrl.text = s.localModelUrl;
     _localFallback = s.localFallbackEnabled;
     _speakReplies = s.speakReplies;
@@ -39,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _gemini.dispose();
     _groq.dispose();
     _openRouter.dispose();
+    _groqModel.dispose();
+    _openRouterModel.dispose();
     _modelUrl.dispose();
     super.dispose();
   }
@@ -48,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await s.setApiKey('gemini', _gemini.text);
     await s.setApiKey('groq', _groq.text);
     await s.setApiKey('openrouter', _openRouter.text);
+    await s.setGroqModel(_groqModel.text);
+    await s.setOpenRouterModel(_openRouterModel.text);
     await s.setLocalModelUrl(_modelUrl.text);
     await s.setLocalFallback(_localFallback);
     await s.setSpeakReplies(_speakReplies);
@@ -81,6 +89,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _KeyField(controller: _gemini, label: 'Gemini API key', hint: 'aistudio.google.com/apikey'),
           _KeyField(controller: _groq, label: 'Groq API key', hint: 'console.groq.com/keys'),
           _KeyField(controller: _openRouter, label: 'OpenRouter API key', hint: 'openrouter.ai/keys'),
+          TextField(
+            controller: _groqModel,
+            decoration: const InputDecoration(
+              labelText: 'Groq model',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _openRouterModel,
+            decoration: const InputDecoration(
+              labelText: 'OpenRouter model',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 24),
           Text('Voice', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

@@ -70,6 +70,28 @@ class DeviceHub {
     }
   }
 
+  /// Returns calling | dialer | asked | no_match | error.
+  Future<String> callContact(String who) async {
+    try {
+      return await _channel
+              .invokeMethod<String>('callContact', {'who': who}) ??
+          'error';
+    } on PlatformException {
+      return 'error';
+    }
+  }
+
+  /// Returns sent | asked | no_match | error.
+  Future<String> sendText(String who, String body) async {
+    try {
+      return await _channel.invokeMethod<String>(
+              'sendText', {'who': who, 'text': body}) ??
+          'error';
+    } on PlatformException {
+      return 'error';
+    }
+  }
+
   Future<bool> setTorch(bool on) async {
     try {
       return await _channel.invokeMethod<bool>('setTorch', {'on': on}) ?? false;

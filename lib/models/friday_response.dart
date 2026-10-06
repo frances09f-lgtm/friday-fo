@@ -9,6 +9,8 @@ enum FridayActionType {
   volumeDown,
   wifiSettings,
   bluetoothSettings,
+  callContact,
+  sendText,
 }
 
 enum FridaySource { cloud, local, offline }
@@ -21,6 +23,7 @@ class FridayAction {
     this.afterMinutes = 0,
     this.title = '',
     this.body = '',
+    this.target = '',
   });
 
   final FridayActionType type;
@@ -29,6 +32,7 @@ class FridayAction {
   final int afterMinutes;
   final String title;
   final String body;
+  final String target;
 
   static FridayActionType _typeFrom(String? raw) {
     switch (raw) {
@@ -50,6 +54,10 @@ class FridayAction {
         return FridayActionType.wifiSettings;
       case 'bluetooth':
         return FridayActionType.bluetoothSettings;
+      case 'call_contact':
+        return FridayActionType.callContact;
+      case 'send_text':
+        return FridayActionType.sendText;
       default:
         return FridayActionType.none;
     }
@@ -62,6 +70,7 @@ class FridayAction {
         afterMinutes: (json['after_minutes'] as num?)?.toInt() ?? 0,
         title: json['title'] as String? ?? '',
         body: json['body'] as String? ?? '',
+        target: json['target'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -71,6 +80,7 @@ class FridayAction {
         'after_minutes': afterMinutes,
         'title': title,
         'body': body,
+        'target': target,
       };
 }
 

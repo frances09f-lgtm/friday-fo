@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.provider.Settings
+import android.provider.ContactsContract
 import android.provider.Telephony
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -50,6 +51,11 @@ class MainActivity : FlutterActivity() {
                         )
                         result.success(true)
                     }
+                    "callContact" -> result.success(callContact(call.argument<String>("who") ?: ""))
+                    "sendText" -> result.success(sendText(
+                        call.argument<String>("who") ?: "",
+                        call.argument<String>("text") ?: ""
+                    ))
                     else -> result.notImplemented()
                 }
             }
@@ -117,6 +123,83 @@ class MainActivity : FlutterActivity() {
         true
     } catch (e: Exception) {
         false
+    }
+
+    private fun hasContactsPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun requestPhonePermissions() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                Manifest.permission.READ_CONTACTS,
+                Manifest.permission.CALL_PHONE,
+                Manifest.permission.SEND_SMS
+            ),
+            42
+        )
+    }
+
+    private fun looksLikeNumber(who: String): Boolean =
+        who.trim().matches(Regex("[+0-9][0-9 ()-]{4,}"))
+
+    private fun findContactNumber(who: String): String? {
+        val cleaned = who.trim()
+        if (cleaned.isEmpty()) return null
+        if (looksLikeNumber(cleaned)) return cleaned
+        if (!hasContactsPermission()) return null
+        return contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
+            arrayOf("%" + cleaned + "%"),
+            null
+        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    }
+
+    private fun callContact(who: String): String {
+        if (who.isBlank()) return "error"
+        if (!looksLikeNumber(who) && !hasContactsPermission()) {
+            requestPhonePermissions()
+            return "asked"
+        }
+        val number = findContactNumber(who) ?: return "no_match"
+        val uri = android.net.Uri.parse("tel:" + number)
+        return try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                startActivity(Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "calling"
+            } else {
+                startActivity(Intent(Intent.ACTION_DIAL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "dialer"
+            }
+        } catch (e: Exception) {
+            "error"
+        }
+    }
+
+    private fun sendText(who: String, text: String): String {
+        if (who.isBlank() || text.isBlank()) return "error"
+        if (!looksLikeNumber(who) && !hasContactsPermission()) {
+            requestPhonePermissions()
+            return "asked"
+        }
+        val number = findContactNumber(who) ?: return "no_match"
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPhonePermissions()
+            return "asked"
+        }
+        return try {
+            android.telephony.SmsManager.getDefault().sendTextMessage(number, null, text, null, null)
+            "sent"
+        } catch (e: Exception) {
+            "error"
+        }
     }
 
     private fun hasSmsPermission(): Boolean =

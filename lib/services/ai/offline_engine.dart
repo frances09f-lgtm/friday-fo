@@ -18,6 +18,15 @@ class OfflineEngine {
     r'(?:messages|texts|sms)\s+(?:from|about|containing)\s+(?<q>.+?)[\s.!?]*$',
   );
 
+  static final _call = RegExp(
+    r'^(?:please\s+)?(?:make\s+a\s+call\s+to|call|dial|phone)\s+(?<who>.+?)[\s.!?]*$',
+  );
+
+  static final _text = RegExp(
+    r'^(?:send\s+)?(?:a\s+)?(?:text|sms|message)\s+(?:to\s+)?(?<who>.+?)\s+(?:saying|that)\s+(?<what>.+?)[\s.!?]*$',
+    caseSensitive: false,
+  );
+
   static final _remindIn = RegExp(
     r'remind me(?:\s+to)?\s+(?<task>.+?)\s+in\s+(?<n>\d+)\s*(?<unit>minutes?|mins?|hours?|hrs?)\b',
   );
@@ -96,6 +105,29 @@ class OfflineEngine {
     }
 
     // Device controls - handled fully on-device, never sent to a model.
+    final call = _call.firstMatch(t);
+    if (call != null) {
+      final who = call.namedGroup('who')!.trim();
+      return FridayResponse(
+        reply: 'Calling $who.',
+        action: FridayAction(type: FridayActionType.callContact, target: who),
+        source: FridaySource.offline,
+      );
+    }
+
+    // Match the raw text so the SMS body keeps the user's original case.
+    final sms = _text.firstMatch(text.trim());
+    if (sms != null) {
+      final who = sms.namedGroup('who')!.trim();
+      final what = sms.namedGroup('what')!.trim();
+      return FridayResponse(
+        reply: 'Texting $who.',
+        action: FridayAction(
+            type: FridayActionType.sendText, target: who, body: what),
+        source: FridaySource.offline,
+      );
+    }
+
     if (t.contains('flashlight') || t.contains('torch')) {
       final off = RegExp(r'\boff\b').hasMatch(t);
       return FridayResponse(

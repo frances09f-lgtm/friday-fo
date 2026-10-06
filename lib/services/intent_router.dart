@@ -42,6 +42,10 @@ class IntentRouter {
         return await deviceHub.openSystemPanel('bluetooth')
             ? 'Opening Bluetooth settings - Android only lets apps change Bluetooth from the system panel.'
             : "I couldn't open Bluetooth settings.";
+      case FridayActionType.callContact:
+        return _callContact(action);
+      case FridayActionType.sendText:
+        return _sendText(action);
       case FridayActionType.none:
         return '';
     }
@@ -74,6 +78,40 @@ class IntentRouter {
     ];
     return '${messages.length} recent message${messages.length == 1 ? '' : 's'}'
         '${query.isEmpty ? '' : ' matching "$query"'}. Latest: ${lines.join(' | ')}';
+  }
+
+  Future<String> _callContact(FridayAction action) async {
+    final who = action.target.isNotEmpty ? action.target : action.query;
+    if (who.isEmpty) return 'Who should I call?';
+    switch (await deviceHub.callContact(who)) {
+      case 'calling':
+        return 'Calling $who.';
+      case 'dialer':
+        return 'Opening the dialer with $who - tap the call button. Grant the call permission and I can dial directly.';
+      case 'asked':
+        return 'I need contacts and phone permission for calls. Allow it and ask again.';
+      case 'no_match':
+        return "I couldn't find a contact or number for $who.";
+      default:
+        return "I couldn't place the call.";
+    }
+  }
+
+  Future<String> _sendText(FridayAction action) async {
+    final who = action.target.isNotEmpty ? action.target : action.query;
+    if (who.isEmpty || action.body.isEmpty) {
+      return 'Tell me who to text and what to say.';
+    }
+    switch (await deviceHub.sendText(who, action.body)) {
+      case 'sent':
+        return 'Text sent to $who.';
+      case 'asked':
+        return 'I need contacts and SMS permission to send texts. Allow it and ask again.';
+      case 'no_match':
+        return "I couldn't find a contact or number for $who.";
+      default:
+        return "I couldn't send the text.";
+    }
   }
 
   Future<String> _setReminder(FridayAction action) async {
