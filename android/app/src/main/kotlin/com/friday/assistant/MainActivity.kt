@@ -222,7 +222,7 @@ class MainActivity : FlutterActivity() {
 
     private fun setBrightnessPercent(percent: Int): String {
         if (percent < 0 || percent > 100) return "error"
-        if (!Settings.canWrite(this)) {
+        if (!Settings.System.canWrite(this)) {
             try {
                 startActivity(
                     Intent(
