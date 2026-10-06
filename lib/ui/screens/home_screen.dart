@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../models/friday_response.dart';
-import '../../state/friday_controller.dart';
 import '../../services/speech/speech_service.dart';
+import '../../state/friday_controller.dart';
 import '../widgets/chat_bubble.dart';
 
 class HomeScreen extends StatefulWidget {

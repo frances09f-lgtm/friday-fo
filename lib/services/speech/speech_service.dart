@@ -1,6 +1,6 @@
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:speech_to_text/speech_to_text.dart';
 
 /// Voice in (speech_to_text, uses Google's Android engine so Marathi and
 /// Hindi work alongside English) and voice out (flutter_tts).
@@ -35,8 +35,8 @@ class SpeechService {
         onResult(r.recognizedWords);
         if (r.finalResult) onDone();
       },
-      localeId: localeId,
       listenOptions: SpeechListenOptions(
+        localeId: localeId,
         partialResults: true,
         cancelOnError: true,
       ),

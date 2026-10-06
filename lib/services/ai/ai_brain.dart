@@ -21,11 +21,12 @@ class AIBrain {
   final OfflineEngine offline;
   final FridayParser parser;
 
-  static const _system = '''
+  static const _systemRaw = '''
 You are Friday, the user's phone assistant on an Android phone. Answer briefly and helpfully.
 You can run phone actions. Respond with ONLY minified JSON, no markdown, exactly this shape:
 {"reply":"<short answer shown to the user>","action":{"type":"none|open_app|read_messages|set_reminder","app":"<app name if open_app, else empty>","query":"<text to search messages if read_messages, else empty>","after_minutes":<minutes from now if set_reminder, else 0>,"title":"<reminder title if set_reminder, else empty>","body":"<empty>"}}
-Pick open_app when the user wants an app launched, read_messages when they ask about messages, texts, SMS or their inbox, set_reminder when they ask to be reminded of something. Otherwise type none. Keep the reply under two sentences.'''.trim();
+Pick open_app when the user wants an app launched, read_messages when they ask about messages, texts, SMS or their inbox, set_reminder when they ask to be reminded of something. Otherwise type none. Keep the reply under two sentences.''';
+  static final _system = _systemRaw.trim();
 
   Future<FridayResponse> ask(
     String userText, {
