@@ -1,0 +1,144 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/ai/local_model_service.dart';
+import '../../services/storage/settings_store.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _gemini = TextEditingController();
+  final _groq = TextEditingController();
+  final _openRouter = TextEditingController();
+  final _modelUrl = TextEditingController();
+  bool _localFallback = true;
+
+  final LocalModelService _local = LocalModelService();
+  String _modelStatus = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final s = context.read<SettingsStore>();
+    _gemini.text = s.geminiKey;
+    _groq.text = s.groqKey;
+    _openRouter.text = s.openRouterKey;
+    _modelUrl.text = s.localModelUrl;
+    _localFallback = s.localFallbackEnabled;
+  }
+
+  @override
+  void dispose() {
+    _gemini.dispose();
+    _groq.dispose();
+    _openRouter.dispose();
+    _modelUrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final s = context.read<SettingsStore>();
+    await s.setApiKey('gemini', _gemini.text);
+    await s.setApiKey('groq', _groq.text);
+    await s.setApiKey('openrouter', _openRouter.text);
+    await s.setLocalModelUrl(_modelUrl.text);
+    await s.setLocalFallback(_localFallback);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Settings saved')),
+    );
+  }
+
+  Future<void> _loadLocalModel() async {
+    setState(() => _modelStatus = 'Downloading model...');
+    final ok = await _local.installFromUrl(_modelUrl.text);
+    setState(() {
+      _modelStatus = ok
+          ? 'Model installed on this phone.'
+          : 'Download failed. Check the URL and connection.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Friday settings')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Cloud brains (free tiers)', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text('Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
+          const SizedBox(height: 12),
+          _KeyField(controller: _gemini, label: 'Gemini API key', hint: 'aistudio.google.com/apikey'),
+          _KeyField(controller: _groq, label: 'Groq API key', hint: 'console.groq.com/keys'),
+          _KeyField(controller: _openRouter, label: 'OpenRouter API key', hint: 'openrouter.ai/keys'),
+          const SizedBox(height: 24),
+          Text('On-device backup', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Use on-device model when keys fail'),
+            value: _localFallback,
+            onChanged: (v) => setState(() => _localFallback = v),
+          ),
+          TextField(
+            controller: _modelUrl,
+            decoration: const InputDecoration(
+              labelText: 'Gemma model URL (.task weights)',
+              hintText: 'https://huggingface.co/.../gemma-3n-E2B-it-int4.task',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.download),
+                label: const Text('Install model'),
+                onPressed: _loadLocalModel,
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(_modelStatus)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            icon: const Icon(Icons.save),
+            label: const Text('Save'),
+            onPressed: _save,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyField extends StatelessWidget {
+  const _KeyField({required this.controller, required this.label, required this.hint});
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextField(
+        controller: controller,
+        obscureText: true,
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: hint,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+}
