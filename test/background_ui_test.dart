@@ -43,7 +43,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Battery saver'), findsOneWidget);
     expect(find.textContaining('active | every 5 min'), findsOneWidget);
-    expect(find.textContaining('old quotes cannot trigger'), findsOneWidget);
+    expect(find.textContaining('5 minutes old cannot trigger'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.runAsync(() async {
       final image = await (key.currentContext!.findRenderObject()

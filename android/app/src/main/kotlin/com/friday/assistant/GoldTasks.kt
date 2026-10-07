@@ -108,7 +108,7 @@ object GoldTasks {
             val quoteAt = snapshot.optLong("quoteAt", 0)
             val outcome = GoldTaskRule.evaluate(task.optString("direction"), task.optDouble("threshold"),
                 snapshot.optDouble("bid", Double.NaN), snapshot.optDouble("ask", Double.NaN),
-                quoteAt, task.optLong("lastQuoteAt"), now, interval * 60000L)
+                quoteAt, task.optLong("lastQuoteAt"), now, 300000L)
             task.put("lastOutcome", when(outcome) {
                 "stale_quote" -> "Oro quote is old or has no valid timestamp; waiting for Oro to update"
                 "same_quote" -> "Oro has no newer quote; waiting"
