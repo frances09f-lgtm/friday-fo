@@ -1,7 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:friday/services/device/windows_device.dart';
+import 'package:friday/state/friday_controller.dart';
 
 void main() {
+  test('failed action result never gets a Done prefix', () {
+    expect(FridayController.actionResultReply("I couldn't open Camera."),
+        "I couldn't open Camera.");
+    expect(FridayController.actionResultReply('Asked windows to close.'),
+        'Asked windows to close.');
+    expect(FridayController.actionResultReply(''), 'Done.');
+  });
+  test('close all requests closure without discarding unsaved work', () {
+    final script = WindowsDevice.closeAllAppsScript;
+    expect(script, contains('CloseMainWindow()'));
+    expect(script, isNot(contains('.Kill(')));
+    expect(script, isNot(contains('Stop-Process')));
+    expect(script, isNot(contains('Start-Sleep')));
+    expect(script, contains("'requested'"));
+  });
   test('known apps resolve to their launch targets', () {
     expect(WindowsDevice.resolveAppTarget('whatsapp'), 'whatsapp:');
     expect(WindowsDevice.resolveAppTarget('Google Chrome'), 'chrome');

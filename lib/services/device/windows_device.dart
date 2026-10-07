@@ -41,28 +41,26 @@ class WindowsDevice {
     return known[q] ?? q;
   }
 
-  /// "Close all apps" (user voice ask). Gracefully closes every app with
-  /// a visible window (CloseMainWindow first, force-kill only if it
-  /// refuses), skipping Friday itself and the Windows shell. Returns
-  /// 'ok', 'none', or 'error'.
-  static Future<String> closeAllApps() async {
-    const ps = r"""
+  /// Requests normal window closure and preserves unsaved-work prompts.
+  /// Never force-kills a process. Status says a request was sent, not that
+  /// every window has already closed.
+  static const closeAllAppsScript = r"""
 $self = $PID
 $parent = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
 $skip = @('explorer','ApplicationFrameHost','ShellExperienceHost','StartMenuExperienceHost','SearchHost','SystemSettings','TextInputHost','sihost','dwm','taskmgr','powershell','cmd','friday','friday-fo','friday_fo')
 $procs = Get-Process | Where-Object { $_.MainWindowTitle -ne '' -and $_.Id -ne $self -and $_.Id -ne $parent -and $skip -notcontains $_.ProcessName }
 $n = 0
-foreach ($p in $procs) { $n++; try { $p.CloseMainWindow() | Out-Null } catch {} }
-Start-Sleep -Milliseconds 1500
-foreach ($p in $procs) { try { if (-not $p.HasExited) { $p.Kill() } } catch {} }
-if ($n -eq 0) { 'none' } else { 'ok' }
+foreach ($p in $procs) { try { if ($p.CloseMainWindow()) { $n++ } } catch {} }
+if ($procs.Count -eq 0) { 'none' } elseif ($n -gt 0) { 'requested' } else { 'error' }
 """;
+
+  static Future<String> closeAllApps() async {
     try {
-      final res =
-          await Process.run('powershell', ['-NoProfile', '-Command', ps]);
-      final out = res.stdout.toString().trim();
+      final res = await Process.run(
+          'powershell', ['-NoProfile', '-Command', closeAllAppsScript]);
       if (res.exitCode != 0) return 'error';
-      return out == 'none' ? 'none' : 'ok';
+      final out = res.stdout.toString().trim();
+      return out == 'none' || out == 'requested' ? out : 'error';
     } catch (_) {
       return 'error';
     }
@@ -131,8 +129,8 @@ public class FridayAudio {
     final delta = (up ? percent : -percent) / 100.0;
     return _coreAudioType +
         "\$cur = [FridayAudio]::GetVolume(); "
-        "\$new = [Math]::Min(1.0, [Math]::Max(0.0, \$cur + ($delta))); "
-        "[FridayAudio]::SetVolume([single]\$new)";
+            "\$new = [Math]::Min(1.0, [Math]::Max(0.0, \$cur + ($delta))); "
+            "[FridayAudio]::SetVolume([single]\$new)";
   }
 
   /// Absolute volume: bottom out with 50 downs, then climb (n / 2) ups.

@@ -76,7 +76,7 @@ void main() {
     await c.send('set volume 40');
     expect(router.calls, 1);
     final texts = c.messages.map((m) => m.text).toList();
-    expect(texts, ['set volume 40', 'Okay.', 'Done.\nVolume set to 40%']);
+    expect(texts, ['set volume 40', 'Okay.', 'Volume set to 40%']);
   });
 
   test('multi-part command: one Okay, one Done, every outcome line kept',
@@ -99,7 +99,7 @@ void main() {
     expect(texts, [
       'flashlight off and open camera',
       'Okay.',
-      'Done.\nFlashlight turned off.\nOpened Camera.'
+      'Flashlight turned off.\nOpened Camera.'
     ]);
   });
 
@@ -127,6 +127,6 @@ void main() {
         speech,
         speak: true);
     await c.send('set volume 40');
-    expect(speech.spoken, ['Okay.', 'Done.\nVolume set to 40%']);
+    expect(speech.spoken, ['Okay.', 'Volume set to 40%']);
   });
 }

@@ -14,6 +14,11 @@ import '../services/storage/settings_store.dart';
 /// Holds the conversation and runs one turn end to end:
 /// user input -> brain (cloud, then local, then offline) -> action -> reply.
 class FridayController extends ChangeNotifier {
+  // Nonempty execution results include failures and pending prompts.
+  // Never prepend success to them.
+  static String actionResultReply(String outcome) =>
+      outcome.isEmpty ? 'Done.' : outcome;
+
   FridayController({
     required this.brain,
     required this.router,
@@ -110,7 +115,7 @@ class FridayController extends ChangeNotifier {
       final outcome = await router.executeAll(actions);
       // The router's outcome is the truth - the brain's reply only guessed
       // at the result ("Reminder set" before it was).
-      reply = outcome.isEmpty ? 'Done.' : 'Done.\n$outcome';
+      reply = actionResultReply(outcome);
     }
 
     messages.add(ChatMessage(

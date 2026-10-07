@@ -49,8 +49,7 @@ class IntentRouter {
     FridayActionType.oroStatus,
   };
 
-  static bool get _isPhone =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+  static bool get _isPhone => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
@@ -147,8 +146,8 @@ class IntentRouter {
   /// hearing Android's limits). Silent on success - "Done." says it.
   Future<String> _closeAllApps() async {
     switch (await deviceHub.closeAllApps()) {
-      case 'ok':
-        return '';
+      case 'requested':
+        return 'Asked the app windows to close. Save or cancel any unsaved-work prompts.';
       case 'none':
         return 'No app windows to close.';
       case 'unsupported':
@@ -272,7 +271,8 @@ class IntentRouter {
 
   Future<String> _setBrightness(FridayAction action) async {
     final n = int.tryParse(action.target);
-    if (n == null) return 'Tell me the brightness percent, like "brightness 40%".';
+    if (n == null)
+      return 'Tell me the brightness percent, like "brightness 40%".';
     switch (await deviceHub.setBrightnessPercent(n.clamp(0, 100))) {
       case 'ok':
         return '';
