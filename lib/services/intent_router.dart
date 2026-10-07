@@ -157,7 +157,7 @@ class IntentRouter {
     }
     switch (callResult) {
       case 'calling':
-        return 'Calling $who.';
+        return ''; // silent success - "Done." says it
       case 'dialer':
         return 'Opening the dialer with $who - tap the call button. Grant the call permission and I can dial directly.';
       case 'asked':
@@ -180,7 +180,7 @@ class IntentRouter {
     }
     switch (textResult) {
       case 'sent':
-        return 'Text sent to $who.';
+        return '';
       case 'asked':
         return 'I need contacts and SMS permission to send texts. Allow it and ask again.';
       case 'no_match':
@@ -201,7 +201,7 @@ class IntentRouter {
     }
     switch (result) {
       case 'opened':
-        return 'Opening WhatsApp for $who - press send there.';
+        return '';
       case 'asked':
         return 'I need contacts permission to message on WhatsApp. Allow it and ask again.';
       case 'no_match':
@@ -243,6 +243,6 @@ class IntentRouter {
       after: Duration(minutes: action.afterMinutes),
     );
     if (!ok) return 'I could not schedule the reminder.';
-    return 'Reminder set: ${action.title.isEmpty ? 'reminder' : action.title} in ${action.afterMinutes} minutes.';
+    return ''; // silent success - "Done." says it
   }
 }
