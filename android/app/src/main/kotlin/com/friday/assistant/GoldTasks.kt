@@ -25,11 +25,13 @@ object GoldTasks {
     @Synchronized fun state(c: Context): Map<String, Any> {
         val ts = tasks(c)
         return mapOf("mode" to if (saver(c)) "battery_saver" else "foreground",
+            "runtime" to prefs(c).getString("runtime", "Not running")!!,
             "tasks" to (0 until ts.length()).map { i ->
                 val j = ts.getJSONObject(i)
                 j.keys().asSequence().associateWith { j.get(it) }
             })
     }
+    fun runtime(c: Context, state: String) { prefs(c).edit().putString("runtime", state).commit() }
     @Synchronized fun create(c: Context, direction: String, threshold: Double, interval: Int): String {
         if (direction !in listOf("above", "below") || !threshold.isFinite() || threshold <= 0 || interval !in 5..1440)
             return "Use a gold above/below alert with an interval from 5 minutes to 24 hours."
@@ -58,6 +60,7 @@ object GoldTasks {
         save(c, ts)
         WorkManager.getInstance(c).cancelUniqueWork(WORK)
         c.stopService(Intent(c, GoldTaskService::class.java))
+        runtime(c, "Stopped")
         return "Cancelled all gold background tasks."
     }
     @Synchronized fun setMode(c: Context, batterySaver: Boolean): String {
@@ -80,6 +83,7 @@ object GoldTasks {
             // Do not start a forbidden foreground service at boot. A worker restores checks.
             val request = PeriodicWorkRequestBuilder<GoldTaskWorker>(15, TimeUnit.MINUTES).build()
             WorkManager.getInstance(c).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
+            runtime(c, if (fromBoot && !saver(c)) "After reboot: slower worker until Friday is reopened" else "Battery saver worker scheduled")
         } else {
             WorkManager.getInstance(c).cancelUniqueWork(WORK)
             ContextCompat.startForegroundService(c, Intent(c, GoldTaskService::class.java))
@@ -88,6 +92,7 @@ object GoldTasks {
     @Synchronized fun check(c: Context) {
         val ts = tasks(c)
         val now = System.currentTimeMillis()
+        if (!(0 until ts.length()).any { ts.getJSONObject(it).optString("status") == "active" && now >= ts.getJSONObject(it).optLong("nextCheckAt") }) return
         val snapshot = try {
             c.contentResolver.query(Uri.parse("content://com.ambi.gold_paper_trading.bridge/status"), null, null, null, null)?.use {
                 if (it.moveToFirst()) JSONObject(it.getString(0)) else null
@@ -124,6 +129,9 @@ object GoldTasks {
             }
         }
         save(c, ts)
+        if (!(0 until ts.length()).any { ts.getJSONObject(it).optString("status") == "active" }) {
+            WorkManager.getInstance(c).cancelUniqueWork(WORK)
+        }
     }
 }
 class GoldTaskWorker(c: Context, p: WorkerParameters) : Worker(c, p) {

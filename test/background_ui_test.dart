@@ -11,6 +11,7 @@ class PreviewTasks extends TaskService {
   @override
   Future<Map<String, dynamic>> state() async => {
         'mode': 'foreground',
+        'runtime': 'Foreground checker running',
         'tasks': [
           {
             'direction': 'below',

@@ -55,6 +55,7 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> {
           const Text(
               'Gold alerts read Oro\'s saved quotes on this phone. They do not fetch live prices or place trades. Missing or old quotes cannot trigger an alert.'),
           const SizedBox(height: 12),
+          if (data?['runtime'] != null) Text('Execution: ${data!['runtime']}'),
           if (data?['mode'] == 'unsupported')
             const Text(
                 'These checks run on the Android phone, where Oro is installed.')

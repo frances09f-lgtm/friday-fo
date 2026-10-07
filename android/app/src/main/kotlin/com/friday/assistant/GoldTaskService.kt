@@ -20,15 +20,16 @@ class GoldTaskService : Service() {
             .setContentText("Checking saved Oro quotes. No trades are placed.")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Stop checks", stop).build()).build())
+        GoldTasks.runtime(this, "Foreground checker running")
         executor.scheduleWithFixedDelay({
-            try { GoldTasks.check(this); if (!GoldTasks.hasActive(this)) stopSelf() } catch (_: Exception) { }
+            try { GoldTasks.check(this); GoldTasks.runtime(this, "Foreground checker running"); if (!GoldTasks.hasActive(this)) stopSelf() } catch (_: Exception) { GoldTasks.runtime(this, "Background check failed; retrying") }
         }, 0, 30, TimeUnit.SECONDS)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { GoldTasks.cancelAll(this); stopSelf(); return START_NOT_STICKY }
         return START_STICKY
     }
-    override fun onDestroy() { executor.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { executor.shutdownNow(); GoldTasks.runtime(this, "Foreground checker stopped"); super.onDestroy() }
     companion object {
         fun alert(c: android.content.Context, id: String, title: String, body: String) {
             val nm = c.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
