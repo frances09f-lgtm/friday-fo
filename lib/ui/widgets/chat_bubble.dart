@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/chat_message.dart';
-import '../../state/friday_controller.dart';
 import '../../models/friday_response.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -51,11 +50,7 @@ class ChatBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isPartial
-                  ? '${message.text}...'
-                  : isUser
-                      ? message.text
-                      : FridayController.conciseReply(message.text),
+              isPartial ? '${message.text}...' : message.text,
               style: theme.textTheme.bodyMedium,
             ),
             if (!isUser && sourceLabel.isNotEmpty) ...[

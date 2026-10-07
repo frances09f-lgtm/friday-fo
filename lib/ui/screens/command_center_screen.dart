@@ -262,7 +262,7 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                         if (lastCommand != null) Text(lastCommand.text),
                         if (lastResult != null) ...[
                           const SizedBox(height: 12),
-                          Text(FridayController.conciseReply(lastResult.text)),
+                          Text(lastResult.text),
                         ],
                       ],
                     ),
