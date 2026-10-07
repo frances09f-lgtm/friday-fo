@@ -58,6 +58,18 @@ object DeviceBridge {
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
+                "assistantState" -> result.success(mapOf(
+                    "overlay" to Settings.canDrawOverlays(context),
+                    "microphone" to hasPermission(context, Manifest.permission.RECORD_AUDIO),
+                    "selected" to (Settings.Secure.getString(context.contentResolver, "voice_interaction_service")?.startsWith(context.packageName + "/") == true)))
+                "assistantOverlayPermission" -> {
+                    if (!Settings.canDrawOverlays(context)) context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
+                }
+                "assistantMicPermission" -> {requestPermissions(activity, arrayOf(Manifest.permission.RECORD_AUDIO)); result.success(activity != null)}
+                "assistantSettings" -> {context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));result.success(true)}
+                "assistantPreview" -> {context.startActivity(Intent(context, AssistantTrampolineActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));result.success(true)}
                 "notificationState" -> result.success(NotificationHealth.state(context))
                 "notificationSettings" -> { NotificationHealth.settings(context); result.success(true) }
                 "notificationTest" -> result.success(NotificationHealth.test(context))

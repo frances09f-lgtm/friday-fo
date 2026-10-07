@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'assistant_setup_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'dart:io' show Platform;
@@ -86,13 +87,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Cloud brains (free tiers)', style: Theme.of(context).textTheme.titleMedium),
+          Text('Cloud brains (free tiers)',
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text('Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
+          const Text(
+              'Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
           const SizedBox(height: 12),
-          _KeyField(controller: _gemini, label: 'Gemini API key', hint: 'aistudio.google.com/apikey'),
-          _KeyField(controller: _groq, label: 'Groq API key', hint: 'console.groq.com/keys'),
-          _KeyField(controller: _openRouter, label: 'OpenRouter API key', hint: 'openrouter.ai/keys'),
+          _KeyField(
+              controller: _gemini,
+              label: 'Gemini API key',
+              hint: 'aistudio.google.com/apikey'),
+          _KeyField(
+              controller: _groq,
+              label: 'Groq API key',
+              hint: 'console.groq.com/keys'),
+          _KeyField(
+              controller: _openRouter,
+              label: 'OpenRouter API key',
+              hint: 'openrouter.ai/keys'),
           TextField(
             controller: _groqModel,
             decoration: const InputDecoration(
@@ -129,36 +141,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           const SizedBox(height: 16),
           if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
-          Text('On-device backup', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Use on-device model when keys fail'),
-            value: _localFallback,
-            onChanged: (v) => setState(() => _localFallback = v),
-          ),
-          TextField(
-            controller: _modelUrl,
-            decoration: const InputDecoration(
-              labelText: 'Gemma model URL (.task weights)',
-              hintText: 'https://huggingface.co/.../gemma-3n-E2B-it-int4.task',
-              border: OutlineInputBorder(),
+            Text('On-device backup',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Use on-device model when keys fail'),
+              value: _localFallback,
+              onChanged: (v) => setState(() => _localFallback = v),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.download),
-                label: const Text('Install model'),
-                onPressed: _loadLocalModel,
+            TextField(
+              controller: _modelUrl,
+              decoration: const InputDecoration(
+                labelText: 'Gemma model URL (.task weights)',
+                hintText:
+                    'https://huggingface.co/.../gemma-3n-E2B-it-int4.task',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(_modelStatus)),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.download),
+                  label: const Text('Install model'),
+                  onPressed: _loadLocalModel,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(_modelStatus)),
+              ],
+            ),
           ],
           SizedBox(height: 24),
+          ListTile(
+              title: const Text('Assistant setup'),
+              subtitle: const Text('Floating bar, microphone and power button'),
+              leading: const Icon(Icons.assistant),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const AssistantSetupScreen()))),
           FilledButton.icon(
             icon: const Icon(Icons.save),
             label: const Text('Save'),
@@ -171,7 +191,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _KeyField extends StatelessWidget {
-  const _KeyField({required this.controller, required this.label, required this.hint});
+  const _KeyField(
+      {required this.controller, required this.label, required this.hint});
 
   final TextEditingController controller;
   final String label;
