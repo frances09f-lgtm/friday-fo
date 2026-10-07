@@ -18,6 +18,7 @@ import 'package:friday/services/storage/settings_store.dart';
 import 'package:friday/state/friday_controller.dart';
 
 import 'package:friday/app.dart';
+import 'package:friday/models/chat_message.dart';
 import 'package:friday/services/link/device_link.dart';
 
 class LiveSpeech extends SpeechService {
@@ -69,7 +70,7 @@ void main() {
     await t.pumpWidget(MultiProvider(providers: [
       ChangeNotifierProvider<FridayController>.value(value: c),
       Provider<SpeechService>.value(value: speech),
-      ChangeNotifierProvider<DeviceLink>(create:(_)=>DeviceLink()),
+      ChangeNotifierProvider<DeviceLink>(create: (_) => DeviceLink()),
     ], child: RepaintBoundary(key: key, child: const FridayApp())));
     await t.pumpAndSettle();
     expect(speech.starts, 0);
@@ -88,8 +89,39 @@ void main() {
     await t.tap(find.text('Activity'));
     await t.pumpAndSettle();
     expect(find.textContaining('No activity yet'), findsOneWidget);
+    c.messages.addAll([
+      ChatMessage(
+          id: 'preview-user',
+          role: MessageRole.user,
+          text: 'remind me to drink water in 2 minutes',
+          at: DateTime(2026, 10, 8, 1, 50)),
+      ChatMessage(
+          id: 'preview-result',
+          role: MessageRole.friday,
+          text:
+              'Reminder registered for 8/10 01:52: drink water. ID 123. Check the bell screen for pending reminders.',
+          at: DateTime(2026, 10, 8, 1, 50))
+    ]);
+    c.notifyListeners();
+    await t.pumpAndSettle();
+    await t.runAsync(() async {
+      final im = await (key.currentContext!.findRenderObject()
+              as RenderRepaintBoundary)
+          .toImage();
+      final d = await im.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/friday-activity-preview.png')
+          .writeAsBytes(d!.buffer.asUint8List());
+    });
     await t.tap(find.text('Chat'));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsWidgets);
+    await t.runAsync(() async {
+      final im = await (key.currentContext!.findRenderObject()
+              as RenderRepaintBoundary)
+          .toImage();
+      final d = await im.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/friday-chat-preview.png')
+          .writeAsBytes(d!.buffer.asUint8List());
+    });
   });
 }
