@@ -27,6 +27,14 @@ jobs:
           FRIDAY_KEY_PASSWORD=${{ secrets.FRIDAY_KEY_PASSWORD }}
           GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
           GP
+      - name: CI build memory (keep local low-memory settings unchanged)
+        run: |
+          free -m
+          cat >> android/gradle.properties <<'GP'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
+          org.gradle.workers.max=2
+          kotlin.compiler.execution.strategy=in-process
+          GP
       - run: flutter pub get
       - run: flutter test
       - run: flutter build apk --release --target-platform android-arm64 -v --build-number=$GITHUB_RUN_NUMBER --build-name=1.0.$GITHUB_RUN_NUMBER --dart-define=GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
