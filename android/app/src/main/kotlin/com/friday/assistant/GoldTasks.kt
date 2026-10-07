@@ -77,6 +77,14 @@ object GoldTasks {
         val ts = tasks(c)
         return (0 until ts.length()).any { ts.getJSONObject(it).optString("status") == "active" }
     }
+    @Synchronized fun delayUntilNextCheck(c: Context): Long {
+        val ts = tasks(c)
+        val now = System.currentTimeMillis()
+        val next = (0 until ts.length()).map { ts.getJSONObject(it) }
+            .filter { it.optString("status") == "active" }
+            .map { it.optLong("nextCheckAt", now) }
+        return TaskTiming.delay(now, next)
+    }
     fun ensure(c: Context, fromBoot: Boolean = false) {
         if (!hasActive(c)) return
         if (saver(c) || fromBoot) {

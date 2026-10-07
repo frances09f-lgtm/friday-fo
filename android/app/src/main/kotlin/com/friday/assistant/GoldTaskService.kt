@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit
 
 class GoldTaskService : Service() {
     private val executor = Executors.newSingleThreadScheduledExecutor()
+    private var pending: java.util.concurrent.ScheduledFuture<*>? = null
+    private val timerLock = Any()
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onCreate() {
         super.onCreate()
@@ -21,12 +23,27 @@ class GoldTaskService : Service() {
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Stop checks", stop).build()).build())
         GoldTasks.runtime(this, "Foreground checker running")
-        executor.scheduleWithFixedDelay({
-            try { GoldTasks.check(this); GoldTasks.runtime(this, "Foreground checker running"); if (!GoldTasks.hasActive(this)) stopSelf() } catch (_: Exception) { GoldTasks.runtime(this, "Background check failed; retrying") }
-        }, 0, 30, TimeUnit.SECONDS)
+        scheduleNext(0)
+    }
+    private fun scheduleNext(delayMs: Long) {
+        synchronized(timerLock) {
+            pending?.cancel(false)
+            if (executor.isShutdown) return
+            pending = executor.schedule({
+                var delay = 60000L
+                try {
+                    GoldTasks.check(this)
+                    GoldTasks.runtime(this, "Foreground checker waiting until next task is due")
+                    delay = GoldTasks.delayUntilNextCheck(this)
+                } catch (_: Exception) { GoldTasks.runtime(this, "Background check failed; retrying in one minute") }
+                if (delay < 0) stopSelf() else scheduleNext(delay)
+            }, delayMs, TimeUnit.MILLISECONDS)
+        }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { GoldTasks.cancelAll(this); stopSelf(); return START_NOT_STICKY }
+        // A newly created earlier task reschedules the single timer.
+        scheduleNext(0)
         return START_STICKY
     }
     override fun onDestroy() { executor.shutdownNow(); GoldTasks.runtime(this, "Foreground checker stopped"); super.onDestroy() }
