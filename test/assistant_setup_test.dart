@@ -54,8 +54,9 @@ void main() {
       for (final item in {
         'Roboto': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
         'MaterialIcons':
-            '/home/sandbox/flutter/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
+            '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
       }.entries) {
+        if (!await File(item.value).exists()) continue;
         final l = FontLoader(item.key)
           ..addFont(Future.value(
               ByteData.sublistView(await File(item.value).readAsBytes())));
