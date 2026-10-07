@@ -45,9 +45,93 @@ class OfflineEngine {
     r'remind me(?:\s+to)?\s+(?<task>.+?)\s+at\s+(?<h>\d{1,2})(?::(?<m>\d{2}))?\s*(?<ampm>a\.?m\.?|p\.?m\.?)?\b',
   );
 
+  static final _openAnywhere = RegExp(
+    r'(?:\band\b|\bthen\b|,)\s*(?:please\s+)?(?:open|launch|start)\s+(?<app>[a-z0-9][a-z0-9 .+]*?)(?=\s*(?:\band\b|\bthen\b|,|\.|!|$))',
+    caseSensitive: false,
+  );
+
+  /// Multi-part commands: "flashlight off and open camera", "set volume
+  /// 40 and open WhatsApp", "brightness 50 and volume 20". Collect every
+  /// clause we can match; two or more become an action list in the order
+  /// the user said them. Returns null when fewer than two parts match -
+  /// the single-command ladder below handles those.
+  FridayResponse? _multiActions(String t, String raw) {
+    final found = <({int pos, FridayAction action, String words})>[];
+
+    // Leading "open X and ..." - the app name ends at the connector.
+    final lead = _open.firstMatch(t);
+    if (lead != null) {
+      var app = lead.namedGroup('app')!.trim();
+      final cut = RegExp(r'\s+(?:and|then)\s+|,').firstMatch(app);
+      if (cut != null) app = app.substring(0, cut.start).trim();
+      if (app.isNotEmpty) {
+        found.add((
+          pos: 0,
+          action: FridayAction(type: FridayActionType.openApp, app: app),
+          words: 'open $app'
+        ));
+      }
+    }
+
+    final om = _openAnywhere.firstMatch(t);
+    if (om != null) {
+      final app = om.namedGroup('app')!.trim();
+      if (app.isNotEmpty) {
+        found.add((
+          pos: om.start,
+          action: FridayAction(type: FridayActionType.openApp, app: app),
+          words: 'open $app'
+        ));
+      }
+    }
+    if (t.contains('flashlight') || t.contains('torch')) {
+      final off = RegExp(r'\boff\b').hasMatch(t);
+      found.add((
+        pos: t.indexOf(t.contains('flashlight') ? 'flashlight' : 'torch'),
+        action: FridayAction(
+            type: off ? FridayActionType.torchOff : FridayActionType.torchOn),
+        words: 'flashlight ${off ? 'off' : 'on'}'
+      ));
+    }
+    final vp = _volumePct.firstMatch(raw);
+    if (vp != null) {
+      final n = int.parse(vp.namedGroup('n')!).clamp(0, 100);
+      found.add((
+        pos: vp.start,
+        action: FridayAction(
+            type: FridayActionType.setVolume, target: n.toString()),
+        words: 'volume to $n%'
+      ));
+    }
+    final bp = _brightnessPct.firstMatch(raw);
+    if (bp != null) {
+      final n = int.parse(bp.namedGroup('n')!).clamp(0, 100);
+      found.add((
+        pos: bp.start,
+        action: FridayAction(
+            type: FridayActionType.setBrightness, target: n.toString()),
+        words: 'brightness to $n%'
+      ));
+    }
+
+    if (found.length < 2) return null;
+    found.sort((a, b) => a.pos.compareTo(b.pos));
+    final words = found.map((e) => e.words).join(' and ');
+    return FridayResponse(
+      reply: 'Doing both: $words.',
+      action: found.first.action,
+      extraActions: found.sublist(1).map((e) => e.action).toList(),
+      source: FridaySource.offline,
+    );
+  }
+
   FridayResponse handle(String text, {DateTime? now}) {
     final t = text.trim().toLowerCase();
     final clock = now ?? DateTime.now();
+
+    // Multi-part commands first - the single ladder swallows one half.
+    final multi = _multiActions(t, text.trim());
+    if (multi != null) return multi;
 
     final open = _open.firstMatch(t);
     if (open != null) {
@@ -139,29 +223,6 @@ class OfflineEngine {
     }
 
     final vp = _volumePct.firstMatch(text.trim());
-    final bp0 = _brightnessPct.firstMatch(text.trim());
-    if (vp != null && bp0 != null) {
-      // Both settings in one utterance: apply each with its own value,
-      // in the order the user said them.
-      final vn = int.parse(vp.namedGroup('n')!).clamp(0, 100);
-      final bn = int.parse(bp0.namedGroup('n')!).clamp(0, 100);
-      final vol = FridayAction(
-          type: FridayActionType.setVolume, target: vn.toString());
-      final bri = FridayAction(
-          type: FridayActionType.setBrightness, target: bn.toString());
-      final ordered = bp0.start < vp.start ? [bri, vol] : [vol, bri];
-      final words = ordered
-          .map((a) => a.type == FridayActionType.setBrightness
-              ? 'brightness to ${a.target}%'
-              : 'volume to ${a.target}%')
-          .join(' and ');
-      return FridayResponse(
-        reply: 'Setting $words.',
-        action: ordered.first,
-        extraActions: ordered.sublist(1),
-        source: FridaySource.offline,
-      );
-    }
     if (vp != null) {
       final n = int.parse(vp.namedGroup('n')!).clamp(0, 100);
       return FridayResponse(

@@ -49,4 +49,52 @@ void main() {
     expect(r.allActions.length, 1);
     expect(r.allActions.single.type, FridayActionType.none);
   });
+
+  // v9: cross-domain combos (device control + app launch)
+  for (final entry in {
+    'flashlight off and open camera': [
+      (FridayActionType.torchOff, ''),
+      (FridayActionType.openApp, 'camera'),
+    ],
+    'set volume 40 and open WhatsApp': [
+      (FridayActionType.setVolume, '40'),
+      (FridayActionType.openApp, 'whatsapp'),
+    ],
+    'open camera and turn flashlight off': [
+      (FridayActionType.openApp, 'camera'),
+      (FridayActionType.torchOff, ''),
+    ],
+    'flashlight on and brightness 60': [
+      (FridayActionType.torchOn, ''),
+      (FridayActionType.setBrightness, '60'),
+    ],
+  }.entries) {
+    final r = const OfflineEngine().handle(entry.key);
+    test('offline multi: ${entry.key}', () {
+      expect(r.allActions.length, entry.value.length, reason: entry.key);
+      for (var i = 0; i < entry.value.length; i++) {
+        expect(r.allActions[i].type, entry.value[i].$1, reason: entry.key);
+        if (entry.value[i].$2.isNotEmpty) {
+          expect(
+              r.allActions[i].type == FridayActionType.openApp
+                  ? r.allActions[i].app
+                  : r.allActions[i].target,
+              entry.value[i].$2,
+              reason: entry.key);
+        }
+      }
+    });
+  }
+
+  test('offline: single flashlight command stays single', () {
+    final r = const OfflineEngine().handle('flashlight on');
+    expect(r.allActions.length, 1);
+    expect(r.allActions.single.type, FridayActionType.torchOn);
+  });
+
+  test('offline: single open stays single', () {
+    final r = const OfflineEngine().handle('open whatsapp');
+    expect(r.allActions.length, 1);
+    expect(r.allActions.single.type, FridayActionType.openApp);
+  });
 }
