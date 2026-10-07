@@ -39,7 +39,8 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
     }
     if (!ready) {
       setState(
-        () => micError = 'Microphone is not ready. Open Assistant setup to check permission.',
+        () => micError =
+            'Microphone is not ready. Open Assistant setup to check permission.',
       );
       return;
     }
@@ -97,12 +98,10 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
     final c = context.watch<FridayController>();
     final s = context.read<SpeechService>();
     final status = s.isListening ? 'Listening' : c.phase;
-    final lastCommand = c.messages
-        .where((m) => m.role == MessageRole.user)
-        .lastOrNull;
-    final lastResult = c.messages
-        .where((m) => m.role == MessageRole.friday)
-        .lastOrNull;
+    final lastCommand =
+        c.messages.where((m) => m.role == MessageRole.user).lastOrNull;
+    final lastResult =
+        c.messages.where((m) => m.role == MessageRole.friday).lastOrNull;
     return Scaffold(
       appBar: tab == 1
           ? null
@@ -162,8 +161,8 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF9B7AE0)
-                                .withValues(alpha: .25),
+                            color:
+                                const Color(0xFF9B7AE0).withValues(alpha: .25),
                             blurRadius: 40,
                             spreadRadius: 8,
                           ),
@@ -263,7 +262,7 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                         if (lastCommand != null) Text(lastCommand.text),
                         if (lastResult != null) ...[
                           const SizedBox(height: 12),
-                          Text(lastResult.text),
+                          Text(FridayController.conciseReply(lastResult.text)),
                         ],
                       ],
                     ),

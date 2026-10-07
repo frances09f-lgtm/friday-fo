@@ -115,6 +115,11 @@ void main() {
     await t.tap(find.text('Chat'));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsWidgets);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.textContaining('Reminder registered for'), findsNothing);
+    expect(c.messages.last.text, contains('ID 123'));
+    expect(FridayController.conciseReply('I could not schedule the reminder.'),
+        'I could not schedule the reminder.');
     await t.runAsync(() async {
       final im = await (key.currentContext!.findRenderObject()
               as RenderRepaintBoundary)

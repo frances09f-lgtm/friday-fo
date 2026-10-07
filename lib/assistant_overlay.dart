@@ -131,8 +131,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
             children: [
               Row(children: [
                 const SizedBox(width: 16),
-                Text('Friday',
-                    style: Theme.of(context).textTheme.titleSmall),
+                Text('Friday', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.open_in_full, size: 20),
@@ -171,7 +170,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                     .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(m.text,
+                          child: Text(
+                              isUser
+                                  ? m.text
+                                  : FridayController.conciseReply(m.text),
                               style: const TextStyle(fontSize: 13)),
                         ),
                       );
@@ -225,8 +227,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                           child: CircularProgressIndicator(strokeWidth: 2)),
                     )
                   else
-                    IconButton(
-                        icon: const Icon(Icons.send), onPressed: _send),
+                    IconButton(icon: const Icon(Icons.send), onPressed: _send),
                 ]),
               ),
             ],

@@ -24,6 +24,9 @@ class FridayController extends ChangeNotifier {
   static String actionResultReply(String outcome) =>
       outcome.isEmpty ? 'Done.' : outcome;
 
+  static String conciseReply(String text) =>
+      text.startsWith('Reminder registered for ') ? 'Done' : text;
+
   FridayController({
     required this.brain,
     required this.router,
@@ -64,7 +67,8 @@ class FridayController extends ChangeNotifier {
         ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}failure',
           role: MessageRole.friday,
-          text: 'This request did not finish cleanly. A started action may already have happened; check before retrying.',
+          text:
+              'This request did not finish cleanly. A started action may already have happened; check before retrying.',
           at: DateTime.now(),
         ),
       );
@@ -108,7 +112,8 @@ class FridayController extends ChangeNotifier {
             ? await TaskService().create(goldTask)
             : await TaskService().cancelAll();
       } catch (_) {
-        reply = 'Could not update background tasks. Open Background tasks to check their saved state.';
+        reply =
+            'Could not update background tasks. Open Background tasks to check their saved state.';
       }
       messages.add(
         ChatMessage(
@@ -122,7 +127,7 @@ class FridayController extends ChangeNotifier {
       phase = 'Ready';
       notifyListeners();
       await chatStore.save(messages);
-      if (settings.speakReplies) await speech.speak(reply);
+      if (settings.speakReplies) await speech.speak(conciseReply(reply));
       return;
     }
 
@@ -159,7 +164,7 @@ class FridayController extends ChangeNotifier {
         phase = 'Ready';
         notifyListeners();
         await chatStore.save(messages);
-        if (settings.speakReplies) await speech.speak(reply);
+        if (settings.speakReplies) await speech.speak(conciseReply(reply));
         return;
       }
     }
@@ -172,8 +177,7 @@ class FridayController extends ChangeNotifier {
     final actions = response.allActions
         .where((a) => a.type != FridayActionType.none)
         .toList();
-    final infoOnly =
-        actions.isNotEmpty &&
+    final infoOnly = actions.isNotEmpty &&
         actions.every((a) => a.type == FridayActionType.oroStatus);
     if (infoOnly) {
       oroContext.remember(DateTime.now());
@@ -207,7 +211,7 @@ class FridayController extends ChangeNotifier {
 
     await chatStore.save(messages);
     if (settings.speakReplies) {
-      await speech.speak(reply);
+      await speech.speak(conciseReply(reply));
     }
   }
 
