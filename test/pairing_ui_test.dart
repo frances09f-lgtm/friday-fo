@@ -35,14 +35,6 @@ void main() {
     expect(t.takeException(), isNull);
   });
   testWidgets('single address selected and format error visible', (t) async {
-    await t.runAsync(() async {
-      final bytes =
-          await File('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
-              .readAsBytes();
-      final loader = FontLoader('Roboto')
-        ..addFont(Future.value(ByteData.sublistView(bytes)));
-      await loader.load();
-    });
     await t.binding.setSurfaceSize(const Size(412, 1400));
     final link = PreviewLink(['http://192.168.1.4:12345']);
     final key = GlobalKey();

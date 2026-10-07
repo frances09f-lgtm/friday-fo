@@ -12,13 +12,6 @@ import 'package:friday/ui/screens/device_link_screen.dart';
 void main() {
   testWidgets('device link has visible enable button and pairing instructions',
       (t) async {
-    await t.runAsync(() async {
-      final bytes = await File('/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf')
-          .readAsBytes();
-      final loader = FontLoader('Roboto')
-        ..addFont(Future.value(ByteData.sublistView(bytes)));
-      await loader.load();
-    });
     await t.binding.setSurfaceSize(const Size(412, 915));
     final link = DeviceLink();
     final key = GlobalKey();
