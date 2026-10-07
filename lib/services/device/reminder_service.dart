@@ -7,7 +7,8 @@ import 'package:timezone/timezone.dart' as tz;
 class ReminderService {
   ReminderService();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   /// Notification IDs come from the clock, not a counter: a counter resets
@@ -22,7 +23,7 @@ class ReminderService {
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
     } catch (_) {}
-    const androidInit = AndroidInitializationSettings('ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_friday_notification');
     try {
       await _plugin.initialize(
         const InitializationSettings(android: androidInit),
@@ -32,10 +33,10 @@ class ReminderService {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
+      _initialized = true;
     } catch (_) {
-      // Notifications unavailable on this device - reminders just won't fire.
+      _initialized = false;
     }
-    _initialized = true;
   }
 
   Future<bool> schedule({
@@ -44,7 +45,11 @@ class ReminderService {
     required Duration after,
   }) async {
     await init();
+    if (!_initialized) return false;
     try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (await android?.areNotificationsEnabled() != true) return false;
       final when = tz.TZDateTime.now(tz.local).add(after);
       // Exact alarms need SCHEDULE_EXACT_ALARM - on Android 13+ it starts
       // denied. Ask once; if still denied, fall back to inexact so the

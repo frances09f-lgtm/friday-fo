@@ -6,6 +6,7 @@ import '../../state/friday_controller.dart';
 import '../widgets/chat_bubble.dart';
 import 'device_link_screen.dart';
 import 'background_tasks_screen.dart';
+import 'notifications_screen.dart';
 import '../../services/link/device_link.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -83,6 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Friday'),
         actions: [
+          IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              tooltip: 'Notifications',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const NotificationsScreen()))),
           IconButton(
               icon: const Icon(Icons.schedule),
               tooltip: 'Background tasks',

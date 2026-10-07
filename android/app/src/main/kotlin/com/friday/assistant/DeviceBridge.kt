@@ -58,6 +58,9 @@ object DeviceBridge {
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
+                "notificationState" -> result.success(NotificationHealth.state(context))
+                "notificationSettings" -> { NotificationHealth.settings(context); result.success(true) }
+                "notificationTest" -> result.success(NotificationHealth.test(context))
                 "taskState" -> result.success(GoldTasks.state(context))
                 "taskCreate" -> result.success(GoldTasks.create(context,
                     call.argument<String>("direction") ?: "",

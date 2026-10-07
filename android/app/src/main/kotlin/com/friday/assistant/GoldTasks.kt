@@ -35,7 +35,7 @@ object GoldTasks {
     @Synchronized fun create(c: Context, direction: String, threshold: Double, interval: Int): String {
         if (direction !in listOf("above", "below") || !threshold.isFinite() || threshold <= 0 || interval !in 5..1440)
             return "Use a gold above/below alert with an interval from 5 minutes to 24 hours."
-        if (!notificationsAllowed(c)) return "Notifications are disabled. Enable Friday notifications before starting a background task."
+        if (!NotificationHealth.channelAllowed(c, "friday_gold_alerts")) return "Gold alert notifications are disabled. Open Notifications in Friday and enable them before starting a task."
         val ts = tasks(c)
         if ((0 until ts.length()).count { ts.getJSONObject(it).optString("status") == "active" } >= 20)
             return "There are already 20 active tasks. Cancel one first."
@@ -103,7 +103,7 @@ object GoldTasks {
             if (task.optString("status") != "active" || now < task.optLong("nextCheckAt")) continue
             val interval = task.optInt("intervalMinutes", 15).coerceIn(5, 1440)
             task.put("lastCheckAt", now).put("nextCheckAt", now + interval * 60000L)
-            if (!notificationsAllowed(c)) { task.put("lastOutcome", "Notifications disabled; no alert sent"); continue }
+            if (!NotificationHealth.channelAllowed(c, "friday_gold_alerts")) { task.put("lastOutcome", "Gold alert notifications disabled; no alert sent"); continue }
             if (snapshot == null) { task.put("lastOutcome", "No Oro snapshot. Open Oro and let it update."); continue }
             val quoteAt = snapshot.optLong("quoteAt", 0)
             val outcome = GoldTaskRule.evaluate(task.optString("direction"), task.optDouble("threshold"),

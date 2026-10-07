@@ -292,7 +292,8 @@ class IntentRouter {
       body: action.title,
       after: Duration(minutes: action.afterMinutes),
     );
-    if (!ok) return 'I could not schedule the reminder.';
+    if (!ok)
+      return 'I could not schedule the reminder. Open Notifications in Friday to check permission and test notifications.';
     return ''; // silent success - "Done." says it
   }
 }
