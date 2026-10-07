@@ -92,6 +92,11 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".FridayAssistantSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
         <!-- The assistant picker's XML parse also requires a
              recognitionService. This one is real: it records the mic and
              transcribes through Groq's hosted Whisper (the same engine the
