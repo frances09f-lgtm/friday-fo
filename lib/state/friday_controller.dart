@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/chat_message.dart';
+import '../models/friday_response.dart';
 import '../services/ai/ai_brain.dart';
 import '../services/intent_router.dart';
 import '../services/speech/speech_service.dart';
@@ -54,10 +55,29 @@ class FridayController extends ChangeNotifier {
     final response = await brain.ask(clean, history: List.of(messages));
 
     var reply = response.reply;
-    final outcome = await router.executeAll(response.allActions);
-    // When an action ran, the router's outcome is the truth - the brain's
-    // reply only guessed at the result ("Reminder set" before it was).
-    if (outcome.isNotEmpty) reply = outcome;
+    // Ignore the placeholder none action - plain conversation gets no
+    // okay/done wrapper.
+    final actions = response.allActions
+        .where((a) => a.type != FridayActionType.none)
+        .toList();
+    if (actions.isNotEmpty) {
+      // Acknowledge on acceptance, confirm on completion - the user hears
+      // "okay" when Friday takes the command and "done" when it finished.
+      messages.add(ChatMessage(
+        id: '${DateTime.now().microsecondsSinceEpoch}a',
+        role: MessageRole.friday,
+        text: 'Okay.',
+        at: DateTime.now(),
+      ));
+      notifyListeners();
+      if (settings.speakReplies) {
+        await speech.speak('Okay.');
+      }
+      final outcome = await router.executeAll(actions);
+      // The router's outcome is the truth - the brain's reply only guessed
+      // at the result ("Reminder set" before it was).
+      reply = outcome.isEmpty ? 'Done.' : 'Done.\n$outcome';
+    }
 
     messages.add(ChatMessage(
       id: '${DateTime.now().microsecondsSinceEpoch}r',
@@ -71,7 +91,7 @@ class FridayController extends ChangeNotifier {
 
     await chatStore.save(messages);
     if (settings.speakReplies) {
-      await speech.speak(response.reply);
+      await speech.speak(reply);
     }
   }
 
