@@ -207,6 +207,33 @@ class DeviceHub {
   /// Fuzzy-matches the app the user (or the model) named against the
   /// installed list, then launches it. Returns the app label, or null when
   /// nothing on the phone matches.
+  /// Raw JSON snapshot from Oro's offline bridge provider, or null when
+  /// Oro is not installed / has nothing yet. Phone-only by design.
+  Future<String?> oroStatusRaw() async {
+    if (_isWindows || kIsWeb) return null;
+    try {
+      return await _channel.invokeMethod<String>('oroStatus');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// "Close all apps" (user voice ask): kills background apps on the
+  /// phone, closes visible app windows on Windows. Returns a short result
+  /// token: 'ok', 'none', or 'error'.
+  Future<String> closeAllApps() async {
+    if (_isWindows) return WindowsDevice.closeAllApps();
+    if (kIsWeb) return 'error';
+    try {
+      final n =
+          await _channel.invokeMethod<int>('closeBackgroundApps') ?? -1;
+      if (n < 0) return 'error';
+      return n == 0 ? 'none' : 'ok';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
   Future<InstalledApp?> openAppByName(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return null;

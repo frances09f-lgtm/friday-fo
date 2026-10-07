@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/friday_response.dart';
 import 'device/device_hub.dart';
+import 'oro/oro_bridge.dart';
 import 'device/reminder_service.dart';
 import 'usage_reporter.dart';
 
@@ -45,6 +46,8 @@ class IntentRouter {
     FridayActionType.brightnessUp,
     FridayActionType.brightnessDown,
     FridayActionType.openApp,
+    FridayActionType.oroStatus,
+    FridayActionType.closeAllApps,
   };
 
   static bool get _isPhone =>
@@ -63,6 +66,7 @@ class IntentRouter {
     FridayActionType.brightnessDown,
     FridayActionType.wifiSettings,
     FridayActionType.bluetoothSettings,
+    FridayActionType.closeAllApps,
   };
 
   Future<String> execute(FridayAction action) async {
@@ -122,8 +126,34 @@ class IntentRouter {
         return _setVolume(action);
       case FridayActionType.setBrightness:
         return _setBrightness(action);
+      case FridayActionType.oroStatus:
+        return _oroStatus(action);
+      case FridayActionType.closeAllApps:
+        return _closeAllApps();
       case FridayActionType.none:
         return '';
+    }
+  }
+
+  /// Friday + Oro offline bridge (user project): the answer is built
+  /// entirely from Oro's real on-device snapshot - quote, balance, open
+  /// positions - with its age disclosed. Never invented numbers.
+  Future<String> _oroStatus(FridayAction action) async {
+    final snapshot = await OroBridge(deviceHub).read();
+    return OroBridge.answer(
+        action.target.isEmpty ? 'price' : action.target, snapshot);
+  }
+
+  /// "Close all apps" (user voice ask). Silent on success - "Done." says
+  /// it; honest lines when nothing was running or it failed.
+  Future<String> _closeAllApps() async {
+    switch (await deviceHub.closeAllApps()) {
+      case 'ok':
+        return '';
+      case 'none':
+        return 'No background apps to close.';
+      default:
+        return "I couldn't close the background apps.";
     }
   }
 

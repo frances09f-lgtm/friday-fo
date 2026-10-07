@@ -50,6 +50,34 @@ class OfflineEngine {
     r'remind me(?:\s+to)?\s+(?<task>.+?)\s+at\s+(?<h>\d{1,2})(?::(?<m>\d{2}))?\s*(?<ampm>a\.?m\.?|p\.?m\.?)?\b',
   );
 
+  // Friday + Oro (user project: connect the apps, offline-first). These
+  // questions are answered from Oro's on-device snapshot, never invented.
+  static final _oroPrice = RegExp(
+    r'gold.*(price|rate|cost|trading)|(price|rate|cost).*(gold|xau)|\bxau\b|gold (?:rate|price|at)|how.?s gold',
+    caseSensitive: false,
+  );
+
+  static final _oroTrades = RegExp(
+    r'(open|running|current|active|my)\s+(trades?|positions?)|(trades?|positions?).*(open|running|now|active)',
+    caseSensitive: false,
+  );
+
+  static final _oroTpsl = RegExp(
+    r'\b(tp|sl|take.?profit|stop.?loss)\b|(target|stop).*(trade|gold|buy|sell|position)',
+    caseSensitive: false,
+  );
+
+  static final _oroBalance = RegExp(
+    r'(paper|trading|oro|account)\s+balance|balance.*(paper|trading|oro)|how.*(trading|paper).*(doing|going)',
+    caseSensitive: false,
+  );
+
+  // "Close all apps" (user voice ask, phone + Windows).
+  static final _closeAllApps = RegExp(
+    r'\b(close|clear|kill)\b.*\b(all|background|every|running)\b.*\bapps?\b|\bclose everything\b',
+    caseSensitive: false,
+  );
+
   static final _openAnywhere = RegExp(
     r'(?:\band\b|\bthen\b|,)\s*(?:please\s+)?(?:open|launch|start)\s+(?<app>[a-z0-9][a-z0-9 .+]*?)(?=\s*(?:\band\b|\bthen\b|,|\.|!|$))',
     caseSensitive: false,
@@ -137,6 +165,47 @@ class OfflineEngine {
     // Multi-part commands first - the single ladder swallows one half.
     final multi = _multiActions(t, text.trim());
     if (multi != null) return multi;
+
+    // Oro trade questions - answered from the on-device bridge.
+    if (_oroTpsl.hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Checking Oro.',
+        action: FridayAction(type: FridayActionType.oroStatus, target: 'tpsl'),
+        source: FridaySource.offline,
+      );
+    }
+    if (_oroTrades.hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Checking Oro.',
+        action:
+            FridayAction(type: FridayActionType.oroStatus, target: 'trades'),
+        source: FridaySource.offline,
+      );
+    }
+    if (_oroBalance.hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Checking Oro.',
+        action:
+            FridayAction(type: FridayActionType.oroStatus, target: 'balance'),
+        source: FridaySource.offline,
+      );
+    }
+    if (_oroPrice.hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Checking Oro.',
+        action: FridayAction(type: FridayActionType.oroStatus, target: 'price'),
+        source: FridaySource.offline,
+      );
+    }
+
+    // Close all background apps (phone) / app windows (Windows).
+    if (_closeAllApps.hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Closing all apps.',
+        action: FridayAction(type: FridayActionType.closeAllApps),
+        source: FridaySource.offline,
+      );
+    }
 
     final open = _open.firstMatch(t);
     if (open != null) {
@@ -312,7 +381,7 @@ class OfflineEngine {
 
     return const FridayResponse(
       reply:
-          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth.",
+          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth, close all apps, or answer gold price and open trades from Oro.",
       source: FridaySource.offline,
     );
   }

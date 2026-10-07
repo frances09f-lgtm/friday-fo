@@ -10,6 +10,8 @@ import android.media.AudioManager
 import android.provider.Settings
 import android.provider.ContactsContract
 import android.provider.Telephony
+import android.app.ActivityManager
+import android.net.Uri
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
@@ -56,6 +58,8 @@ object DeviceBridge {
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
+                "oroStatus" -> result.success(oroStatus(context))
+                "closeBackgroundApps" -> result.success(closeBackgroundApps(context))
                 else -> result.notImplemented()
             }
         }
@@ -430,5 +434,52 @@ object DeviceBridge {
             // No permission, vendor skin blocking the inbox: report what we have.
         }
         return out
+    }
+
+    /**
+     * Offline bridge into Oro (user project: connect the apps, offline
+     * first). Reads the real trade snapshot Oro's OroBridgeProvider wrote
+     * on this phone - quote, paper balance, open positions - straight from
+     * the ContentProvider, no network. Returns the raw JSON string, or
+     * null when Oro is not installed or has no snapshot yet.
+     */
+    private fun oroStatus(context: Context): String? {
+        val uri = Uri.parse("content://com.ambi.gold_paper_trading.bridge/status")
+        return try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * "Close all apps" (user voice ask). Android does not let one app
+     * force-stop another, and the recents list is the launcher's own UI -
+     * what IS allowed is killing every launchable app's background
+     * processes, which is what the system's own task killer does. Returns
+     * how many apps we sent the kill for (the system decides what is
+     * actually killable); the recents cards stay, and the foreground app
+     * and foreground-service apps survive.
+     */
+    private fun closeBackgroundApps(context: Context): Int {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val pkgs = pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName }
+            .toSet()
+        var sent = 0
+        for (pkg in pkgs) {
+            if (pkg == context.packageName) continue
+            try {
+                am.killBackgroundProcesses(pkg)
+                sent++
+            } catch (e: Exception) {
+                // keep going for the rest
+            }
+        }
+        return sent
     }
 }

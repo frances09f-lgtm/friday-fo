@@ -41,6 +41,33 @@ class WindowsDevice {
     return known[q] ?? q;
   }
 
+  /// "Close all apps" (user voice ask). Gracefully closes every app with
+  /// a visible window (CloseMainWindow first, force-kill only if it
+  /// refuses), skipping Friday itself and the Windows shell. Returns
+  /// 'ok', 'none', or 'error'.
+  static Future<String> closeAllApps() async {
+    const ps = r"""
+$self = $PID
+$parent = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
+$skip = @('explorer','ApplicationFrameHost','ShellExperienceHost','StartMenuExperienceHost','SearchHost','SystemSettings','TextInputHost','sihost','dwm','taskmgr','powershell','cmd','friday','friday-fo','friday_fo')
+$procs = Get-Process | Where-Object { $_.MainWindowTitle -ne '' -and $_.Id -ne $self -and $_.Id -ne $parent -and $skip -notcontains $_.ProcessName }
+$n = 0
+foreach ($p in $procs) { $n++; try { $p.CloseMainWindow() | Out-Null } catch {} }
+Start-Sleep -Milliseconds 1500
+foreach ($p in $procs) { try { if (-not $p.HasExited) { $p.Kill() } } catch {} }
+if ($n -eq 0) { 'none' } else { 'ok' }
+""";
+    try {
+      final res =
+          await Process.run('powershell', ['-NoProfile', '-Command', ps]);
+      final out = res.stdout.toString().trim();
+      if (res.exitCode != 0) return 'error';
+      return out == 'none' ? 'none' : 'ok';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
   static Future<bool> openApp(String query) async {
     if (query.trim().isEmpty) return false;
     final target = resolveAppTarget(query);

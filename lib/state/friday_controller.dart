@@ -60,7 +60,14 @@ class FridayController extends ChangeNotifier {
     final actions = response.allActions
         .where((a) => a.type != FridayActionType.none)
         .toList();
-    if (actions.isNotEmpty) {
+    final infoOnly = actions.isNotEmpty &&
+        actions.every((a) => a.type == FridayActionType.oroStatus);
+    if (infoOnly) {
+      // A question, not a task: no okay/done wrapper - the answer from
+      // Oro's real data is the reply itself.
+      reply = await router.executeAll(actions);
+      if (reply.isEmpty) reply = "I couldn't read Oro's data.";
+    } else if (actions.isNotEmpty) {
       // Acknowledge on acceptance, confirm on completion - the user hears
       // "okay" when Friday takes the command and "done" when it finished.
       messages.add(ChatMessage(

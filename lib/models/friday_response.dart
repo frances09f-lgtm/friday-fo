@@ -16,6 +16,8 @@ enum FridayActionType {
   setBrightness,
   brightnessUp,
   brightnessDown,
+  oroStatus,
+  closeAllApps,
 }
 
 enum FridaySource { cloud, local, offline }
@@ -73,6 +75,10 @@ class FridayAction {
         return FridayActionType.brightnessUp;
       case 'brightness_down':
         return FridayActionType.brightnessDown;
+      case 'oro_status':
+        return FridayActionType.oroStatus;
+      case 'close_all_apps':
+        return FridayActionType.closeAllApps;
       default:
         return FridayActionType.none;
     }
