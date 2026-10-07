@@ -33,6 +33,7 @@ class IntentRouter {
     FridayActionType.readMessages,
     FridayActionType.callContact,
     FridayActionType.sendText,
+    FridayActionType.sendWhatsApp,
     FridayActionType.torchOn,
     FridayActionType.torchOff,
     FridayActionType.volumeUp,
@@ -89,6 +90,8 @@ class IntentRouter {
         return _callContact(action);
       case FridayActionType.sendText:
         return _sendText(action);
+      case FridayActionType.sendWhatsApp:
+        return _sendWhatsApp(action);
       case FridayActionType.setVolume:
         return _setVolume(action);
       case FridayActionType.setBrightness:
@@ -130,7 +133,11 @@ class IntentRouter {
   Future<String> _callContact(FridayAction action) async {
     final who = action.target.isNotEmpty ? action.target : action.query;
     if (who.isEmpty) return 'Who should I call?';
-    switch (await deviceHub.callContact(who)) {
+    final callResult = await deviceHub.callContact(who);
+    if (callResult.startsWith('pick:')) {
+      return 'I found a few contacts: ${callResult.substring(5).split('|').join(', ')}. Say the full name and I will call the right one.';
+    }
+    switch (callResult) {
       case 'calling':
         return 'Calling $who.';
       case 'dialer':
@@ -149,7 +156,11 @@ class IntentRouter {
     if (who.isEmpty || action.body.isEmpty) {
       return 'Tell me who to text and what to say.';
     }
-    switch (await deviceHub.sendText(who, action.body)) {
+    final textResult = await deviceHub.sendText(who, action.body);
+    if (textResult.startsWith('pick:')) {
+      return 'I found a few contacts: ${textResult.substring(5).split('|').join(', ')}. Say the full name and I will text the right one.';
+    }
+    switch (textResult) {
       case 'sent':
         return 'Text sent to $who.';
       case 'asked':
@@ -158,6 +169,29 @@ class IntentRouter {
         return "I couldn't find a contact or number for $who.";
       default:
         return "I couldn't send the text.";
+    }
+  }
+
+  Future<String> _sendWhatsApp(FridayAction action) async {
+    final who = action.target.isNotEmpty ? action.target : action.query;
+    if (who.isEmpty || action.body.isEmpty) {
+      return 'Tell me who to message on WhatsApp and what to say.';
+    }
+    final result = await deviceHub.sendWhatsApp(who, action.body);
+    if (result.startsWith('pick:')) {
+      return 'I found a few contacts: ${result.substring(5).split('|').join(', ')}. Say the full name and I will open WhatsApp for the right one.';
+    }
+    switch (result) {
+      case 'opened':
+        return 'Opening WhatsApp for $who - press send there.';
+      case 'asked':
+        return 'I need contacts permission to message on WhatsApp. Allow it and ask again.';
+      case 'no_match':
+        return "I couldn't find a contact or number for $who.";
+      case 'no_whatsapp':
+        return "WhatsApp doesn't seem to be installed on this phone.";
+      default:
+        return "I couldn't open WhatsApp.";
     }
   }
 

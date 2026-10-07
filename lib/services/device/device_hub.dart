@@ -104,6 +104,17 @@ class DeviceHub {
     }
   }
 
+  /// Returns opened | asked | no_match | no_whatsapp | pick:<names> | error.
+  Future<String> sendWhatsApp(String who, String body) async {
+    try {
+      return await _channel.invokeMethod<String>(
+              'sendWhatsApp', {'who': who, 'text': body}) ??
+          'error';
+    } on Exception {
+      return 'error';
+    }
+  }
+
   Future<bool> setVolumePercent(int percent) async {
     try {
       return await _channel.invokeMethod<bool>(

@@ -11,6 +11,7 @@ enum FridayActionType {
   bluetoothSettings,
   callContact,
   sendText,
+  sendWhatsApp,
   setVolume,
   setBrightness,
 }
@@ -60,6 +61,8 @@ class FridayAction {
         return FridayActionType.callContact;
       case 'send_text':
         return FridayActionType.sendText;
+      case 'send_whatsapp':
+        return FridayActionType.sendWhatsApp;
       case 'set_volume':
         return FridayActionType.setVolume;
       case 'set_brightness':

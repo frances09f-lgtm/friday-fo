@@ -48,6 +48,8 @@ object DeviceBridge {
                     result.success(true)
                 }
                 "callContact" -> result.success(callContact(context, activity, call.argument<String>("who") ?: ""))
+                "sendWhatsApp" -> result.success(sendWhatsApp(context, activity,
+                    call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "sendText" -> result.success(sendText(context, activity,
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
@@ -129,18 +131,104 @@ object DeviceBridge {
     private fun looksLikeNumber(who: String): Boolean =
         who.trim().matches(Regex("[+0-9][0-9 ()-]{4,}"))
 
-    private fun findContactNumber(context: Context, who: String): String? {
+    private fun findContactNumber(context: Context, who: String): String? =
+        findContacts(context, who).firstOrNull()?.get("number")
+
+    /**
+     * Ranked, deduped contact matches. Dedupes by CONTACT_ID so the same
+     * person synced from several accounts appears once (primary number
+     * preferred); ranking is exact > starts-with > contains on the trimmed,
+     * case-insensitive display name, so "Aai" never silently picks "Aai
+     * Rane" when an exact "Aai" exists.
+     */
+    private fun findContacts(context: Context, who: String): List<Map<String, String>> {
         val cleaned = who.trim()
-        if (cleaned.isEmpty()) return null
-        if (looksLikeNumber(who)) return cleaned
-        if (!hasPermission(context, Manifest.permission.READ_CONTACTS)) return null
-        return context.contentResolver.query(
+        if (cleaned.isEmpty()) return emptyList()
+        if (looksLikeNumber(cleaned)) return listOf(mapOf("name" to cleaned, "number" to cleaned))
+        if (!hasPermission(context, Manifest.permission.READ_CONTACTS)) return emptyList()
+        val wanted = cleaned.lowercase()
+        val byContact = linkedMapOf<Long, Triple<String, String, Boolean>>()
+        context.contentResolver.query(
             ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.IS_SUPER_PRIMARY,
+            ),
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
             arrayOf("%$cleaned%"),
             null
-        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val id = c.getLong(0)
+                val name = c.getString(1) ?: ""
+                val number = c.getString(2) ?: ""
+                val primary = c.getInt(3) == 1
+                val cur = byContact[id]
+                if (cur == null || (primary && !cur.third)) {
+                    byContact[id] = Triple(name, number, primary)
+                }
+            }
+        }
+        fun rank(name: String): Int {
+            val n = name.trim().lowercase()
+            return when {
+                n == wanted -> 0
+                n.startsWith(wanted) -> 1
+                else -> 2
+            }
+        }
+        return byContact.values
+            .filter { it.first.isNotBlank() && it.second.isNotBlank() }
+            .sortedWith(compareBy({ rank(it.first) }, { it.first.length }))
+            .take(5)
+            .map { mapOf("name" to it.first, "number" to it.second) }
+    }
+
+    /** One unambiguous match, or a "pick:" list when several contacts tie. */
+    private fun resolveContact(context: Context, who: String): String {
+        val matches = findContacts(context, who)
+        if (matches.isEmpty()) return ""
+        val wanted = who.trim().lowercase()
+        val exact = matches.filter { it["name"]!!.trim().lowercase() == wanted }
+        if (exact.size == 1) return exact.single()["number"]!!
+        if (matches.size == 1) return matches.single()["number"]!!
+        return "pick:" + matches.joinToString("|") { it["name"]!! }
+    }
+
+    private fun sendWhatsApp(context: Context, activity: Activity?, who: String, text: String): String {
+        if (who.isBlank() || text.isBlank()) return "error"
+        if (needsPhonePermissions(context, who)) {
+            requestPermissions(
+                activity,
+                arrayOf(
+                    Manifest.permission.READ_CONTACTS,
+                    Manifest.permission.CALL_PHONE,
+                    Manifest.permission.SEND_SMS
+                )
+            )
+            return "asked"
+        }
+        val resolved = resolveContact(context, who)
+        if (resolved.isEmpty()) return "no_match"
+        if (resolved.startsWith("pick:")) return resolved
+        var digits = resolved.filter { it.isDigit() }
+        // Local 10-digit numbers get the user's home country code (+91).
+        if (digits.length == 10) digits = "91$digits"
+        return try {
+            val uri = android.net.Uri.parse(
+                "whatsapp://send?phone=$digits&text=" + android.net.Uri.encode(text)
+            )
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            "opened"
+        } catch (e: android.content.ActivityNotFoundException) {
+            "no_whatsapp"
+        } catch (e: Exception) {
+            "error"
+        }
     }
 
     private fun needsPhonePermissions(context: Context, who: String): Boolean =
@@ -161,7 +249,9 @@ object DeviceBridge {
             )
             return "asked"
         }
-        val number = findContactNumber(context, who) ?: return "no_match"
+        val number = resolveContact(context, who)
+        if (number.isEmpty()) return "no_match"
+        if (number.startsWith("pick:")) return number
         val uri = android.net.Uri.parse("tel:$number")
         return try {
             if (hasPermission(context, Manifest.permission.CALL_PHONE)) {
@@ -191,7 +281,9 @@ object DeviceBridge {
             )
             return "asked"
         }
-        val number = findContactNumber(context, who) ?: return "no_match"
+        val number = resolveContact(context, who)
+        if (number.isEmpty()) return "no_match"
+        if (number.startsWith("pick:")) return number
         return try {
             android.telephony.SmsManager.getDefault().sendTextMessage(number, null, text, null, null)
             "sent"

@@ -27,6 +27,11 @@ class OfflineEngine {
     caseSensitive: false,
   );
 
+  static final _whatsApp = RegExp(
+    r'^(?:send\s+)?(?:a\s+)?whatsapp(?:\s+message)?\s+(?:to\s+)?(?<who>.+?)\s+(?:saying|that)\s+(?<what>.+?)[\s.!?]*$',
+    caseSensitive: false,
+  );
+
   static final _volumePct = RegExp(
     r'(?:set\s+)?volume\s+(?:to\s+)?(?<n>\d{1,3})\s*%?',
     caseSensitive: false,
@@ -205,6 +210,19 @@ class OfflineEngine {
       return FridayResponse(
         reply: 'Calling $who.',
         action: FridayAction(type: FridayActionType.callContact, target: who),
+        source: FridaySource.offline,
+      );
+    }
+
+    // WhatsApp named explicitly: route to WhatsApp, never to SMS.
+    final wa = _whatsApp.firstMatch(text.trim());
+    if (wa != null) {
+      final who = wa.namedGroup('who')!.trim();
+      final what = wa.namedGroup('what')!.trim();
+      return FridayResponse(
+        reply: 'Opening WhatsApp for $who.',
+        action: FridayAction(
+            type: FridayActionType.sendWhatsApp, target: who, body: what),
         source: FridaySource.offline,
       );
     }
