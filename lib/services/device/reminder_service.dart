@@ -9,7 +9,12 @@ class ReminderService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
-  int _nextId = 1;
+
+  /// Notification IDs come from the clock, not a counter: a counter resets
+  /// every process start, so two reminders set in different app sessions
+  /// collided on id=1 and the newer one silently replaced the older.
+  static int newNotificationId(int millisSinceEpoch) =>
+      millisSinceEpoch % 0x7FFFFFFF;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -22,6 +27,11 @@ class ReminderService {
       await _plugin.initialize(
         const InitializationSettings(android: androidInit),
       );
+      // Android 13+ starts with notifications denied - ask once at startup,
+      // otherwise scheduled reminders fire with nothing visible.
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.requestNotificationsPermission();
     } catch (_) {
       // Notifications unavailable on this device - reminders just won't fire.
     }
@@ -54,7 +64,7 @@ class ReminderService {
         mode = AndroidScheduleMode.inexactAllowWhileIdle;
       }
       await _plugin.zonedSchedule(
-        _nextId++,
+        newNotificationId(DateTime.now().millisecondsSinceEpoch),
         title.isEmpty ? 'Reminder' : 'Friday: $title',
         body,
         when,
