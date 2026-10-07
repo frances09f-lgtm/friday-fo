@@ -29,7 +29,9 @@ class DeviceHub {
                 packageName: m['package'] as String? ?? '',
               ))
           .toList();
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return const [];
     }
   }
@@ -37,7 +39,9 @@ class DeviceHub {
   Future<bool> hasSmsPermission() async {
     try {
       return await _channel.invokeMethod<bool>('hasSmsPermission') ?? false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }
@@ -45,7 +49,9 @@ class DeviceHub {
   Future<void> requestSmsPermission() async {
     try {
       await _channel.invokeMethod<bool>('requestSmsPermission');
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       // The system dialog decides; the next hasSmsPermission check reads it.
     }
   }
@@ -65,7 +71,9 @@ class DeviceHub {
           at: DateTime.fromMillisecondsSinceEpoch(millis),
         );
       }).toList();
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return const [];
     }
   }
@@ -76,7 +84,9 @@ class DeviceHub {
       return await _channel
               .invokeMethod<String>('callContact', {'who': who}) ??
           'error';
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return 'error';
     }
   }
@@ -87,7 +97,9 @@ class DeviceHub {
       return await _channel.invokeMethod<String>(
               'sendText', {'who': who, 'text': body}) ??
           'error';
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return 'error';
     }
   }
@@ -97,7 +109,9 @@ class DeviceHub {
       return await _channel.invokeMethod<bool>(
               'setVolume', {'percent': percent}) ??
           false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }
@@ -108,7 +122,9 @@ class DeviceHub {
       return await _channel.invokeMethod<String>(
               'setBrightness', {'percent': percent}) ??
           'error';
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return 'error';
     }
   }
@@ -116,7 +132,9 @@ class DeviceHub {
   Future<bool> setTorch(bool on) async {
     try {
       return await _channel.invokeMethod<bool>('setTorch', {'on': on}) ?? false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }
@@ -126,7 +144,9 @@ class DeviceHub {
       return await _channel
               .invokeMethod<bool>(up ? 'volumeUp' : 'volumeDown') ??
           false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }
@@ -136,7 +156,9 @@ class DeviceHub {
       return await _channel
               .invokeMethod<bool>('openPanel', {'which': which}) ??
           false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }
@@ -181,7 +203,9 @@ class DeviceHub {
             <String, dynamic>{'package': app.packageName},
           ) ??
           false;
-    } on PlatformException {
+    } on Exception {
+// ignore: unreachable_switch_case
+
       return false;
     }
   }

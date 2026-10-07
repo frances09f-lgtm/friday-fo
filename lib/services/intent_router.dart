@@ -1,3 +1,7 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../models/friday_response.dart';
 import 'device/device_hub.dart';
 import 'device/reminder_service.dart';
@@ -22,9 +26,33 @@ class IntentRouter {
     return outcomes.join('\n');
   }
 
+  /// Phone hardware actions (calls, SMS, torch, Android panels, exact
+  /// volume/brightness) only exist on Android/iOS. On desktop, say so
+  /// honestly instead of failing deep inside a missing plugin.
+  static const _phoneOnly = {
+    FridayActionType.readMessages,
+    FridayActionType.callContact,
+    FridayActionType.sendText,
+    FridayActionType.torchOn,
+    FridayActionType.torchOff,
+    FridayActionType.volumeUp,
+    FridayActionType.volumeDown,
+    FridayActionType.wifiSettings,
+    FridayActionType.bluetoothSettings,
+    FridayActionType.setVolume,
+    FridayActionType.setBrightness,
+    FridayActionType.openApp,
+  };
+
+  static bool get _isPhone =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   Future<String> execute(FridayAction action) async {
     if (action.type != FridayActionType.none) {
       UsageReporter.report('action', {'type': action.type.name});
+    }
+    if (!_isPhone && _phoneOnly.contains(action.type)) {
+      return "That phone feature isn't available in the Windows version of Friday.";
     }
     switch (action.type) {
       case FridayActionType.openApp:

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../../services/ai/local_model_service.dart';
 import '../../services/storage/settings_store.dart';
 
@@ -115,6 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (v) => setState(() => _speakReplies = v),
           ),
           const SizedBox(height: 16),
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
           Text('On-device backup', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           SwitchListTile(
@@ -143,7 +148,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Expanded(child: Text(_modelStatus)),
             ],
           ),
-          const SizedBox(height: 24),
+          ],
+          SizedBox(height: 24),
           FilledButton.icon(
             icon: const Icon(Icons.save),
             label: const Text('Save'),

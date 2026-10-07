@@ -1,0 +1,29 @@
+name: Build Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'windows/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/build-windows.yml'
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build windows --release -v --dart-define=GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+      - name: Zip the release build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath friday-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: friday-windows
+          path: friday-windows.zip

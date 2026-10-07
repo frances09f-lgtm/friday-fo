@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
@@ -45,7 +47,7 @@ Future<void> main() async {
   try {
     await controller.loadHistory();
   } catch (_) {}
-  UsageReporter.report('app_start');
+  UsageReporter.report('app_start', {'os': Platform.operatingSystem});
 
   runApp(
     MultiProvider(
