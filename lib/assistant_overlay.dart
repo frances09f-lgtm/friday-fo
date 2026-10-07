@@ -171,9 +171,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                              isUser
-                                  ? m.text
-                                  : FridayController.conciseReply(m.text),
+                              m.text,
                               style: const TextStyle(fontSize: 13)),
                         ),
                       );
