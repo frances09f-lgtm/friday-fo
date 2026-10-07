@@ -21,7 +21,7 @@ class PreviewLink extends DeviceLink {
 
 void main() {
   testWidgets('selection is required when multiple addresses exist', (t) async {
-    await t.binding.setSurfaceSize(const Size(412, 1400));
+    await t.binding.setSurfaceSize(const Size(412, 2200));
     final link =
         PreviewLink(['http://192.168.1.4:12345', 'http://10.0.0.1:12345']);
     await t.pumpWidget(ChangeNotifierProvider<DeviceLink>.value(
@@ -35,7 +35,7 @@ void main() {
     expect(t.takeException(), isNull);
   });
   testWidgets('single address selected and format error visible', (t) async {
-    await t.binding.setSurfaceSize(const Size(412, 1400));
+    await t.binding.setSurfaceSize(const Size(412, 2200));
     final link = PreviewLink(['http://192.168.1.4:12345']);
     final key = GlobalKey();
     await t.pumpWidget(ChangeNotifierProvider<DeviceLink>.value(
@@ -49,7 +49,10 @@ void main() {
             .onPressed,
         isNotNull);
     await t.enterText(find.byType(TextField).first, '192.168.1.5');
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Pair'));
     await t.tap(find.widgetWithText(FilledButton, 'Pair'));
+    await t.pumpAndSettle();
+    await t.drag(find.byType(ListView), const Offset(0,-250));
     await t.pumpAndSettle();
     expect(find.textContaining('Enter the other device address exactly'),
         findsOneWidget);
