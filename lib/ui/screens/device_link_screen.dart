@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../../services/link/pairing_code.dart';
+import 'pairing_scan_screen.dart';
 import 'package:provider/provider.dart';
 import '../../services/link/device_link.dart';
 
@@ -13,6 +17,15 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
   String? _own;
   String? _error;
   bool _working = false;
+  PairingCode? _code;
+  String? _codeSessionKey;
+
+  void _refreshCode(DeviceLink link) {
+    if (_own == null || link.pairingKey == null) return;
+    _code = PairingCode.create(_own!, link.pairingKey!);
+    _codeSessionKey = link.pairingKey;
+  }
+
   @override
   void dispose() {
     _url.dispose();
@@ -28,6 +41,12 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
     if (!ownAddresses.contains(_own)) {
       _own = ownAddresses.length == 1 ? ownAddresses.single : null;
     }
+    if (link.running &&
+        !link.paired &&
+        _own != null &&
+        (_code == null ||
+            _code!.address != _own ||
+            _codeSessionKey != link.pairingKey)) _refreshCode(link);
     return Scaffold(
         appBar: AppBar(title: const Text('Connect devices')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
@@ -86,6 +105,35 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
                 onChanged: (v) => setState(() => _own = v),
                 decoration: const InputDecoration(
                     labelText: 'My address on the shared network')),
+            if (_code != null && _own != null) ...[
+              const SizedBox(height: 12),
+              const Text(
+                  'Scan this QR from your other Friday. It contains the local address and current key. Keep it private.'),
+              Center(
+                  child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(8),
+                      child: QrImageView(data: _code!.encode(), size: 220))),
+              TextButton(
+                  onPressed: () => setState(() => _refreshCode(link)),
+                  child: const Text('Refresh QR (valid 10 minutes)')),
+            ],
+            if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+              OutlinedButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Scan laptop QR'),
+                  onPressed: () async {
+                    final code = await Navigator.push<PairingCode>(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const PairingScanScreen()));
+                    if (code != null && mounted)
+                      setState(() {
+                        _url.text = code.address;
+                        _key.text = code.key;
+                        _error = null;
+                      });
+                  }),
             FilledButton(
                 onPressed: _working || _own == null
                     ? null
