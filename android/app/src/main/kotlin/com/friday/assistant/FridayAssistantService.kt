@@ -12,14 +12,10 @@ import android.service.voice.VoiceInteractionSessionService
 /// service and shows a session; the session immediately hands off to the
 /// trampoline, which opens the floating panel - the same path as the
 /// ASSIST intent, so behavior is identical however the gesture arrives.
-class FridayAssistantService : VoiceInteractionService() {
-    /// Android 12+ power-button gesture lands here. The default
-    /// implementation does show the session on most builds, but being
-    /// explicit removes OEM differences (OxygenOS 14 included).
-    override fun onLaunchVoiceAssist(voiceAssistType: Int) {
-        showSession(Bundle(), SHOW_WITH_ASSIST_GESTURE)
-    }
-}
+/// The power-button/corner-swipe gestures are delivered by the system
+/// straight into showSession (SHOW_SOURCE_ASSIST_GESTURE) - there is no
+/// app-side callback to implement for them on Android 14.
+class FridayAssistantService : VoiceInteractionService()
 
 class FridayAssistantSessionService : VoiceInteractionSessionService() {
     override fun onNewSession(args: Bundle?): VoiceInteractionSession =
