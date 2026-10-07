@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Registers Friday for the system assistant role so it appears in
+     Settings > Apps > Default apps > Digital assistant app. -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService=".FridayAssistantSessionService"
+    android:supportsAssist="true" />
