@@ -14,9 +14,11 @@ import 'groq_stt.dart';
 /// On Android/iOS, input uses the speech_to_text plugin (Google's engine, so
 /// Marathi and Hindi work alongside English). On Windows there is no such
 /// engine, so input records the mic with the record plugin and transcribes
-/// through Groq's hosted Whisper with the same Groq key the brain uses -
-/// tap the mic to start, tap again to stop and send. No partial words on
-/// Windows; the text lands when you stop. Output is flutter_tts everywhere.
+/// through Groq's hosted Whisper with the same Groq key the brain uses.
+/// Tap the mic to start; it STOPS ITSELF after ~1.8 s of quiet once you
+/// have said something (user ask), or tap again to stop sooner. No partial
+/// words on Windows; the text lands when recording ends. Output is
+/// flutter_tts everywhere.
 class SpeechService {
   SpeechService({Future<String> Function()? groqKeyProvider})
       : _groqKeyProvider = groqKeyProvider;
@@ -33,6 +35,10 @@ class SpeechService {
   bool _sttReady = false;
   bool _recListening = false;
   Timer? _maxTimer;
+  Timer? _ampTimer;
+  bool _heardSpeech = false;
+  DateTime? _silenceSince;
+  DateTime? _recStartedAt;
   void Function(String text)? _onResult;
   void Function()? _onDone;
   String? _wavPath;
@@ -109,6 +115,7 @@ class SpeechService {
       );
       _recListening = true;
       _maxTimer = Timer(const Duration(seconds: 90), () => stopListening());
+      _startSilenceWatch();
     } catch (_) {
       lastSttError = 'Could not start the microphone.';
       _recListening = false;
@@ -120,6 +127,8 @@ class SpeechService {
     if (!_isWindows) return _stt.stop();
     _maxTimer?.cancel();
     _maxTimer = null;
+    _ampTimer?.cancel();
+    _ampTimer = null;
     if (!_recListening) return;
     _recListening = false;
     try {
@@ -152,6 +161,47 @@ class SpeechService {
       File(path).delete();
     } catch (_) {}
     _onDone?.call();
+  }
+
+  /// Windows auto-stop (user ask): poll the mic amplitude 10x a second.
+  /// Once real speech has been heard, ~1.8 s of quiet ends the recording
+  /// and sends it - no second tap needed. Tapping the mic still stops
+  /// sooner, and a speaker who never says anything is cut off at 10 s so
+  /// the mic never hangs open. -45 dBFS is the quiet-room/speech line.
+  void _startSilenceWatch() {
+    _heardSpeech = false;
+    _silenceSince = null;
+    _recStartedAt = DateTime.now();
+    _ampTimer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+      if (!_recListening) return;
+      Amplitude amp;
+      try {
+        amp = await _rec.getAmplitude();
+      } catch (_) {
+        return;
+      }
+      final now = DateTime.now();
+      if (amp.current > -45) {
+        _heardSpeech = true;
+        _silenceSince = null;
+      } else {
+        _silenceSince ??= now;
+        final quietFor = now.difference(_silenceSince!);
+        final heardEnough = _recStartedAt != null &&
+            _silenceSince!.isAfter(
+                _recStartedAt!.add(const Duration(milliseconds: 800)));
+        if (_heardSpeech &&
+            heardEnough &&
+            quietFor >= const Duration(milliseconds: 1800)) {
+          await stopListening();
+        } else if (!_heardSpeech &&
+            _recStartedAt != null &&
+            now.difference(_recStartedAt!) >=
+                const Duration(seconds: 10)) {
+          await stopListening();
+        }
+      }
+    });
   }
 
   Future<void> speak(String text, {String locale = 'en-IN'}) async {
