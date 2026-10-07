@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 
 /// Groq's hosted Whisper endpoint (OpenAI-compatible /audio/transcriptions).
 /// Used on platforms where the on-device speech_to_text plugin has no engine
-/// (Windows desktop). whisper-large-v3 handles English, Hindi and Marathi.
+/// (Windows desktop). whisper-large-v3-turbo keeps English, Hindi and Marathi
+/// support at a fraction of large-v3's transcription time.
 class GroqStt {
   GroqStt({required this.apiKey});
 
@@ -16,7 +17,7 @@ class GroqStt {
   Future<String> transcribe(String wavPath) async {
     final req = http.MultipartRequest('POST', Uri.parse(_url))
       ..headers['Authorization'] = 'Bearer $apiKey'
-      ..fields['model'] = 'whisper-large-v3'
+      ..fields['model'] = 'whisper-large-v3-turbo'
       ..fields['response_format'] = 'json'
       ..files.add(await http.MultipartFile.fromPath('file', wavPath));
     final res = await req.send().timeout(const Duration(seconds: 45));

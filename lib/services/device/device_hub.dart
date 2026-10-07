@@ -1,4 +1,9 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+
+import 'windows_device.dart';
 
 class InstalledApp {
   const InstalledApp({required this.label, required this.packageName});
@@ -17,6 +22,8 @@ class SmsEntry {
 /// app launching, and SMS reading. The Kotlin half lives in MainActivity.kt.
 class DeviceHub {
   static const _channel = MethodChannel('friday/device');
+
+  static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
   Future<List<InstalledApp>> getInstalledApps() async {
     try {
@@ -116,6 +123,7 @@ class DeviceHub {
   }
 
   Future<bool> setVolumePercent(int percent) async {
+    if (_isWindows) return WindowsDevice.setVolumePercent(percent);
     try {
       return await _channel.invokeMethod<bool>(
               'setVolume', {'percent': percent}) ??
@@ -129,6 +137,9 @@ class DeviceHub {
 
   /// Returns ok | asked | error.
   Future<String> setBrightnessPercent(int percent) async {
+    if (_isWindows) {
+      return await WindowsDevice.setBrightnessPercent(percent) ? 'ok' : 'error';
+    }
     try {
       return await _channel.invokeMethod<String>(
               'setBrightness', {'percent': percent}) ??
@@ -151,6 +162,7 @@ class DeviceHub {
   }
 
   Future<bool> adjustVolume({required bool up}) async {
+    if (_isWindows) return WindowsDevice.adjustVolume(up: up);
     try {
       return await _channel
               .invokeMethod<bool>(up ? 'volumeUp' : 'volumeDown') ??
@@ -163,6 +175,7 @@ class DeviceHub {
   }
 
   Future<bool> openSystemPanel(String which) async {
+    if (_isWindows) return WindowsDevice.openSettingsPanel(which);
     try {
       return await _channel
               .invokeMethod<bool>('openPanel', {'which': which}) ??
@@ -180,6 +193,11 @@ class DeviceHub {
   Future<InstalledApp?> openAppByName(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return null;
+    if (_isWindows) {
+      return await WindowsDevice.openApp(q)
+          ? InstalledApp(label: query.trim(), packageName: '')
+          : null;
+    }
     final apps = await getInstalledApps();
 
     for (final app in apps) {

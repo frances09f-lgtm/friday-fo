@@ -73,7 +73,10 @@ class OpenAiCompatibleProvider implements CloudProvider {
         'temperature': 0.4,
         'max_tokens': 1024,
       }),
-    );
+    )
+        // A stalled request used to hang the reply forever - fail over to
+        // the next brain instead.
+        .timeout(const Duration(seconds: 25));
 
     if (res.statusCode != 200) {
       throw FridayApiException('$name API error ${res.statusCode}');

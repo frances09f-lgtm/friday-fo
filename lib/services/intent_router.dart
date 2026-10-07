@@ -48,11 +48,26 @@ class IntentRouter {
   static bool get _isPhone =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
+  static bool get _isWindows => !kIsWeb && Platform.isWindows;
+
+  /// System controls the laptop build handles itself (via PowerShell).
+  static const _windowsCapable = {
+    FridayActionType.openApp,
+    FridayActionType.volumeUp,
+    FridayActionType.volumeDown,
+    FridayActionType.setVolume,
+    FridayActionType.setBrightness,
+    FridayActionType.wifiSettings,
+    FridayActionType.bluetoothSettings,
+  };
+
   Future<String> execute(FridayAction action) async {
     if (action.type != FridayActionType.none) {
       UsageReporter.report('action', {'type': action.type.name});
     }
-    if (!_isPhone && _phoneOnly.contains(action.type)) {
+    if (!_isPhone &&
+        _phoneOnly.contains(action.type) &&
+        !(_isWindows && _windowsCapable.contains(action.type))) {
       return "That phone feature isn't available in the Windows version of Friday.";
     }
     switch (action.type) {

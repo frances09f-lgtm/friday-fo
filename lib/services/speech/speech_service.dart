@@ -156,9 +156,12 @@ class SpeechService {
 
   Future<void> speak(String text, {String locale = 'en-IN'}) async {
     try {
-      await _tts.setLanguage(locale);
+      // Windows voice lookup with an Indian-English code can stall the
+      // plugin; use the system voice there, and never let TTS block the
+      // reply path for more than a few seconds anywhere.
+      if (!_isWindows) await _tts.setLanguage(locale);
       await _tts.setSpeechRate(0.5);
-      await _tts.speak(text);
+      await _tts.speak(text).timeout(const Duration(seconds: 5));
     } catch (_) {
       // Speaking is a nicety; never block the answer on it.
     }
