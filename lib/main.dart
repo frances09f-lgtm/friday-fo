@@ -13,6 +13,7 @@ import 'services/speech/speech_service.dart';
 import 'services/storage/chat_store.dart';
 import 'services/storage/settings_store.dart';
 import 'state/friday_controller.dart';
+import 'services/usage_reporter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ Future<void> main() async {
   try {
     await controller.loadHistory();
   } catch (_) {}
+  UsageReporter.report('app_start');
 
   runApp(
     MultiProvider(

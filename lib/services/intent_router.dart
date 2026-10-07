@@ -1,6 +1,7 @@
 import '../models/friday_response.dart';
 import 'device/device_hub.dart';
 import 'device/reminder_service.dart';
+import 'usage_reporter.dart';
 
 /// Carries out the phone action a brain decided on, and returns a short
 /// human line about what happened (or why it could not).
@@ -11,6 +12,9 @@ class IntentRouter {
   final ReminderService reminders;
 
   Future<String> execute(FridayAction action) async {
+    if (action.type != FridayActionType.none) {
+      UsageReporter.report('action', {'type': action.type.name});
+    }
     switch (action.type) {
       case FridayActionType.openApp:
         return _openApp(action.app);

@@ -4,6 +4,7 @@ import '../storage/settings_store.dart';
 import 'friday_parser.dart';
 import 'local_model_service.dart';
 import 'offline_engine.dart';
+import '../usage_reporter.dart';
 
 /// Friday's thinking pipeline, with the fallback ladder built in:
 /// every configured cloud key first, then the on-device Gemma model,
@@ -40,7 +41,10 @@ Pick open_app when the user wants an app launched, read_messages when they ask a
           userText: userText,
         );
         final parsed = parser.parse(raw, source: FridaySource.cloud);
-        if (parsed.reply.trim().isNotEmpty) return parsed;
+        if (parsed.reply.trim().isNotEmpty) {
+          UsageReporter.report('ai_request', {'tier': 'cloud'});
+          return parsed;
+        }
       } catch (_) {
         // Key missing, quota gone, network down: try the next brain.
       }
@@ -54,12 +58,16 @@ Pick open_app when the user wants an app launched, read_messages when they ask a
           history: history.take(8).toList(),
         );
         final parsed = parser.parse(raw, source: FridaySource.local);
-        if (parsed.reply.trim().isNotEmpty) return parsed;
+        if (parsed.reply.trim().isNotEmpty) {
+          UsageReporter.report('ai_request', {'tier': 'local'});
+          return parsed;
+        }
       } catch (_) {
         // No model installed or the device could not load it: drop to offline.
       }
     }
 
+    UsageReporter.report('ai_request', {'tier': 'offline'});
     return offline.handle(userText);
   }
 }
