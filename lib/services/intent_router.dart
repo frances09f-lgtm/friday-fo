@@ -47,7 +47,6 @@ class IntentRouter {
     FridayActionType.brightnessDown,
     FridayActionType.openApp,
     FridayActionType.oroStatus,
-    FridayActionType.closeAllApps,
   };
 
   static bool get _isPhone =>
@@ -144,16 +143,18 @@ class IntentRouter {
         action.target.isEmpty ? 'price' : action.target, snapshot);
   }
 
-  /// "Close all apps" (user voice ask). Silent on success - "Done." says
-  /// it; honest lines when nothing was running or it failed.
+  /// "Close all apps" (user voice ask, WINDOWS ONLY - user decision after
+  /// hearing Android's limits). Silent on success - "Done." says it.
   Future<String> _closeAllApps() async {
     switch (await deviceHub.closeAllApps()) {
       case 'ok':
         return '';
       case 'none':
-        return 'No background apps to close.';
+        return 'No app windows to close.';
+      case 'unsupported':
+        return 'Closing all apps works on the laptop - Android does not let an app remove other apps properly.';
       default:
-        return "I couldn't close the background apps.";
+        return "I couldn't close the app windows.";
     }
   }
 

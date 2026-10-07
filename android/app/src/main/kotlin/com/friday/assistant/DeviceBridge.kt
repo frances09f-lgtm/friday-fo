@@ -10,7 +10,6 @@ import android.media.AudioManager
 import android.provider.Settings
 import android.provider.ContactsContract
 import android.provider.Telephony
-import android.app.ActivityManager
 import android.net.Uri
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -59,7 +58,6 @@ object DeviceBridge {
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
                 "oroStatus" -> result.success(oroStatus(context))
-                "closeBackgroundApps" -> result.success(closeBackgroundApps(context))
                 else -> result.notImplemented()
             }
         }
@@ -452,34 +450,5 @@ object DeviceBridge {
         } catch (e: Exception) {
             null
         }
-    }
-
-    /**
-     * "Close all apps" (user voice ask). Android does not let one app
-     * force-stop another, and the recents list is the launcher's own UI -
-     * what IS allowed is killing every launchable app's background
-     * processes, which is what the system's own task killer does. Returns
-     * how many apps we sent the kill for (the system decides what is
-     * actually killable); the recents cards stay, and the foreground app
-     * and foreground-service apps survive.
-     */
-    private fun closeBackgroundApps(context: Context): Int {
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val pm = context.packageManager
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val pkgs = pm.queryIntentActivities(intent, 0)
-            .map { it.activityInfo.packageName }
-            .toSet()
-        var sent = 0
-        for (pkg in pkgs) {
-            if (pkg == context.packageName) continue
-            try {
-                am.killBackgroundProcesses(pkg)
-                sent++
-            } catch (e: Exception) {
-                // keep going for the rest
-            }
-        }
-        return sent
     }
 }

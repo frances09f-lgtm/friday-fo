@@ -218,20 +218,13 @@ class DeviceHub {
     }
   }
 
-  /// "Close all apps" (user voice ask): kills background apps on the
-  /// phone, closes visible app windows on Windows. Returns a short result
-  /// token: 'ok', 'none', or 'error'.
+  /// "Close all apps" (user voice ask, WINDOWS ONLY - user decision after
+  /// hearing Android's honest limits). Closes visible app windows on
+  /// Windows; anywhere else returns 'unsupported' for the router's honest
+  /// line.
   Future<String> closeAllApps() async {
     if (_isWindows) return WindowsDevice.closeAllApps();
-    if (kIsWeb) return 'error';
-    try {
-      final n =
-          await _channel.invokeMethod<int>('closeBackgroundApps') ?? -1;
-      if (n < 0) return 'error';
-      return n == 0 ? 'none' : 'ok';
-    } catch (_) {
-      return 'error';
-    }
+    return 'unsupported';
   }
 
   Future<InstalledApp?> openAppByName(String query) async {
