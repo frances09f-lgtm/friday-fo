@@ -28,6 +28,7 @@ object DeviceBridge {
     private const val PERMISSION_REQUEST = 4242
 
     fun register(messenger: BinaryMessenger, context: Context, activity: Activity?) {
+        try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInstalledApps" -> result.success(installedApps(context))
@@ -57,6 +58,13 @@ object DeviceBridge {
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
+                "taskState" -> result.success(GoldTasks.state(context))
+                "taskCreate" -> result.success(GoldTasks.create(context,
+                    call.argument<String>("direction") ?: "",
+                    (call.argument<Number>("threshold")?.toDouble()) ?: Double.NaN,
+                    call.argument<Int>("intervalMinutes") ?: 0))
+                "taskCancelAll" -> result.success(GoldTasks.cancelAll(context))
+                "taskMode" -> result.success(GoldTasks.setMode(context, call.argument<Boolean>("saver") == true))
                 "oroStatus" -> result.success(oroStatus(context))
                 else -> result.notImplemented()
             }

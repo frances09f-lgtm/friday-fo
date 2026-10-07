@@ -1,4 +1,6 @@
 import 'dart:io';
+import '../services/tasks/gold_task.dart';
+import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
 import '../services/ai/offline_engine.dart';
 import 'package:flutter/foundation.dart';
@@ -61,6 +63,33 @@ class FridayController extends ChangeNotifier {
     messages.add(userMessage);
     busy = true;
     notifyListeners();
+
+    final goldTask = GoldTaskRequest.parse(clean);
+    final cancelGold = RegExp(
+            r'^(?:cancel|stop) (?:all |my )?gold (?:alerts|tasks|checks)[.!]?$',
+            caseSensitive: false)
+        .hasMatch(clean);
+    if (goldTask != null || cancelGold) {
+      String reply;
+      try {
+        reply = goldTask != null
+            ? await TaskService().create(goldTask)
+            : await TaskService().cancelAll();
+      } catch (_) {
+        reply =
+            'Could not update background tasks. Open Background tasks to check their saved state.';
+      }
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}task',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now()));
+      busy = false;
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(reply);
+      return;
+    }
 
     final remote = RegExp(
             r'\s+(?:on|to)\s+(?:my|the)\s+(phone|mobile|laptop|windows|computer)[.!?]*$',
