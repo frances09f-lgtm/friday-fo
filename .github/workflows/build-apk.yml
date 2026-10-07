@@ -17,6 +17,15 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.47.6'
+      - name: Restore signing keystore
+        run: |
+          echo "${{ secrets.FRIDAY_KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/friday-release.jks
+          cat >> android/gradle.properties <<GP
+          FRIDAY_KEYSTORE_FILE=$RUNNER_TEMP/friday-release.jks
+          FRIDAY_KEYSTORE_PASSWORD=${{ secrets.FRIDAY_KEYSTORE_PASSWORD }}
+          FRIDAY_KEY_ALIAS=${{ secrets.FRIDAY_KEY_ALIAS }}
+          FRIDAY_KEY_PASSWORD=${{ secrets.FRIDAY_KEY_PASSWORD }}
+          GP
       - run: flutter pub get
       - run: flutter test || true
       - run: flutter build apk --release --target-platform android-arm64 -v --build-number=$GITHUB_RUN_NUMBER --build-name=1.0.$GITHUB_RUN_NUMBER --dart-define=GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}

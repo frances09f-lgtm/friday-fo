@@ -7,6 +7,7 @@ plugins {
 // Auto-generate a debug keystore on first build so `flutter build apk
 // --release` works everywhere with zero setup. Replace with a real release
 // keystore before publishing to a store.
+def fridayKeystoreFile = providers.gradleProperty("FRIDAY_KEYSTORE_FILE").orNull
 def debugKeystoreFile = file("debug.keystore")
 if (!debugKeystoreFile.exists()) {
     exec {
@@ -51,13 +52,21 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (fridayKeystoreFile != null) {
+            release {
+                storeFile = file(fridayKeystoreFile)
+                storePassword = providers.gradleProperty("FRIDAY_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("FRIDAY_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("FRIDAY_KEY_PASSWORD").orNull
+            }
+        }
     }
 
     buildTypes {
         release {
-            // Debug signing so `flutter build apk --release` works out of the
-            // box. Replace with your own keystore before shipping to stores.
-            signingConfig = signingConfigs.debug
+            // Stable release key from repo secrets in CI so updates install
+            // over the top; local builds fall back to the debug key.
+            signingConfig = fridayKeystoreFile != null ? signingConfigs.release : signingConfigs.debug
             minifyEnabled = false
             shrinkResources = false
         }
