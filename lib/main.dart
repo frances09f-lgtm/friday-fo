@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
+import 'assistant_overlay.dart' as overlay;
 import 'friday_services.dart';
 
 Future<void> main() async {
@@ -14,3 +15,6 @@ Future<void> main() async {
     ),
   );
 }
+
+@pragma('vm:entry-point')
+Future<void> assistantOverlayMain() => overlay.assistantOverlayMain();
