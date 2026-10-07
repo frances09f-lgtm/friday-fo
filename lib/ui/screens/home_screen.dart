@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../services/speech/speech_service.dart';
 import '../../state/friday_controller.dart';
 import '../widgets/chat_bubble.dart';
+import 'device_link_screen.dart';
+import '../../services/link/device_link.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -81,6 +83,13 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Friday'),
         actions: [
           IconButton(
+              icon: Icon(context.watch<DeviceLink>().paired
+                  ? Icons.link
+                  : Icons.devices),
+              tooltip: 'Connect devices',
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DeviceLinkScreen()))),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
             onPressed: () => Navigator.of(context).pushNamed('/settings'),
@@ -141,7 +150,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icon(
                       Icons.mic,
                       color: context.read<SpeechService>().isListening ||
-                              context.read<FridayController>().partialHeard.isNotEmpty
+                              context
+                                  .read<FridayController>()
+                                  .partialHeard
+                                  .isNotEmpty
                           ? Theme.of(context).colorScheme.primary
                           : null,
                     ),
@@ -194,7 +206,8 @@ class _EmptyState extends StatelessWidget {
             spacing: 8,
             children: [
               for (final s in _suggestions)
-                OutlinedButton(onPressed: () => onSuggestion(s), child: Text(s)),
+                OutlinedButton(
+                    onPressed: () => onSuggestion(s), child: Text(s)),
             ],
           ),
         ],

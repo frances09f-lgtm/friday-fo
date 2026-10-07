@@ -1,3 +1,6 @@
+import 'dart:io';
+import '../services/link/device_link.dart';
+import '../services/ai/offline_engine.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/chat_message.dart';
@@ -17,8 +20,10 @@ class FridayController extends ChangeNotifier {
     required this.chatStore,
     required this.speech,
     required this.settings,
+    this.link,
   });
 
+  final DeviceLink? link;
   final AIBrain brain;
   final IntentRouter router;
   final ChatStore chatStore;
@@ -52,7 +57,29 @@ class FridayController extends ChangeNotifier {
     busy = true;
     notifyListeners();
 
-    final response = await brain.ask(clean, history: List.of(messages));
+    final remote = RegExp(
+            r'\s+(?:on|to)\s+(?:my|the)\s+(phone|mobile|laptop|windows|computer)[.!?]*$',
+            caseSensitive: false)
+        .firstMatch(clean);
+    if (remote != null && link != null) {
+      final target = remote.group(1)!.toLowerCase();
+      final targetPhone = target == 'phone' || target == 'mobile';
+      if (targetPhone != Platform.isAndroid) {
+        final reply = await link!.send(clean.substring(0, remote.start));
+        messages.add(ChatMessage(
+            id: '${DateTime.now().microsecondsSinceEpoch}r',
+            role: MessageRole.friday,
+            text: reply,
+            at: DateTime.now()));
+        busy = false;
+        notifyListeners();
+        await chatStore.save(messages);
+        if (settings.speakReplies) await speech.speak(reply);
+        return;
+      }
+    }
+    final localText = remote == null ? clean : clean.substring(0, remote.start);
+    final response = await brain.ask(localText, history: List.of(messages));
 
     var reply = response.reply;
     // Ignore the placeholder none action - plain conversation gets no
@@ -99,6 +126,54 @@ class FridayController extends ChangeNotifier {
     await chatStore.save(messages);
     if (settings.speakReplies) {
       await speech.speak(reply);
+    }
+  }
+
+  Future<String> receiveRemote(String text) async {
+    if (busy) return 'Friday is busy. Try again in a moment.';
+    final response = const OfflineEngine().handle(text);
+    const allowed = {
+      FridayActionType.openApp,
+      FridayActionType.oroStatus,
+      FridayActionType.closeAllApps,
+      FridayActionType.torchOn,
+      FridayActionType.torchOff,
+      FridayActionType.volumeUp,
+      FridayActionType.volumeDown,
+      FridayActionType.setVolume,
+      FridayActionType.setBrightness,
+      FridayActionType.brightnessUp,
+      FridayActionType.brightnessDown,
+      FridayActionType.wifiSettings,
+      FridayActionType.bluetoothSettings
+    };
+    final actions = response.allActions
+        .where((a) => a.type != FridayActionType.none)
+        .toList();
+    if (actions.isEmpty || actions.any((a) => !allowed.contains(a.type)))
+      return 'Remote command not supported. Use app launch, device controls or Oro questions.';
+    if (actions.any((a) =>
+        a.type == FridayActionType.openApp &&
+        !RegExp(r'^[a-zA-Z0-9 ._-]{1,60}$').hasMatch(a.app))) {
+      return 'Use a plain app name for remote launch.';
+    }
+    busy = true;
+    notifyListeners();
+    try {
+      final result = await router.executeAll(actions);
+      final reply = result.isEmpty ? 'Done on this device.' : result;
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}remote',
+          role: MessageRole.friday,
+          text: 'From paired device: $text\n$reply',
+          at: DateTime.now()));
+      await chatStore.save(messages);
+      return reply;
+    } catch (_) {
+      return 'The command failed on the other device.';
+    } finally {
+      busy = false;
+      notifyListeners();
     }
   }
 

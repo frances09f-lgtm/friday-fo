@@ -11,6 +11,7 @@ import 'services/ai/local_model_service.dart';
 import 'services/device/device_hub.dart';
 import 'services/device/reminder_service.dart';
 import 'services/intent_router.dart';
+import 'services/link/device_link.dart';
 import 'services/speech/speech_service.dart';
 import 'services/storage/chat_store.dart';
 import 'services/storage/settings_store.dart';
@@ -26,13 +27,16 @@ class FridayServices {
     required this.settings,
     required this.speech,
     required this.controller,
+    required this.link,
   });
 
   final SettingsStore settings;
   final SpeechService speech;
   final FridayController controller;
+  final DeviceLink link;
 
   List<SingleChildWidget> get providers => [
+        ChangeNotifierProvider<DeviceLink>.value(value: link),
         Provider<SettingsStore>.value(value: settings),
         Provider<SpeechService>.value(value: speech),
         ChangeNotifierProvider<FridayController>.value(value: controller),
@@ -56,7 +60,9 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     groqKeyProvider: () async => settings.groqKey,
   );
   final brain = AIBrain(settings: settings, local: LocalModelService());
+  final link = DeviceLink();
   final controller = FridayController(
+    link: link,
     brain: brain,
     router: IntentRouter(deviceHub: DeviceHub(), reminders: reminders),
     chatStore: ChatStore(prefs),
@@ -69,5 +75,7 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     } catch (_) {}
   }
   UsageReporter.report('app_start', {'os': Platform.operatingSystem});
-  return FridayServices(settings: settings, speech: speech, controller: controller);
+  link.onCommand = controller.receiveRemote;
+  return FridayServices(
+      settings: settings, speech: speech, controller: controller, link: link);
 }
