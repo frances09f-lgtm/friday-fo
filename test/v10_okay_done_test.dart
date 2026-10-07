@@ -61,7 +61,7 @@ Future<FridayController> _controller(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('action command: Okay on accept, Done plus outcome lines on finish',
+  test('action command: single outcome on finish',
       () async {
     final router = _FakeRouter()..outcome = 'Volume set to 40%';
     final speech = _FakeSpeech();
@@ -76,10 +76,10 @@ void main() {
     await c.send('set volume 40');
     expect(router.calls, 1);
     final texts = c.messages.map((m) => m.text).toList();
-    expect(texts, ['set volume 40', 'Okay.', 'Volume set to 40%']);
+    expect(texts, ['set volume 40', 'Volume set to 40%']);
   });
 
-  test('multi-part command: one Okay, one Done, every outcome line kept',
+  test('multi-part command: one result, every outcome line kept',
       () async {
     final router = _FakeRouter()
       ..outcome = 'Flashlight turned off.\nOpened Camera.';
@@ -98,7 +98,6 @@ void main() {
     final texts = c.messages.map((m) => m.text).toList();
     expect(texts, [
       'flashlight off and open camera',
-      'Okay.',
       'Flashlight turned off.\nOpened Camera.'
     ]);
   });
@@ -114,7 +113,7 @@ void main() {
     expect(texts, ['how are you', 'I am fine, thanks!']);
   });
 
-  test('spoken replies: Okay first, then the done line', () async {
+  test('spoken replies: single result', () async {
     final router = _FakeRouter()..outcome = 'Volume set to 40%';
     final speech = _FakeSpeech();
     final c = await _controller(
@@ -127,7 +126,7 @@ void main() {
         speech,
         speak: true);
     await c.send('set volume 40');
-    expect(speech.spoken, ['Okay.', 'Volume set to 40%']);
+    expect(speech.spoken, ['Volume set to 40%']);
   });
   test('unexpected execution error clears busy without false Done', () async {
     final router = _ThrowRouter();

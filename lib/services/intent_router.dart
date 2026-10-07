@@ -162,7 +162,7 @@ class IntentRouter {
     if (app == null) {
       return "I couldn't find an app matching \"$appQuery\" on this phone.";
     }
-    return ''; // silent success - "Done." says it
+    return ''; // silent success - single confirmation
   }
 
   Future<String> _readMessages({String query = ''}) async {
@@ -195,7 +195,7 @@ class IntentRouter {
     }
     switch (callResult) {
       case 'calling':
-        return ''; // silent success - "Done." says it
+        return ''; // silent success - single confirmation
       case 'dialer':
         return 'Opening the dialer with $who - tap the call button. Grant the call permission and I can dial directly.';
       case 'asked':
@@ -287,13 +287,21 @@ class IntentRouter {
     if (action.afterMinutes <= 0) {
       return 'I need a time for that reminder.';
     }
+    final absolute = DateTime.tryParse(action.target);
+    final after = absolute == null
+        ? Duration(minutes: action.afterMinutes)
+        : absolute.difference(DateTime.now());
+    if (after <= Duration.zero)
+      return 'That reminder time has passed. Please choose a future time.';
     final ok = await reminders.schedule(
       title: action.title,
       body: action.title,
-      after: Duration(minutes: action.afterMinutes),
+      after: after,
     );
     if (!ok)
       return 'I could not schedule the reminder. Open Notifications in Friday to check permission and test notifications.';
-    return ''; // silent success - "Done." says it
+    final when = reminders.lastRegisteredAt ??
+        DateTime.now().add(Duration(minutes: action.afterMinutes));
+    return 'Reminder registered for ${when.day}/${when.month} ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}: ${action.title}. ${reminders.lastRegisteredId == null ? '' : 'ID ${reminders.lastRegisteredId}. '}Check the bell screen for pending reminders.';
   }
 }

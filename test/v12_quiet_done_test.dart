@@ -58,6 +58,6 @@ void main() {
     );
     await c.send('open whatsapp');
     final texts = c.messages.map((m) => m.text).toList();
-    expect(texts, ['open whatsapp', 'Okay.', 'Done.']);
+    expect(texts, ['open whatsapp', 'Done.']);
   });
 }

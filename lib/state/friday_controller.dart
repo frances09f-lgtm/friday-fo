@@ -166,18 +166,7 @@ class FridayController extends ChangeNotifier {
       if (reply.isEmpty) reply = "I couldn't read Oro's data.";
     } else if (actions.isNotEmpty) {
       oroContext.clear();
-      // Acknowledge on acceptance, confirm on completion - the user hears
-      // "okay" when Friday takes the command and "done" when it finished.
-      messages.add(ChatMessage(
-        id: '${DateTime.now().microsecondsSinceEpoch}a',
-        role: MessageRole.friday,
-        text: 'Okay.',
-        at: DateTime.now(),
-      ));
-      notifyListeners();
-      if (settings.speakReplies) {
-        await speech.speak('Okay.');
-      }
+      // One final result, not a second acknowledgement bubble.
       final outcome = await router.executeAll(actions);
       // The router's outcome is the truth - the brain's reply only guessed
       // at the result ("Reminder set" before it was).

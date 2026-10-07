@@ -10,6 +10,13 @@ class ReminderService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  int? lastRegisteredId;
+  DateTime? lastRegisteredAt;
+  Future<List<PendingNotificationRequest>> pending() async {
+    await init();
+    if (!_initialized) return [];
+    return _plugin.pendingNotificationRequests();
+  }
 
   /// Notification IDs come from the clock, not a counter: a counter resets
   /// every process start, so two reminders set in different app sessions
@@ -68,8 +75,9 @@ class ReminderService {
       } catch (_) {
         mode = AndroidScheduleMode.inexactAllowWhileIdle;
       }
+      final id = newNotificationId(DateTime.now().millisecondsSinceEpoch);
       await _plugin.zonedSchedule(
-        newNotificationId(DateTime.now().millisecondsSinceEpoch),
+        id,
         title.isEmpty ? 'Reminder' : 'Friday: $title',
         body,
         when,
@@ -86,6 +94,10 @@ class ReminderService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
+      final requests = await _plugin.pendingNotificationRequests();
+      if (!requests.any((r) => r.id == id)) return false;
+      lastRegisteredId = id;
+      lastRegisteredAt = when;
       return true;
     } catch (_) {
       return false;

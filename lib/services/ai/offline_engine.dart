@@ -43,11 +43,11 @@ class OfflineEngine {
   );
 
   static final _remindIn = RegExp(
-    r'remind me(?:\s+to)?\s+(?<task>.+?)\s+in\s+(?<n>\d+)\s*(?<unit>minutes?|mins?|hours?|hrs?)\b',
+    r'remind(?:\s+me)?(?:\s+to)?\s+(?<task>.+?)\s+in\s+(?<n>\d+)\s*(?<unit>minutes?|mins?|hours?|hrs?)\b',
   );
 
   static final _remindAt = RegExp(
-    r'remind me(?:\s+to)?\s+(?<task>.+?)\s+at\s+(?<h>\d{1,2})(?::(?<m>\d{2}))?\s*(?<ampm>a\.?m\.?|p\.?m\.?)?\b',
+    r'remind(?:\s+me)?(?:\s+to)?\s+(?<task>.+?)\s+at\s+(?<h>\d{1,2})(?:[:.](?<m>\d{2}))?\s*(?<ampm>a\.?m\.?|p\.?m\.?)?\b',
   );
 
   // Friday + Oro (user project: connect the apps, offline-first). These
@@ -270,6 +270,13 @@ class OfflineEngine {
       var hour = int.parse(remindAt.namedGroup('h')!);
       final minute = int.tryParse(remindAt.namedGroup('m') ?? '') ?? 0;
       final ampm = remindAt.namedGroup('ampm')?.replaceAll('.', '') ?? '';
+      if (minute > 59 || hour > 23)
+        return FridayResponse(
+            reply: 'Use a valid time, like 1:03 am or 13:03.',
+            source: FridaySource.offline);
+      if (ampm.isNotEmpty && (hour < 1 || hour > 12))
+        return FridayResponse(
+            reply: 'Use 1 to 12 with am/pm.', source: FridaySource.offline);
       if (ampm == 'pm' && hour < 12) hour += 12;
       if (ampm == 'am' && hour == 12) hour = 0;
 
@@ -286,6 +293,7 @@ class OfflineEngine {
           type: FridayActionType.setReminder,
           title: task,
           afterMinutes: minutes,
+          target: when.toIso8601String(),
         ),
         source: FridaySource.offline,
       );

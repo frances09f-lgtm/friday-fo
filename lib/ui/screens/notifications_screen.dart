@@ -12,6 +12,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   static const channel = MethodChannel('friday/device');
   Map<String, dynamic>? state;
   String? result;
+  List<String>? pending;
   @override
   void initState() {
     super.initState();
@@ -23,6 +24,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final s =
           await channel.invokeMapMethod<String, dynamic>('notificationState');
       if (mounted) setState(() => state = s);
+      final list = await ReminderService().pending();
+      if (mounted)
+        setState(() {
+          state = s;
+          pending =
+              list.map((r) => 'ID ${r.id}: ${r.title} - ${r.body}').toList();
+        });
     } catch (_) {
       if (mounted)
         setState(() => result =
@@ -71,6 +79,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 '${c['name']}: ${c['enabled'] == true ? 'Allowed' : 'Disabled'}'),
         ],
         const SizedBox(height: 12),
+        const Text('Pending reminders registered with Android'),
+        if (pending == null)
+          const Text('Pending list unavailable')
+        else if (pending!.isEmpty)
+          const Text('None recorded')
+        else
+          ...pending!.map(Text.new),
         FilledButton(
             onPressed: () => test(false),
             child: const Text('Test notification now')),
