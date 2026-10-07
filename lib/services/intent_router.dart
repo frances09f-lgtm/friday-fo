@@ -62,29 +62,32 @@ class IntentRouter {
         return _readMessages(query: action.query);
       case FridayActionType.setReminder:
         return _setReminder(action);
+      // Simple device controls: success is silent so the confirmation is
+      // just "Done." - the user asked that Friday not echo the command back.
+      // Errors and permission asks still say exactly what happened.
       case FridayActionType.torchOn:
         return await deviceHub.setTorch(true)
-            ? 'Flashlight is on.'
+            ? ''
             : "I couldn't control the flashlight on this device.";
       case FridayActionType.torchOff:
         return await deviceHub.setTorch(false)
-            ? 'Flashlight is off.'
+            ? ''
             : "I couldn't control the flashlight on this device.";
       case FridayActionType.volumeUp:
         return await deviceHub.adjustVolume(up: true)
-            ? 'Volume up.'
+            ? ''
             : "I couldn't change the volume.";
       case FridayActionType.volumeDown:
         return await deviceHub.adjustVolume(up: false)
-            ? 'Volume down.'
+            ? ''
             : "I couldn't change the volume.";
       case FridayActionType.wifiSettings:
         return await deviceHub.openSystemPanel('wifi')
-            ? 'Opening Wi-Fi settings - Android only lets apps change Wi-Fi from the system panel.'
+            ? ''
             : "I couldn't open Wi-Fi settings.";
       case FridayActionType.bluetoothSettings:
         return await deviceHub.openSystemPanel('bluetooth')
-            ? 'Opening Bluetooth settings - Android only lets apps change Bluetooth from the system panel.'
+            ? ''
             : "I couldn't open Bluetooth settings.";
       case FridayActionType.callContact:
         return _callContact(action);
@@ -106,7 +109,7 @@ class IntentRouter {
     if (app == null) {
       return "I couldn't find an app matching \"$appQuery\" on this phone.";
     }
-    return 'Opened ${app.label}.';
+    return ''; // silent success - "Done." says it
   }
 
   Future<String> _readMessages({String query = ''}) async {
@@ -199,7 +202,7 @@ class IntentRouter {
     final n = int.tryParse(action.target);
     if (n == null) return 'Tell me the volume percent, like "set volume 30%".';
     final ok = await deviceHub.setVolumePercent(n.clamp(0, 100));
-    return ok ? 'Volume set to ${n.clamp(0, 100)}%.' : "I couldn't set the volume.";
+    return ok ? '' : "I couldn't set the volume.";
   }
 
   Future<String> _setBrightness(FridayAction action) async {
@@ -207,7 +210,7 @@ class IntentRouter {
     if (n == null) return 'Tell me the brightness percent, like "brightness 40%".';
     switch (await deviceHub.setBrightnessPercent(n.clamp(0, 100))) {
       case 'ok':
-        return 'Brightness set to ${n.clamp(0, 100)}%.';
+        return '';
       case 'asked':
         return 'I need permission to change brightness - allow Friday on the screen that just opened, then ask again.';
       default:
