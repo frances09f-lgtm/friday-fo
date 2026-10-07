@@ -167,10 +167,29 @@ class OfflineEngine {
     if (multi != null) return multi;
 
     // Oro trade questions - answered from the on-device bridge.
-    if (_oroTpsl.hasMatch(t)) {
+    if (!_oroTpsl.hasMatch(t) &&
+        RegExp(r'\b(profit|loss|losing|making|pnl|p/l)\b').hasMatch(t) &&
+        RegExp(r'\b(trade|trades|position|positions|my|total)\b').hasMatch(t)) {
       return const FridayResponse(
+          reply: 'Checking Oro.',
+          action: FridayAction(type: FridayActionType.oroStatus, target: 'pnl'),
+          source: FridaySource.offline);
+    }
+    if (RegExp(r'\b(risk|risking)\b').hasMatch(t) &&
+        RegExp(r'\b(trade|trades|my|total)\b').hasMatch(t)) {
+      return const FridayResponse(
+          reply: 'Checking Oro.',
+          action:
+              FridayAction(type: FridayActionType.oroStatus, target: 'risk'),
+          source: FridaySource.offline);
+    }
+    if (_oroTpsl.hasMatch(t)) {
+      return FridayResponse(
         reply: 'Checking Oro.',
-        action: FridayAction(type: FridayActionType.oroStatus, target: 'tpsl'),
+        action: FridayAction(
+            type: FridayActionType.oroStatus,
+            target:
+                RegExp(r'how far|distance').hasMatch(t) ? 'distances' : 'tpsl'),
         source: FridaySource.offline,
       );
     }
@@ -334,7 +353,8 @@ class OfflineEngine {
     if (t.contains('flashlight') || t.contains('torch')) {
       final off = RegExp(r'\boff\b').hasMatch(t);
       return FridayResponse(
-        reply: off ? 'Turning the flashlight off.' : 'Turning the flashlight on.',
+        reply:
+            off ? 'Turning the flashlight off.' : 'Turning the flashlight on.',
         action: FridayAction(
             type: off ? FridayActionType.torchOff : FridayActionType.torchOn),
         source: FridaySource.offline,
@@ -345,18 +365,22 @@ class OfflineEngine {
       return FridayResponse(
         reply: down ? 'Turning the volume down.' : 'Turning the volume up.',
         action: FridayAction(
-            type: down ? FridayActionType.volumeDown : FridayActionType.volumeUp),
+            type:
+                down ? FridayActionType.volumeDown : FridayActionType.volumeUp),
         source: FridaySource.offline,
       );
     }
     // "increase brightness" / "decrease brightness" - 5% steps (user ask).
     // Exact percents ("brightness 40") are matched earlier, so any
     // brightness phrase reaching here is an up/down step.
-    if (t.contains('brightness') || t.contains('brighter') || t.contains('dim')) {
+    if (t.contains('brightness') ||
+        t.contains('brighter') ||
+        t.contains('dim')) {
       final down = RegExp(r'decrease|down|lower|dim|reduce').hasMatch(t);
       return FridayResponse(
-        reply:
-            down ? 'Turning the brightness down.' : 'Turning the brightness up.',
+        reply: down
+            ? 'Turning the brightness down.'
+            : 'Turning the brightness up.',
         action: FridayAction(
             type: down
                 ? FridayActionType.brightnessDown

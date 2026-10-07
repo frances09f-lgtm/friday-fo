@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../services/context/oro_context.dart';
 import '../services/tasks/gold_task.dart';
 import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
@@ -40,6 +41,7 @@ class FridayController extends ChangeNotifier {
   final List<ChatMessage> messages = [];
   bool busy = false;
   String partialHeard = '';
+  final oroContext = OroContext();
 
   Future<void> loadHistory() async {
     final saved = chatStore.load();
@@ -51,13 +53,35 @@ class FridayController extends ChangeNotifier {
 
   /// Every send speaks its reply unless the user muted Friday in Settings.
   Future<void> send(String text) async {
-    final clean = text.trim();
-    if (clean.isEmpty || busy) return;
+    if (text.trim().isEmpty || busy) return;
+    try {
+      await _send(text);
+    } catch (_) {
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}failure',
+          role: MessageRole.friday,
+          text:
+              'This request did not finish cleanly. A started action may already have happened; check before retrying.',
+          at: DateTime.now()));
+      try {
+        await chatStore.save(messages);
+      } catch (_) {}
+    } finally {
+      busy = false;
+      partialHeard = '';
+      notifyListeners();
+    }
+  }
+
+  Future<void> _send(String text) async {
+    final original = text.trim();
+    if (original.isEmpty || busy) return;
+    final clean = oroContext.resolve(original, DateTime.now()) ?? original;
 
     final userMessage = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       role: MessageRole.user,
-      text: clean,
+      text: original,
       at: DateTime.now(),
     );
     messages.add(userMessage);
@@ -70,6 +94,7 @@ class FridayController extends ChangeNotifier {
             caseSensitive: false)
         .hasMatch(clean);
     if (goldTask != null || cancelGold) {
+      oroContext.clear();
       String reply;
       try {
         reply = goldTask != null
@@ -99,7 +124,17 @@ class FridayController extends ChangeNotifier {
       final target = remote.group(1)!.toLowerCase();
       final targetPhone = target == 'phone' || target == 'mobile';
       if (targetPhone != Platform.isAndroid) {
-        final reply = await link!.send(clean.substring(0, remote.start));
+        final remoteText = clean.substring(0, remote.start);
+        final isOro = const OfflineEngine()
+            .handle(remoteText)
+            .allActions
+            .any((a) => a.type == FridayActionType.oroStatus);
+        if (isOro)
+          oroContext.remember(DateTime.now(),
+              device: targetPhone ? 'phone' : 'laptop');
+        else
+          oroContext.clear();
+        final reply = await link!.send(remoteText);
         messages.add(ChatMessage(
             id: '${DateTime.now().microsecondsSinceEpoch}r',
             role: MessageRole.friday,
@@ -124,11 +159,13 @@ class FridayController extends ChangeNotifier {
     final infoOnly = actions.isNotEmpty &&
         actions.every((a) => a.type == FridayActionType.oroStatus);
     if (infoOnly) {
+      oroContext.remember(DateTime.now());
       // A question, not a task: no okay/done wrapper - the answer from
       // Oro's real data is the reply itself.
       reply = await router.executeAll(actions);
       if (reply.isEmpty) reply = "I couldn't read Oro's data.";
     } else if (actions.isNotEmpty) {
+      oroContext.clear();
       // Acknowledge on acceptance, confirm on completion - the user hears
       // "okay" when Friday takes the command and "done" when it finished.
       messages.add(ChatMessage(
@@ -147,6 +184,7 @@ class FridayController extends ChangeNotifier {
       reply = actionResultReply(outcome);
     }
 
+    if (!infoOnly && actions.isEmpty) oroContext.clear();
     messages.add(ChatMessage(
       id: '${DateTime.now().microsecondsSinceEpoch}r',
       role: MessageRole.friday,

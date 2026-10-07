@@ -129,4 +129,26 @@ void main() {
     await c.send('set volume 40');
     expect(speech.spoken, ['Okay.', 'Volume set to 40%']);
   });
+  test('unexpected execution error clears busy without false Done', () async {
+    final router = _ThrowRouter();
+    final c = await _controller(
+        const FridayResponse(
+            reply: 'Working',
+            action:
+                FridayAction(type: FridayActionType.openApp, app: 'camera')),
+        router,
+        _FakeSpeech());
+    await c.send('open camera');
+    expect(c.busy, false);
+    expect(c.messages.last.text, contains('may already have happened'));
+    expect(c.messages.last.text, isNot(contains('Done')));
+    await c.send('open camera');
+    expect(c.busy, false);
+  });
+}
+
+class _ThrowRouter extends _FakeRouter {
+  @override
+  Future<String> executeAll(List<FridayAction> actions) async =>
+      throw StateError('execution failure');
 }

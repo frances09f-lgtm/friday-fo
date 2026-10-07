@@ -111,11 +111,28 @@ class OroBridge {
         final more = s.open.length > 3 ? ' and ${s.open.length - 3} more' : '';
         return '${s.open.length} open trade${s.open.length == 1 ? '' : 's'}: '
             '${parts.join('; ')}$more. As of $accountAge.';
+      case 'distances':
       case 'tpsl':
         if (s.open.isEmpty) {
           return 'No open trade in the account snapshot, as of $accountAge, so there is no TP or SL set.';
         }
+        if (s.open.length > 1)
+          return 'There are ${s.open.length} open trades. Ask for open trades to see each TP/SL; I cannot choose one for you.';
         final p = s.open.first;
+        if (kind == 'distances') {
+          final sell = p.dir?.toLowerCase() == 'sell';
+          final mark = sell ? s.ask : s.bid;
+          if (mark == null || !mark.isFinite)
+            return 'No valid quote to calculate TP/SL distances.';
+          final bits = <String>[
+            if (p.tp != null && p.tp!.isFinite)
+              'TP is ${(p.tp! - mark).abs().toStringAsFixed(2)} price points from the executable quote',
+            if (p.sl != null && p.sl!.isFinite)
+              'SL is ${(p.sl! - mark).abs().toStringAsFixed(2)} price points from the executable quote',
+          ];
+          if (bits.isEmpty) return 'No TP or SL data for this trade.';
+          return '${bits.join('; ')}. Quote as of $quoteAge; account as of $accountAge. Distance is not a prediction.';
+        }
         final bits = <String>[
           if (p.tp != null) 'TP ${_price(p.tp!)}',
           if (p.sl != null) 'SL ${_price(p.sl!)}',
@@ -123,6 +140,31 @@ class OroBridge {
         final what = _posName(p);
         if (bits.isEmpty) return 'Your open $what has no TP or SL set.';
         return 'Your open $what has ${bits.join(' and ')}. As of $accountAge.';
+      case 'pnl':
+        if (s.open.isEmpty)
+          return 'No open trades in the account snapshot, as of $accountAge.';
+        final values = s.open.map((p) => _floating(p, s)).toList();
+        if (values.any((v) => v == null || !v.isFinite))
+          return 'Not enough quote or position data to calculate total open P/L.';
+        final total = values.fold<double>(0, (sum, v) => sum + v!);
+        return 'Total floating paper P/L is \$${_money(total)}. Quote as of $quoteAge; account as of $accountAge. This is not realized profit.';
+      case 'risk':
+        if (s.open.isEmpty)
+          return 'No open trades in the account snapshot, as of $accountAge.';
+        if (s.open.any((p) =>
+            p.sl == null ||
+            p.entry == null ||
+            p.qty == null ||
+            p.qty! <= 0 ||
+            !p.qty!.isFinite ||
+            !p.entry!.isFinite ||
+            !p.sl!.isFinite))
+          return 'At least one open trade has no stop or size data. Total stop-loss risk is unknown.';
+        final risk = s.open.fold<double>(
+            0, (sum, p) => sum + (p.entry! - p.sl!).abs() * p.qty!);
+        if (!risk.isFinite)
+          return 'Invalid position data. Stop-loss risk is unknown.';
+        return 'Entry-to-stop paper risk is \$${_money(risk)}, as of $accountAge. This estimate excludes slippage and fees; stops are not guaranteed fills.';
       case 'balance':
         if (s.balance == null) {
           return "Oro hasn't synced the paper balance yet - open it once.";
@@ -156,7 +198,11 @@ class OroBridge {
 
   /// Floating P/L from the real quote and entry - never invented.
   static double? _floating(OroPosition p, OroSnapshot s) {
-    if (p.entry == null || p.qty == null) return null;
+    if (p.entry == null ||
+        p.qty == null ||
+        p.qty! <= 0 ||
+        !p.entry!.isFinite ||
+        !p.qty!.isFinite) return null;
     if (s.bid == null || s.ask == null) return null;
     final isSell = (p.dir ?? '').toLowerCase() == 'sell';
     final mark = isSell ? s.ask! : s.bid!;
