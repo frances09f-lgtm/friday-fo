@@ -48,17 +48,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final speech = context.read<SpeechService>();
     final controller = context.read<FridayController>();
     if (speech.isListening) {
+      // On Windows this stops the recording, transcribes, then fires onDone.
       speech.stopListening();
+      setState(() {});
     } else {
       speech.startListening(
         onResult: (t) => controller.setPartialHeard(t),
         onDone: () {
+          final err = speech.lastSttError;
           final text = controller.partialHeard;
+          if (mounted) {
+            setState(() {});
+            if (err != null) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(err)));
+            }
+          }
           if (text.trim().isNotEmpty) {
             controller.send(text).then((_) => _scrollDown());
           }
         },
       );
+      setState(() {});
     }
   }
 
@@ -129,7 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.mic,
-                      color: context.read<FridayController>().partialHeard.isNotEmpty
+                      color: context.read<SpeechService>().isListening ||
+                              context.read<FridayController>().partialHeard.isNotEmpty
                           ? Theme.of(context).colorScheme.primary
                           : null,
                     ),

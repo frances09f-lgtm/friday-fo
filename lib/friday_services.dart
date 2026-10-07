@@ -52,7 +52,9 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     await reminders.init();
   } catch (_) {}
 
-  final speech = SpeechService();
+  final speech = SpeechService(
+    groqKeyProvider: () async => settings.groqKey,
+  );
   final brain = AIBrain(settings: settings, local: LocalModelService());
   final controller = FridayController(
     brain: brain,

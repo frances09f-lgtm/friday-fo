@@ -118,6 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _speakReplies,
             onChanged: (v) => setState(() => _speakReplies = v),
           ),
+          if (!kIsWeb && Platform.isWindows) ...[
+            const Text(
+              'Voice input: tap the mic to start talking, tap again to stop '
+              'and send. Speech is transcribed with your Groq key; replies '
+              'speak through Windows voices. If the mic stays silent, check '
+              'Windows Settings > Privacy > Microphone.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 16),
           if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
           Text('On-device backup', style: Theme.of(context).textTheme.titleMedium),
