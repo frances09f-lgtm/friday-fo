@@ -24,6 +24,8 @@ class OroSnapshot {
     this.ask,
     this.quoteAt = 0,
     this.balance,
+    this.accountAt = 0,
+    this.accountKnown,
     this.open = const [],
   });
 
@@ -32,6 +34,8 @@ class OroSnapshot {
   final double? ask;
   final int quoteAt; // when the quote was actually fetched
   final double? balance;
+  final int accountAt;
+  final bool? accountKnown;
   final List<OroPosition> open;
 
   static OroSnapshot? parse(String raw) {
@@ -43,6 +47,9 @@ class OroSnapshot {
         ask: (j['ask'] as num?)?.toDouble(),
         quoteAt: (j['quoteAt'] as num?)?.toInt() ?? 0,
         balance: (j['balance'] as num?)?.toDouble(),
+        accountAt: (j['accountAt'] as num?)?.toInt() ?? 0,
+        accountKnown:
+            j['accountKnown'] is bool ? j['accountKnown'] as bool : null,
         open: [
           for (final p in (j['open'] as List? ?? const []))
             if (p is Map)
@@ -82,25 +89,31 @@ class OroBridge {
     if (s == null) {
       return "I couldn't read Oro's data - open Oro once on this phone so it can share its latest numbers.";
     }
-    final age = _age(now - (s.quoteAt > 0 ? s.quoteAt : s.ts));
+    final quoteAge = s.quoteAt > 0 ? _age(now - s.quoteAt) : 'an unknown time';
+    final accountAge =
+        s.accountAt > 0 ? _age(now - s.accountAt) : 'an unknown time';
+    if (kind != 'price' && s.accountKnown == false) {
+      return "Oro has not synced account data yet. I cannot tell whether there are open trades. Open Oro and let it sync.";
+    }
     switch (kind) {
       case 'price':
         if (s.bid == null || s.ask == null) {
           return "Oro hasn't seen a live gold price yet - open Oro and let it connect once.";
         }
         final mid = (s.bid! + s.ask!) / 2;
-        return 'Gold is at ${_price(mid)}, as of $age.';
+        return 'Gold is at ${_price(mid)}, as of $quoteAge.';
       case 'trades':
-        if (s.open.isEmpty) return 'No open trades right now, as of $age.';
+        if (s.open.isEmpty)
+          return 'No open trades right now, as of $accountAge.';
         final parts = [
           for (final p in s.open.take(3)) _describePosition(p, s),
         ];
         final more = s.open.length > 3 ? ' and ${s.open.length - 3} more' : '';
         return '${s.open.length} open trade${s.open.length == 1 ? '' : 's'}: '
-            '${parts.join('; ')}$more. As of $age.';
+            '${parts.join('; ')}$more. As of $accountAge.';
       case 'tpsl':
         if (s.open.isEmpty) {
-          return 'No open trade right now, so there is no TP or SL set.';
+          return 'No open trade in the account snapshot, as of $accountAge, so there is no TP or SL set.';
         }
         final p = s.open.first;
         final bits = <String>[
@@ -109,12 +122,12 @@ class OroBridge {
         ];
         final what = _posName(p);
         if (bits.isEmpty) return 'Your open $what has no TP or SL set.';
-        return 'Your open $what has ${bits.join(' and ')}. As of $age.';
+        return 'Your open $what has ${bits.join(' and ')}. As of $accountAge.';
       case 'balance':
         if (s.balance == null) {
           return "Oro hasn't synced the paper balance yet - open it once.";
         }
-        return 'Your paper balance is \$${_money(s.balance!)}, as of $age.';
+        return 'Your paper balance is \$${_money(s.balance!)}, as of $accountAge.';
       default:
         return answer('price', s, nowMs: now);
     }
@@ -136,9 +149,7 @@ class OroBridge {
     if (marks.isNotEmpty) d += ' (${marks.join(', ')})';
     final pnl = _floating(p, s);
     if (pnl != null) {
-      d += pnl >= 0
-          ? ', up \$${_money(pnl)}'
-          : ', down \$${_money(-pnl)}';
+      d += pnl >= 0 ? ', up \$${_money(pnl)}' : ', down \$${_money(-pnl)}';
     }
     return d;
   }
