@@ -23,6 +23,11 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
   @override
   Widget build(BuildContext context) {
     final link = context.watch<DeviceLink>();
+    final ownAddresses =
+        link.addresses.where((a) => !a.contains('127.0.0.1')).toList();
+    if (!ownAddresses.contains(_own)) {
+      _own = ownAddresses.length == 1 ? ownAddresses.single : null;
+    }
     return Scaffold(
         appBar: AppBar(title: const Text('Connect devices')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
@@ -71,31 +76,40 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
                 decoration: const InputDecoration(
                     labelText: 'Other device pairing key')),
             DropdownButtonFormField<String>(
+                key: ValueKey(ownAddresses.join(',')),
+                isExpanded: true,
                 initialValue: _own,
                 items: [
-                  for (final a
-                      in link.addresses.where((a) => !a.contains('127.0.0.1')))
+                  for (final a in ownAddresses)
                     DropdownMenuItem(value: a, child: Text(a))
                 ],
                 onChanged: (v) => setState(() => _own = v),
                 decoration: const InputDecoration(
                     labelText: 'My address on the shared network')),
             FilledButton(
-                onPressed: _working
+                onPressed: _working || _own == null
                     ? null
                     : () async {
-                        setState(() => _working = true);
+                        setState(() {
+                          _working = true;
+                          _error = null;
+                        });
                         try {
                           await link.join(
                               _url.text.trim(), _key.text.trim(), _own ?? '');
+                        } on LinkFailure catch (e) {
+                          if (mounted) setState(() => _error = e.message);
                         } catch (_) {
                           if (mounted)
                             setState(() => _error =
-                                'Pairing failed. Check the address/key, shared network and Windows Firewall (allow Friday on private networks).');
+                                'Pairing failed unexpectedly. Disconnect and enable the link on both devices, then try once from one device.');
                         }
                         if (mounted) setState(() => _working = false);
                       },
                 child: Text(_working ? 'Pairing...' : 'Pair')),
+            if (_own == null)
+              const Text(
+                  'Select My address on the shared network before pairing.'),
           ],
           if (link.paired) ...[
             const SizedBox(height: 12),
