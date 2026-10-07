@@ -27,12 +27,21 @@ class FridayParser {
     try {
       final decoded = jsonDecode(match.group(0)!) as Map<String, dynamic>;
       final reply = (decoded['reply'] as String?)?.trim();
+      // Multi-part commands arrive as "actions":[...]; a single request
+      // still arrives as "action":{...}. "actions" wins when both appear.
+      final parsed = <FridayAction>[
+        if (decoded['actions'] is List)
+          for (final a in decoded['actions'] as List)
+            if (a is Map<String, dynamic>) FridayAction.fromJson(a),
+      ];
       final actionJson = decoded['action'];
+      if (parsed.isEmpty && actionJson is Map<String, dynamic>) {
+        parsed.add(FridayAction.fromJson(actionJson));
+      }
       return FridayResponse(
         reply: reply == null || reply.isEmpty ? cleaned : reply,
-        action: actionJson is Map<String, dynamic>
-            ? FridayAction.fromJson(actionJson)
-            : const FridayAction(),
+        action: parsed.isEmpty ? const FridayAction() : parsed.first,
+        extraActions: parsed.length > 1 ? parsed.sublist(1) : const [],
         source: source,
       );
     } on FormatException {

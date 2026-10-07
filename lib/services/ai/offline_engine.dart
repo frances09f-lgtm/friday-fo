@@ -139,6 +139,29 @@ class OfflineEngine {
     }
 
     final vp = _volumePct.firstMatch(text.trim());
+    final bp0 = _brightnessPct.firstMatch(text.trim());
+    if (vp != null && bp0 != null) {
+      // Both settings in one utterance: apply each with its own value,
+      // in the order the user said them.
+      final vn = int.parse(vp.namedGroup('n')!).clamp(0, 100);
+      final bn = int.parse(bp0.namedGroup('n')!).clamp(0, 100);
+      final vol = FridayAction(
+          type: FridayActionType.setVolume, target: vn.toString());
+      final bri = FridayAction(
+          type: FridayActionType.setBrightness, target: bn.toString());
+      final ordered = bp0.start < vp.start ? [bri, vol] : [vol, bri];
+      final words = ordered
+          .map((a) => a.type == FridayActionType.setBrightness
+              ? 'brightness to ${a.target}%'
+              : 'volume to ${a.target}%')
+          .join(' and ');
+      return FridayResponse(
+        reply: 'Setting $words.',
+        action: ordered.first,
+        extraActions: ordered.sublist(1),
+        source: FridaySource.offline,
+      );
+    }
     if (vp != null) {
       final n = int.parse(vp.namedGroup('n')!).clamp(0, 100);
       return FridayResponse(

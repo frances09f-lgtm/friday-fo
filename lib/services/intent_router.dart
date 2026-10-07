@@ -11,6 +11,17 @@ class IntentRouter {
   final DeviceHub deviceHub;
   final ReminderService reminders;
 
+  /// Runs every action from one message, in order, and merges the
+  /// per-action outcomes into one reply (one line per action).
+  Future<String> executeAll(List<FridayAction> actions) async {
+    final outcomes = <String>[];
+    for (final a in actions) {
+      final o = await execute(a);
+      if (o.isNotEmpty) outcomes.add(o);
+    }
+    return outcomes.join('\n');
+  }
+
   Future<String> execute(FridayAction action) async {
     if (action.type != FridayActionType.none) {
       UsageReporter.report('action', {'type': action.type.name});

@@ -94,10 +94,18 @@ class FridayResponse {
   const FridayResponse({
     required this.reply,
     this.action = const FridayAction(),
+    this.extraActions = const <FridayAction>[],
     this.source = FridaySource.offline,
   });
 
   final String reply;
   final FridayAction action;
+
+  /// More actions from the same message, after [action], for multi-part
+  /// commands ("set brightness 50 and volume 20"). Empty for one request.
+  final List<FridayAction> extraActions;
   final FridaySource source;
+
+  /// Every action to run, in the order the user asked for them.
+  List<FridayAction> get allActions => <FridayAction>[action, ...extraActions];
 }

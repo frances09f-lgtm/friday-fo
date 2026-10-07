@@ -54,7 +54,7 @@ class FridayController extends ChangeNotifier {
     final response = await brain.ask(clean, history: List.of(messages));
 
     var reply = response.reply;
-    final outcome = await router.execute(response.action);
+    final outcome = await router.executeAll(response.allActions);
     // When an action ran, the router's outcome is the truth - the brain's
     // reply only guessed at the result ("Reminder set" before it was).
     if (outcome.isNotEmpty) reply = outcome;
