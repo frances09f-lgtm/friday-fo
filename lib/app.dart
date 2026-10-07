@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'ui/screens/home_screen.dart';
+import 'ui/screens/command_center_screen.dart';
 import 'ui/screens/settings_screen.dart';
 
 class FridayApp extends StatelessWidget {
@@ -21,7 +21,7 @@ class FridayApp extends StatelessWidget {
         colorScheme: scheme,
         brightness: Brightness.dark,
       ),
-      home: const HomeScreen(),
+      home: const CommandCenterScreen(),
       routes: <String, WidgetBuilder>{
         '/settings': (_) => const SettingsScreen(),
       },

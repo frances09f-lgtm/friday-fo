@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import '../services/context/oro_context.dart';
 import '../services/tasks/gold_task.dart';
 import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
 import '../services/ai/offline_engine.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/chat_message.dart';
@@ -40,6 +42,7 @@ class FridayController extends ChangeNotifier {
 
   final List<ChatMessage> messages = [];
   bool busy = false;
+  String phase = 'Ready';
   String partialHeard = '';
   final oroContext = OroContext();
 
@@ -57,17 +60,20 @@ class FridayController extends ChangeNotifier {
     try {
       await _send(text);
     } catch (_) {
-      messages.add(ChatMessage(
+      messages.add(
+        ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}failure',
           role: MessageRole.friday,
-          text:
-              'This request did not finish cleanly. A started action may already have happened; check before retrying.',
-          at: DateTime.now()));
+          text: 'This request did not finish cleanly. A started action may already have happened; check before retrying.',
+          at: DateTime.now(),
+        ),
+      );
       try {
         await chatStore.save(messages);
       } catch (_) {}
     } finally {
       busy = false;
+      phase = 'Ready';
       partialHeard = '';
       notifyListeners();
     }
@@ -86,13 +92,14 @@ class FridayController extends ChangeNotifier {
     );
     messages.add(userMessage);
     busy = true;
+    phase = 'Thinking';
     notifyListeners();
 
     final goldTask = GoldTaskRequest.parse(clean);
     final cancelGold = RegExp(
-            r'^(?:cancel|stop) (?:all |my )?gold (?:alerts|tasks|checks)[.!]?$',
-            caseSensitive: false)
-        .hasMatch(clean);
+      r'^(?:cancel|stop) (?:all |my )?gold (?:alerts|tasks|checks)[.!]?$',
+      caseSensitive: false,
+    ).hasMatch(clean);
     if (goldTask != null || cancelGold) {
       oroContext.clear();
       String reply;
@@ -101,15 +108,18 @@ class FridayController extends ChangeNotifier {
             ? await TaskService().create(goldTask)
             : await TaskService().cancelAll();
       } catch (_) {
-        reply =
-            'Could not update background tasks. Open Background tasks to check their saved state.';
+        reply = 'Could not update background tasks. Open Background tasks to check their saved state.';
       }
-      messages.add(ChatMessage(
+      messages.add(
+        ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}task',
           role: MessageRole.friday,
           text: reply,
-          at: DateTime.now()));
+          at: DateTime.now(),
+        ),
+      );
       busy = false;
+      phase = 'Ready';
       notifyListeners();
       await chatStore.save(messages);
       if (settings.speakReplies) await speech.speak(reply);
@@ -117,9 +127,9 @@ class FridayController extends ChangeNotifier {
     }
 
     final remote = RegExp(
-            r'\s+(?:on|to)\s+(?:my|the)\s+(phone|mobile|laptop|windows|computer)[.!?]*$',
-            caseSensitive: false)
-        .firstMatch(clean);
+      r'\s+(?:on|to)\s+(?:my|the)\s+(phone|mobile|laptop|windows|computer)[.!?]*$',
+      caseSensitive: false,
+    ).firstMatch(clean);
     if (remote != null && link != null) {
       final target = remote.group(1)!.toLowerCase();
       final targetPhone = target == 'phone' || target == 'mobile';
@@ -130,17 +140,23 @@ class FridayController extends ChangeNotifier {
             .allActions
             .any((a) => a.type == FridayActionType.oroStatus);
         if (isOro)
-          oroContext.remember(DateTime.now(),
-              device: targetPhone ? 'phone' : 'laptop');
+          oroContext.remember(
+            DateTime.now(),
+            device: targetPhone ? 'phone' : 'laptop',
+          );
         else
           oroContext.clear();
         final reply = await link!.send(remoteText);
-        messages.add(ChatMessage(
+        messages.add(
+          ChatMessage(
             id: '${DateTime.now().microsecondsSinceEpoch}r',
             role: MessageRole.friday,
             text: reply,
-            at: DateTime.now()));
+            at: DateTime.now(),
+          ),
+        );
         busy = false;
+        phase = 'Ready';
         notifyListeners();
         await chatStore.save(messages);
         if (settings.speakReplies) await speech.speak(reply);
@@ -156,7 +172,8 @@ class FridayController extends ChangeNotifier {
     final actions = response.allActions
         .where((a) => a.type != FridayActionType.none)
         .toList();
-    final infoOnly = actions.isNotEmpty &&
+    final infoOnly =
+        actions.isNotEmpty &&
         actions.every((a) => a.type == FridayActionType.oroStatus);
     if (infoOnly) {
       oroContext.remember(DateTime.now());
@@ -167,6 +184,8 @@ class FridayController extends ChangeNotifier {
     } else if (actions.isNotEmpty) {
       oroContext.clear();
       // One final result, not a second acknowledgement bubble.
+      phase = 'Doing';
+      notifyListeners();
       final outcome = await router.executeAll(actions);
       // The router's outcome is the truth - the brain's reply only guessed
       // at the result ("Reminder set" before it was).
@@ -174,12 +193,14 @@ class FridayController extends ChangeNotifier {
     }
 
     if (!infoOnly && actions.isEmpty) oroContext.clear();
-    messages.add(ChatMessage(
-      id: '${DateTime.now().microsecondsSinceEpoch}r',
-      role: MessageRole.friday,
-      text: reply,
-      at: DateTime.now(),
-    ));
+    messages.add(
+      ChatMessage(
+        id: '${DateTime.now().microsecondsSinceEpoch}r',
+        role: MessageRole.friday,
+        text: reply,
+        at: DateTime.now(),
+      ),
+    );
     busy = false;
     partialHeard = '';
     notifyListeners();
@@ -206,34 +227,41 @@ class FridayController extends ChangeNotifier {
       FridayActionType.brightnessUp,
       FridayActionType.brightnessDown,
       FridayActionType.wifiSettings,
-      FridayActionType.bluetoothSettings
+      FridayActionType.bluetoothSettings,
     };
     final actions = response.allActions
         .where((a) => a.type != FridayActionType.none)
         .toList();
     if (actions.isEmpty || actions.any((a) => !allowed.contains(a.type)))
       return 'Remote command not supported. Use app launch, device controls or Oro questions.';
-    if (actions.any((a) =>
-        a.type == FridayActionType.openApp &&
-        !RegExp(r'^[a-zA-Z0-9 ._-]{1,60}$').hasMatch(a.app))) {
+    if (actions.any(
+      (a) =>
+          a.type == FridayActionType.openApp &&
+          !RegExp(r'^[a-zA-Z0-9 ._-]{1,60}$').hasMatch(a.app),
+    )) {
       return 'Use a plain app name for remote launch.';
     }
     busy = true;
+    phase = 'Thinking';
     notifyListeners();
     try {
       final result = await router.executeAll(actions);
       final reply = result.isEmpty ? 'Done on this device.' : result;
-      messages.add(ChatMessage(
+      messages.add(
+        ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}remote',
           role: MessageRole.friday,
           text: 'From paired device: $text\n$reply',
-          at: DateTime.now()));
+          at: DateTime.now(),
+        ),
+      );
       await chatStore.save(messages);
       return reply;
     } catch (_) {
       return 'The command failed on the other device.';
     } finally {
       busy = false;
+      phase = 'Ready';
       notifyListeners();
     }
   }
