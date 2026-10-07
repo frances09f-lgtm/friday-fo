@@ -68,19 +68,37 @@
         </activity>
 
         <!-- Registers Friday in the Default digital assistant app picker -->
+        <!-- VoiceInteractionServiceInfo (AOSP, all Android 14 builds)
+             requires the service to guard with BIND_VOICE_INTERACTION -
+             BIND_VOICE_INTERACTION_SERVICE fails the parse and the app
+             never reaches the picker. -->
         <service
             android:name=".FridayAssistantService"
-            android:permission="android.permission.BIND_VOICE_INTERACTION_SERVICE"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true">
-            <!-- Android looks up EXACTLY this meta-data key
-                 (VoiceInteractionService.SERVICE_META_DATA) to validate a
-                 voice interaction service - with any other key the package
-                 is silently skipped by the assistant picker. -->
+            <!-- Android validates a voice interaction service against
+                 VoiceInteractionService.SERVICE_META_DATA - exactly
+                 "android.voice_interaction" (AOSP source). Any other key
+                 makes the assistant picker silently skip the package. -->
             <meta-data
-                android:name="android.app.voice_interaction"
+                android:name="android.voice_interaction"
                 android:resource="@xml/voice_interaction_service" />
             <intent-filter>
                 <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+
+        <!-- The assistant picker's XML parse also requires a
+             recognitionService. This one is real: it records the mic and
+             transcribes through Groq's hosted Whisper (the same engine the
+             laptop build uses), so choosing Friday as the default assistant
+             keeps voice input working instead of breaking it. -->
+        <service
+            android:name=".FridayRecognitionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
             </intent-filter>
         </service>
 

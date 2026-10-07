@@ -42,6 +42,8 @@ class IntentRouter {
     FridayActionType.bluetoothSettings,
     FridayActionType.setVolume,
     FridayActionType.setBrightness,
+    FridayActionType.brightnessUp,
+    FridayActionType.brightnessDown,
     FridayActionType.openApp,
   };
 
@@ -57,6 +59,8 @@ class IntentRouter {
     FridayActionType.volumeDown,
     FridayActionType.setVolume,
     FridayActionType.setBrightness,
+    FridayActionType.brightnessUp,
+    FridayActionType.brightnessDown,
     FridayActionType.wifiSettings,
     FridayActionType.bluetoothSettings,
   };
@@ -96,6 +100,10 @@ class IntentRouter {
         return await deviceHub.adjustVolume(up: false)
             ? ''
             : "I couldn't change the volume.";
+      case FridayActionType.brightnessUp:
+        return _adjustBrightness(up: true);
+      case FridayActionType.brightnessDown:
+        return _adjustBrightness(up: false);
       case FridayActionType.wifiSettings:
         return await deviceHub.openSystemPanel('wifi')
             ? ''
@@ -218,6 +226,17 @@ class IntentRouter {
     if (n == null) return 'Tell me the volume percent, like "set volume 30%".';
     final ok = await deviceHub.setVolumePercent(n.clamp(0, 100));
     return ok ? '' : "I couldn't set the volume.";
+  }
+
+  Future<String> _adjustBrightness({required bool up}) async {
+    switch (await deviceHub.adjustBrightness(up: up)) {
+      case 'ok':
+        return '';
+      case 'asked':
+        return 'I need permission to change brightness - allow Friday on the screen that just opened, then ask again.';
+      default:
+        return "I couldn't change the brightness.";
+    }
   }
 
   Future<String> _setBrightness(FridayAction action) async {

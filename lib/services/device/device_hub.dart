@@ -136,6 +136,23 @@ class DeviceHub {
   }
 
   /// Returns ok | asked | error.
+  /// Steps brightness by exactly 5% up/down (user ask). Same 'ok' /
+  /// 'asked' / 'error' contract as setBrightnessPercent.
+  Future<String> adjustBrightness({required bool up}) async {
+    if (_isWindows) {
+      return await WindowsDevice.adjustBrightness(up: up) ? 'ok' : 'error';
+    }
+    try {
+      return await _channel
+              .invokeMethod<String>(up ? 'brightnessUp' : 'brightnessDown') ??
+          'error';
+    } on Exception {
+// ignore: unreachable_switch_case
+
+      return 'error';
+    }
+  }
+
   Future<String> setBrightnessPercent(int percent) async {
     if (_isWindows) {
       return await WindowsDevice.setBrightnessPercent(percent) ? 'ok' : 'error';

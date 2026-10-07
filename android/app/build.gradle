@@ -35,8 +35,15 @@ android {
         jvmTarget = "17"
     }
 
+    // BuildConfig holds the CI-injected Groq key so native components
+    // (FridayRecognitionService) can use the same key as the Dart side.
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId = "com.friday.assistant"
+        buildConfigField "String", "GROQ_API_KEY", "\"${project.findProperty("GROQ_API_KEY") ?: ""}\""
         minSdk = 26
         targetSdk = 34
         // Wired to flutter's --build-number/--build-name (CI bumps per run).

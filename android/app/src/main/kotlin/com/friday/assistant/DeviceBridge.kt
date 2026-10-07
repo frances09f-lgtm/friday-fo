@@ -40,8 +40,10 @@ object DeviceBridge {
                 )
                 "hasSmsPermission" -> result.success(hasPermission(context, Manifest.permission.READ_SMS))
                 "setTorch" -> result.success(setTorch(context, call.argument<Boolean>("on") == true))
-                "volumeUp" -> result.success(adjustVolume(context, AudioManager.ADJUST_RAISE))
-                "volumeDown" -> result.success(adjustVolume(context, AudioManager.ADJUST_LOWER))
+                "volumeUp" -> result.success(stepVolume(context, true))
+                "volumeDown" -> result.success(stepVolume(context, false))
+                "brightnessUp" -> result.success(stepBrightness(context, activity, true))
+                "brightnessDown" -> result.success(stepBrightness(context, activity, false))
                 "openPanel" -> result.success(openPanel(context, call.argument<String>("which") ?: "wifi"))
                 "requestSmsPermission" -> {
                     requestPermissions(activity, arrayOf(Manifest.permission.READ_SMS))
@@ -110,6 +112,57 @@ object DeviceBridge {
         true
     } catch (e: Exception) {
         false
+    }
+
+    /// User request: "increase/decrease volume" steps exactly 5%. Stream
+    /// volume is an integer index (often 0-15 or 0-25), so 5% rounds to the
+    /// nearest index step - at least one, never a fake fractional move.
+    private fun stepVolume(context: Context, up: Boolean): Boolean = try {
+        val am = context.getSystemService(AudioManager::class.java)
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val step = maxOf(1, Math.round(max * 5 / 100.0f))
+        val next = if (up) minOf(max, cur + step) else maxOf(0, cur - step)
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, next, AudioManager.FLAG_SHOW_UI)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    /// Brightness steps of exactly 5% (13/255), same write-settings guard
+    /// as setBrightnessPercent.
+    private fun stepBrightness(context: Context, activity: Activity?, up: Boolean): String {
+        if (!Settings.System.canWrite(context)) {
+            if (activity != null) {
+                try {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                            android.net.Uri.parse("package:" + context.packageName)
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    return "error"
+                }
+            }
+            return "asked"
+        }
+        return try {
+            Settings.System.putInt(
+                context.contentResolver,
+                Settings.System.SCREEN_BRIGHTNESS_MODE,
+                Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+            )
+            val cur = Settings.System.getInt(
+                context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128)
+            val step = Math.round(255 * 5 / 100.0f) // 13
+            val next = if (up) minOf(255, cur + step) else maxOf(0, cur - step)
+            Settings.System.putInt(
+                context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, next)
+            "ok"
+        } catch (e: Exception) {
+            "error"
+        }
     }
 
     private fun openPanel(context: Context, which: String): Boolean = try {

@@ -3,4 +3,5 @@
      Settings > Apps > Default apps > Digital assistant app. -->
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService=".FridayAssistantSessionService"
+    android:recognitionService=".FridayRecognitionService"
     android:supportsAssist="true" />

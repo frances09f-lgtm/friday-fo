@@ -26,6 +26,22 @@ void main() {
     expect(r.action.type, FridayActionType.volumeUp);
   });
 
+  test('increase brightness routes to a brightness step (user: 5% steps)', () {
+    expect(const OfflineEngine().handle('increase brightness').action.type,
+        FridayActionType.brightnessUp);
+    expect(const OfflineEngine().handle('decrease brightness').action.type,
+        FridayActionType.brightnessDown);
+    expect(const OfflineEngine().handle('brightness up').action.type,
+        FridayActionType.brightnessUp);
+    expect(const OfflineEngine().handle('dim the brightness').action.type,
+        FridayActionType.brightnessDown);
+  });
+
+  test('decrease volume routes down', () {
+    expect(const OfflineEngine().handle('decrease volume').action.type,
+        FridayActionType.volumeDown);
+  });
+
   test('parses set_volume and set_brightness from model json', () {
     final v = FridayAction.fromJson({'type': 'set_volume', 'target': '30'});
     expect(v.type, FridayActionType.setVolume);

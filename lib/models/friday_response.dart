@@ -14,6 +14,8 @@ enum FridayActionType {
   sendWhatsApp,
   setVolume,
   setBrightness,
+  brightnessUp,
+  brightnessDown,
 }
 
 enum FridaySource { cloud, local, offline }
@@ -67,6 +69,10 @@ class FridayAction {
         return FridayActionType.setVolume;
       case 'set_brightness':
         return FridayActionType.setBrightness;
+      case 'brightness_up':
+        return FridayActionType.brightnessUp;
+      case 'brightness_down':
+        return FridayActionType.brightnessDown;
       default:
         return FridayActionType.none;
     }

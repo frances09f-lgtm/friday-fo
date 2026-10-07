@@ -13,10 +13,22 @@ void main() {
     expect(WindowsDevice.resolveAppTarget('Figma'), 'figma');
   });
 
-  test('volume scripts send the right keys and steps', () {
-    expect(WindowsDevice.volumeScript(up: true), contains('[char]175'));
-    expect(WindowsDevice.volumeScript(up: false), contains('[char]174'));
-    expect(WindowsDevice.volumeScript(up: true), contains('1..5'));
+  test('volume step script moves exactly 5% through Core Audio', () {
+    final up = WindowsDevice.volumeStepScript(up: true);
+    expect(up, contains('FridayAudio'));
+    expect(up, contains('+ (0.05)'));
+    expect(up, contains('GetMasterVolumeLevelScalar'));
+    final down = WindowsDevice.volumeStepScript(up: false);
+    expect(down, contains('+ (-0.05)'));
+  });
+
+  test('brightness step script reads then writes WMI brightness by 5', () {
+    final up = WindowsDevice.brightnessStepScript(up: true);
+    expect(up, contains('WmiMonitorBrightness'));
+    expect(up, contains('+ (5)'));
+    final down = WindowsDevice.brightnessStepScript(up: false);
+    expect(down, contains('+ (-5)'));
+    expect(down, contains('WmiSetBrightness'));
   });
 
   test('set-volume script bottoms out then climbs percent/2 steps', () {

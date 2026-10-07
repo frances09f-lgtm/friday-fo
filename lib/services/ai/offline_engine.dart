@@ -280,6 +280,21 @@ class OfflineEngine {
         source: FridaySource.offline,
       );
     }
+    // "increase brightness" / "decrease brightness" - 5% steps (user ask).
+    // Exact percents ("brightness 40") are matched earlier, so any
+    // brightness phrase reaching here is an up/down step.
+    if (t.contains('brightness') || t.contains('brighter') || t.contains('dim')) {
+      final down = RegExp(r'decrease|down|lower|dim|reduce').hasMatch(t);
+      return FridayResponse(
+        reply:
+            down ? 'Turning the brightness down.' : 'Turning the brightness up.',
+        action: FridayAction(
+            type: down
+                ? FridayActionType.brightnessDown
+                : FridayActionType.brightnessUp),
+        source: FridaySource.offline,
+      );
+    }
     if (RegExp(r'wi-?fi').hasMatch(t)) {
       return const FridayResponse(
         reply: 'Opening Wi-Fi settings.',

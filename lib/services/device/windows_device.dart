@@ -63,12 +63,49 @@ class WindowsDevice {
     }
   }
 
-  /// Volume keys go through the WScript.Shell COM object: 174 = down,
-  /// 175 = up. One key press is a 2% step.
-  static String volumeScript({required bool up, int steps = 5}) {
-    final key = up ? 175 : 174;
-    return "\$w = New-Object -ComObject WScript.Shell; "
-        "1..$steps | % { \$w.SendKeys([char]$key); Start-Sleep -m 30 }";
+  /// Exact +/-5% volume steps (user ask). SendKeys volume presses only do
+  /// 2% steps, so the step goes through the Core Audio API via an inline
+  /// C# type compiled by PowerShell - no new dependency, works on stock
+  /// Windows 10. Returns null when the endpoint cannot be opened.
+  static String _coreAudioType = """
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume {
+    int _0(); int _1(); int _2(); int _3(); int _4();
+    int SetMasterVolumeLevelScalar(float level, Guid eventContext);
+    int GetMasterVolumeLevelScalar(out float level);
+}
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice {
+    int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
+}
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator {
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
+}
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
+public class FridayAudio {
+    static IAudioEndpointVolume Epv() {
+        var en = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
+        IMMDevice dev; en.GetDefaultAudioEndpoint(0, 1, out dev);
+        Guid iid = typeof(IAudioEndpointVolume).GUID;
+        object o; dev.Activate(ref iid, 1, IntPtr.Zero, out o);
+        return (IAudioEndpointVolume)o;
+    }
+    public static float GetVolume() { float v; Epv().GetMasterVolumeLevelScalar(out v); return v; }
+    public static void SetVolume(float v) { Epv().SetMasterVolumeLevelScalar(v, Guid.Empty); }
+}
+'@
+""";
+
+  static String volumeStepScript({required bool up, int percent = 5}) {
+    final delta = (up ? percent : -percent) / 100.0;
+    return _coreAudioType +
+        "\$cur = [FridayAudio]::GetVolume(); "
+        "\$new = [Math]::Min(1.0, [Math]::Max(0.0, \$cur + ($delta))); "
+        "[FridayAudio]::SetVolume([single]\$new)";
   }
 
   /// Absolute volume: bottom out with 50 downs, then climb (n / 2) ups.
@@ -92,7 +129,19 @@ class WindowsDevice {
   }
 
   static Future<bool> adjustVolume({required bool up}) =>
-      _runShell(volumeScript(up: up));
+      _runShell(volumeStepScript(up: up));
+
+  /// Brightness in exact 5% steps: read the current level through WMI,
+  /// add/subtract 5, clamp, write back.
+  static String brightnessStepScript({required bool up, int percent = 5}) {
+    final delta = up ? percent : -percent;
+    return "\$cur = (Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; "
+        "\$new = [Math]::Min(100, [Math]::Max(0, \$cur + ($delta))); "
+        "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightnessMethods -ErrorAction Stop).WmiSetBrightness(1, [byte]\$new) | Out-Null";
+  }
+
+  static Future<bool> adjustBrightness({required bool up}) =>
+      _runShell(brightnessStepScript(up: up));
 
   static Future<bool> setVolumePercent(int percent) =>
       _runShell(setVolumeScript(percent));
