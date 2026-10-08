@@ -152,6 +152,7 @@ class FridayAgent extends ChangeNotifier {
     log.clear();
     result = '';
     rejectedOutput = '';
+    lastAction = null;
     running = true;
     try {
       final start = await device.call('start',
@@ -167,19 +168,33 @@ class FridayAgent extends ChangeNotifier {
           throw StateError(
               observation['error']?.toString() ?? 'Screen unavailable');
         _status('Planning next action');
-        final a = await brain
-            .decide(g, observation, log.reversed.toList())
-            .timeout(const Duration(seconds: 45));
+        final a = steps == 0 && observation['package'] != g.package
+            ? AgentAction(
+                action: 'open_app',
+                target: {'package': g.package},
+                confidence: 1,
+                reason:
+                    'Open the exact app from your validated task before reading its screen.',
+                expect: {'package': g.package})
+            : await brain
+                .decide(g, observation, log.reversed.toList())
+                .timeout(const Duration(seconds: 45));
         if (!running || epoch != _epoch) break;
         lastAction = a;
         steps++;
-        if (!a.confidence.isFinite ||
-            a.confidence < .8 ||
-            a.confidence > 1 ||
-            !g.permits(a) ||
-            a.action == 'ask_confirmation') {
+        if (a.action == 'ask_confirmation') {
           result =
-              'Needs your help. Core V1 paused without taking this action.';
+              'Local model asked for help with the next step. No confirmation action is queued. Inspect Last decision below; you can finish manually.';
+          break;
+        }
+        if (!a.confidence.isFinite || a.confidence < .8 || a.confidence > 1) {
+          result =
+              'Local decision confidence ${a.confidence} is outside the accepted 0.8 to 1 range. No action taken for this decision.';
+          break;
+        }
+        if (!g.permits(a)) {
+          result =
+              'The proposed ${a.action} action is outside this task’s search/navigation scope. No action taken for this decision.';
           break;
         }
         if (a.action == 'finish') {

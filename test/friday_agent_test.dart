@@ -62,6 +62,41 @@ class OutputLocal extends LocalModelService {
 }
 
 void main() {
+  test('parsed pauses name confidence, goal scope and help separately',
+      () async {
+    final goal = AgentGoal.parse('Open YouTube and search for GTA 6')!;
+    for (final item in [
+      (
+        AgentAction(action: 'tap', target: {'text': 'Search'}, confidence: 0.2),
+        'confidence'
+      ),
+      (
+        AgentAction(action: 'tap', target: {'text': 'Send'}, confidence: 1),
+        'outside'
+      ),
+      (
+        AgentAction(action: 'ask_confirmation', confidence: 1),
+        'No confirmation action is queued'
+      )
+    ]) {
+      final d = Device(screen(goal.package));
+      final a = FridayAgent(brain: Brain([item.$1]), device: d);
+      await a.start(goal.task);
+      expect(a.result, contains(item.$2));
+      expect(d.acts, 0);
+      expect(a.lastAction, item.$1);
+    }
+  });
+  test('first step opens exact task app without requiring model guess',
+      () async {
+    final d = Device(screen('com.friday.assistant'))..rejected = true;
+    final a = FridayAgent(
+        brain: Brain([AgentAction(action: 'ask_confirmation', confidence: 1)]),
+        device: d);
+    await a.start('Open YouTube and search for GTA 6');
+    expect(d.acts, 1);
+    expect(a.result, contains('asked for help'));
+  });
   test(
       'strict parser allows fences and case, never mixed actions or coordinates',
       () {

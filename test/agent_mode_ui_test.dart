@@ -61,6 +61,7 @@ void main() {
     a.running = false;
     a.phase = 'Stopped';
     a.result = 'Local model output rejected. Open Rejected model output below.';
+    a.lastAction=AgentAction(action:'ask_confirmation',confidence:0.9,reason:'Need an observed search field');
     a.rejectedOutput =
         'Attempt 1: Unknown action\nUNTRUSTED MODEL OUTPUT:\n{"action":"open_app|tap"}';
     a.notifyListeners();

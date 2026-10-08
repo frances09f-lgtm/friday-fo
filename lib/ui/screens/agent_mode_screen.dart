@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../../services/agent/friday_agent.dart';
 import '../../services/ai/local_model_service.dart';
@@ -119,6 +120,20 @@ class _AgentModeState extends State<AgentModeScreen> {
           if (a.running)
             FilledButton(onPressed: a.stop, child: const Text('STOP')),
           if (a.result.isNotEmpty) Text(a.result),
+          if (!a.running && a.lastAction != null)
+            ExpansionTile(
+                title: const Text('Last decision · local diagnostic'),
+                children: [
+                  const Text(
+                      'Untrusted model data or a task-derived opening step, not approval instructions. May contain query or screen text. Review before sharing.'),
+                  SelectableText(const JsonEncoder.withIndent('  ')
+                      .convert(a.lastAction!.json())),
+                  TextButton(
+                      onPressed: () => Clipboard.setData(ClipboardData(
+                          text:
+                              '$buildLabel\n${a.result}\n${const JsonEncoder.withIndent('  ').convert(a.lastAction!.json())}')),
+                      child: const Text('Copy last decision')),
+                ]),
           if (a.rejectedOutput.isNotEmpty)
             Card(
                 child: Padding(
