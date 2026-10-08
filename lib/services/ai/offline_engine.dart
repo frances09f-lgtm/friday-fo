@@ -1,4 +1,5 @@
 import '../../models/friday_response.dart';
+import '../tasks/gold_task.dart';
 
 /// The last rung of the fallback ladder: pure on-device pattern matching.
 /// No model, no key, no network. Covers the core phone commands so Friday is
@@ -176,6 +177,23 @@ class OfflineEngine {
     final t =
         normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
+    final search = RegExp(
+            r'^(?:please )?open (youtube|chrome|instagram) and search (?:for )?(.+?)[.!]?$',
+            caseSensitive: false)
+        .firstMatch(text.trim());
+    if (search != null)
+      return FridayResponse(
+          reply: 'Requesting search.',
+          action: FridayAction(
+              type: FridayActionType.searchApp,
+              app: search[1]!.toLowerCase(),
+              query: search[2]!.trim()),
+          source: FridaySource.offline);
+    if (GoldTaskRequest.isAlertRequest(text))
+      return const FridayResponse(
+          reply:
+              'No alert was created. Say below or above, for example: "alert me when gold price goes below 4120". Friday checks Sona\'s saved quote every 5 minutes, not a live market feed.',
+          source: FridaySource.offline);
 
     if (t.contains('lookout') &&
         RegExp(r'\b(status|watches|watch list|monitoring|tasks)\b')

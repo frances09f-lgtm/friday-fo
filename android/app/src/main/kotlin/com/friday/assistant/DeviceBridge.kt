@@ -35,6 +35,7 @@ object DeviceBridge {
                 "modelStorage" -> {val mem=android.app.ActivityManager.MemoryInfo();(context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem);result.success(mapOf("freeBytes" to android.os.StatFs(context.filesDir.absolutePath).availableBytes,"totalRam" to mem.totalMem))}
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
+                "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))
                 "readSms" -> result.success(
                     readSms(
@@ -113,6 +114,19 @@ object DeviceBridge {
             }
         }
         return out
+    }
+
+    private fun searchApp(context:Context,app:String,query:String):Boolean {
+        if(query.isBlank()||query.length>200)return false
+        val pkg=when(app){"youtube"->"com.google.android.youtube";"chrome"->"com.android.chrome";"instagram"->"com.instagram.android";else->return false}
+        // Instagram offers no supported public query-search intent. Agent Mode
+        // must navigate its actual UI rather than inventing a URL route.
+        if(app=="instagram")return false
+        return try {
+            val uri=if(app=="youtube")Uri.Builder().scheme("https").authority("www.youtube.com").path("/results").appendQueryParameter("search_query",query).build()
+                    else Uri.Builder().scheme("https").authority("www.google.com").path("/search").appendQueryParameter("q",query).build()
+            context.startActivity(Intent(Intent.ACTION_VIEW,uri).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));true
+        }catch(_:Exception){false}
     }
 
     fun openApp(context: Context, pkg: String?): Boolean {

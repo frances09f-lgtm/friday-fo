@@ -4,6 +4,7 @@ import '../storage/settings_store.dart';
 import 'friday_parser.dart';
 import 'local_model_service.dart';
 import 'offline_engine.dart';
+import '../tasks/gold_task.dart';
 import '../usage_reporter.dart';
 
 /// Friday's thinking pipeline, with the fallback ladder built in:
@@ -37,6 +38,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
   }) async {
     // Device actions and Oro reads must not go through cloud guessing.
     final command = offline.handle(userText);
+    if (GoldTaskRequest.isAlertRequest(userText)) return command;
     if (command.allActions.any((a) => a.type != FridayActionType.none))
       return command;
     for (final provider in settings.buildProviders()) {

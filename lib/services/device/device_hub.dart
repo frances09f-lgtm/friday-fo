@@ -234,6 +234,17 @@ class DeviceHub {
     return 'unsupported';
   }
 
+  Future<bool> searchApp(String app, String query) async {
+    if (_isWindows || kIsWeb) return false;
+    try {
+      return await _channel
+              .invokeMethod<bool>('searchApp', {'app': app, 'query': query}) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<InstalledApp?> openAppByName(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return null;

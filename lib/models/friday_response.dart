@@ -1,6 +1,7 @@
 enum FridayActionType {
   none,
   openApp,
+  searchApp,
   readMessages,
   setReminder,
   torchOn,

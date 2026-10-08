@@ -1,4 +1,5 @@
 import '../../services/agent/friday_agent.dart';
+import 'commands_screen.dart';
 import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
 import 'package:provider/provider.dart';
@@ -90,6 +91,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+              child: ListTile(
+                  leading: const Icon(Icons.terminal),
+                  title: const Text('Commands'),
+                  subtitle:
+                      const Text('All supported patterns and what they do'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const CommandsScreen())))),
           Text('Cloud brains (free tiers)',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
