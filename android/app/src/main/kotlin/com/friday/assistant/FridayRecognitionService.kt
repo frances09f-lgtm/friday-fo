@@ -31,7 +31,7 @@ class FridayRecognitionService : RecognitionService() {
 
     override fun onStartListening(recognizerIntent: Intent?, listener: Callback?) {
         if (listener == null) return
-        val key = BuildConfig.GROQ_API_KEY
+        val key = RuntimeSecrets.read(this)
         if (key.isEmpty()) {
             listener.error(SpeechRecognizer.ERROR_CLIENT)
             return

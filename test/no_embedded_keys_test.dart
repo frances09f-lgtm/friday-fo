@@ -1,0 +1,3 @@
+import 'dart:io';
+import 'package:flutter_test/flutter_test.dart';
+void main(){test('release and native speech have no build key fallback',(){for(final path in ['.github/workflows/build-apk.yml','.github/workflows/build-windows.yml','android/app/build.gradle','lib/services/storage/settings_store.dart']){final s=File(path).readAsStringSync();expect(s,isNot(contains('GROQ_API_KEY')),reason:path);}final native=File('android/app/src/main/kotlin/com/friday/assistant/FridayRecognitionService.kt').readAsStringSync();expect(native,contains('RuntimeSecrets.read(this)'));final crypto=File('android/app/src/main/kotlin/com/friday/assistant/RuntimeSecrets.kt').readAsStringSync();expect(crypto,contains('AndroidKeyStore'));expect(crypto,contains('AES/GCM/NoPadding'));});}

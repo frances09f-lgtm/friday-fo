@@ -31,6 +31,7 @@ object DeviceBridge {
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))
                 "readSms" -> result.success(
