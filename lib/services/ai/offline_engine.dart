@@ -159,8 +159,8 @@ class OfflineEngine {
   }
 
   static String normalizeSiblingNames(String text) => text
-    .replaceAll(RegExp(r'\blook[ -]+out\b'), 'lookout')
-    .replaceAll(RegExp(r'\b(?:auro|orrow|oro gold)\b'), 'oro');
+      .replaceAll(RegExp(r'\blook[ -]+out\b'), 'lookout')
+      .replaceAll(RegExp(r'\b(?:auro|orrow|oro gold)\b'), 'oro');
 
   FridayResponse handle(String text, {DateTime? now}) {
     final t = normalizeSiblingNames(text.trim().toLowerCase());
@@ -180,7 +180,10 @@ class OfflineEngine {
     if (multi != null) return multi;
 
     if (RegExp(r'^(?:check |show |ask )?oro(?: status)?[.!?]*$').hasMatch(t)) {
-      return const FridayResponse(reply: 'Reading Oro.', action: FridayAction(type: FridayActionType.oroStatus, target: 'price'));
+      return const FridayResponse(
+          reply: 'Reading Oro.',
+          action:
+              FridayAction(type: FridayActionType.oroStatus, target: 'price'));
     }
     // Oro trade questions - answered from the on-device bridge.
     if (!_oroTpsl.hasMatch(t) &&
