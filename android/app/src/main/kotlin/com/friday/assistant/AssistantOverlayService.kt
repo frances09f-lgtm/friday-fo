@@ -94,6 +94,7 @@ class AssistantOverlayService : Service() {
         val e=FlutterEngine(this)
         MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).setMethodCallHandler{call,result->
             when(call.method){
+                "hidePanelWhileBusy"->{view?.visibility=android.view.View.INVISIBLE;result.success(null)}
                 "panelExpanded"->{
                     val expanded=call.argument<Boolean>("expanded")==true
                     view?.let{v-> val lp=v.layoutParams as? WindowManager.LayoutParams
@@ -111,7 +112,10 @@ class AssistantOverlayService : Service() {
         engine=e
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint(loader.findAppBundlePath(),"assistantOverlayMain"))
         val texture=FlutterTextureView(this).apply{isOpaque=false};val v=FlutterView(this,texture);v.setBackgroundColor(android.graphics.Color.TRANSPARENT);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
-        val params=WindowManager.LayoutParams(-1,(132*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        v.setOnTouchListener{_,event->
+            if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).invokeMethod("outsideTap",null);true}else false
+        }
+        val params=WindowManager.LayoutParams(-1,(132*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
         try{windowManager?.addView(v,params);AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{

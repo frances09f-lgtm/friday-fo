@@ -80,6 +80,13 @@ void main() {
       expect(input.bottom, greaterThan(90));
       expect(input.bottom, lessThan(132));
       expect(t.takeException(), isNull);
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+              'friday/assistant',
+              const StandardMethodCodec()
+                  .encodeMethodCall(const MethodCall('outsideTap')),
+              (_) {});
+      await t.pumpAndSettle();
       await t.runAsync(() async {
         final im = await (key.currentContext!.findRenderObject()
                 as RenderRepaintBoundary)

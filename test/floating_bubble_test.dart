@@ -4,6 +4,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:friday/services/storage/chat_store.dart';
 
 void main() {
+  test('outside dismissal and completion do not destroy an active task', () {
+    final native = File(
+            'android/app/src/main/kotlin/com/friday/assistant/AssistantOverlayService.kt')
+        .readAsStringSync();
+    expect(native, contains('FLAG_WATCH_OUTSIDE_TOUCH'));
+    expect(native, contains('ACTION_OUTSIDE'));
+    final dart = File('lib/assistant_overlay.dart').readAsStringSync();
+    expect(dart, contains('await controller.send(text)'));
+    expect(dart, contains('hidePanelWhileBusy'));
+  });
   test('overlay chat cannot overwrite full-app history', () async {
     SharedPreferences.setMockInitialValues(
         {'friday_chat_log': 'existing conversation'});

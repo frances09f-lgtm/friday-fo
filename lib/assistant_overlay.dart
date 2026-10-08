@@ -55,10 +55,15 @@ class _AssistantPanelState extends State<AssistantPanel> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   bool? _expanded;
+  bool _sending = false;
+  bool _closeRequested = false;
 
   @override
   void initState() {
     super.initState();
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'outsideTap') await _dismiss();
+    });
     // Ready for input the moment it appears; start listening when the mic
     // is usable, fall back to a focused text field when it is not.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -78,6 +83,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   @override
   void dispose() {
+    _channel.setMethodCallHandler(null);
     _input.dispose();
     _focus.dispose();
     super.dispose();
@@ -89,7 +95,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       onResult: (t) => controller.setPartialHeard(t),
       onDone: () {
         final text = controller.partialHeard;
-        if (text.trim().isNotEmpty) controller.send(text);
+        if (text.trim().isNotEmpty) _submit(text);
       },
     );
   }
@@ -98,10 +104,41 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final text = _input.text;
     if (text.trim().isEmpty) return;
     _input.clear();
-    context.read<FridayController>().send(text);
+    _submit(text);
+  }
+
+  Future<void> _submit(String text) async {
+    final controller = context.read<FridayController>();
+    if (_sending || controller.busy) return;
+    final before = controller.messages.length;
+    _sending = true;
+    try {
+      await controller.send(text);
+      // Give the finished response a short reading window. Failed requests and
+      // questions also end this invocation; this never claims task success.
+      if (mounted && controller.messages.length > before) {
+        if (!_closeRequested)
+          await Future<void>.delayed(const Duration(milliseconds: 1500));
+        if (mounted) {
+          _sending = false;
+          await _dismiss();
+        }
+      }
+    } finally {
+      _sending = false;
+    }
   }
 
   Future<void> _dismiss() async {
+    if (_sending || context.read<FridayController>().busy) {
+      _closeRequested = true;
+      _focus.unfocus();
+      await context.read<SpeechService>().stopListening();
+      try {
+        await _channel.invokeMethod('hidePanelWhileBusy');
+      } catch (_) {}
+      return;
+    }
     await context.read<SpeechService>().stopListening();
     try {
       await _channel.invokeMethod<void>('dismiss');
