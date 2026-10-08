@@ -10,6 +10,13 @@ abstract class AgentBrain {
       AgentGoal goal, Map<String, dynamic> screen, List<String> history);
 }
 
+class AgentRuntimeFailure implements Exception {
+  final String message;
+  AgentRuntimeFailure(this.message);
+  @override
+  String toString() => message;
+}
+
 class AgentOutputFailure implements Exception {
   final String diagnostic;
   AgentOutputFailure(this.diagnostic);
@@ -175,16 +182,17 @@ class FridayAgent extends ChangeNotifier {
       final start = await device.call('start',
           {'package': g.package, 'query': g.query, 'settings': g.settings});
       if (start['success'] != true)
-        throw StateError(
+        throw AgentRuntimeFailure(
             start['error']?.toString() ?? 'Accessibility not ready');
       while (running && epoch == _epoch && steps < maxSteps) {
         _status('Observing screen');
         observation = await _observe(epoch);
         if (!running || epoch != _epoch) break;
         if (observation['success'] == false)
-          throw StateError(
+          throw AgentRuntimeFailure(
               observation['error']?.toString() ?? 'Screen unavailable');
         _status('Planning next action');
+        final decisionClock = Stopwatch()..start();
         final a = steps == 0 && observation['package'] != g.package
             ? AgentAction(
                 action: 'open_app',
@@ -197,6 +205,9 @@ class FridayAgent extends ChangeNotifier {
                 .decide(g, observation, log.reversed.toList())
                 .timeout(const Duration(seconds: 45));
         if (!running || epoch != _epoch) break;
+        decisionClock.stop();
+        log.add(
+            'Decision ${steps + 1}: ${decisionClock.elapsedMilliseconds} ms');
         lastAction = a;
         steps++;
         if (a.action == 'ask_confirmation') {

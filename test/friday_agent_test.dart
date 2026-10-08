@@ -78,6 +78,18 @@ class TransitionDevice extends Device {
 }
 
 void main() {
+  test('native lifecycle stop cause reaches user without circular StateError',
+      () async {
+    final d = Device({
+      'success': false,
+      'error': 'Android interrupted the accessibility service'
+    });
+    final a = FridayAgent(brain: Brain([]), device: d);
+    await a.start('Open YouTube and search for GTA 6');
+    expect(a.result, contains('Android interrupted'));
+    expect(a.result, isNot(contains('Bad state')));
+    expect(d.acts, 0);
+  });
   test('read-only retry survives launch window transition without actions',
       () async {
     final g = AgentGoal.parse('Open YouTube and search for GTA 6')!;

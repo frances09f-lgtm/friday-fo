@@ -38,7 +38,7 @@ class FridayAccessibilityService:AccessibilityService(){
   }}
  }
  private val timer=android.os.Handler(android.os.Looper.getMainLooper())
- private val expire=Runnable { stop() }
+ private val expire=Runnable { stop("Native safety timer expired after 60 seconds without a screen observation") }
  val isRunning:Boolean get()=active
  private var active=false
  private var allowed=""
@@ -51,27 +51,28 @@ class FridayAccessibilityService:AccessibilityService(){
   serviceInfo=serviceInfo.apply{flags=flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED}
  }
  override fun onAccessibilityEvent(event:AccessibilityEvent?){}
- override fun onInterrupt(){stop()}
- override fun onDestroy(){stop();current=null;super.onDestroy()}
+ override fun onInterrupt(){stop("Android interrupted the accessibility service")}
+ override fun onDestroy(){stop("Accessibility service was destroyed");current=null;super.onDestroy()}
  fun start(pkg:String,q:String,setting:Boolean):Map<String,Any>{
   if(active)return fail("Agent already running")
   if(pkg !in listOf("com.google.android.youtube","com.android.chrome","com.instagram.android","com.android.settings"))return fail("App outside core V1")
-  allowed=pkg;query=q;settings=setting;active=true
+  allowed=pkg;query=q;settings=setting;stopReason="";active=true
   try{
    val box=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0xff202020.toInt())}
    box.addView(TextView(this).apply{text="Friday Agent";setTextColor(-1);setPadding(12,12,12,12)})
-   box.addView(Button(this).apply{text="STOP";setOnClickListener{stop()}})
+   box.addView(Button(this).apply{text="STOP";setOnClickListener{stop("Stopped with the floating STOP button")}})
    (getSystemService(WINDOW_SERVICE) as WindowManager).addView(box,WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,android.graphics.PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.END;y=60})
    overlay=box
   }catch(e:Exception){active=false;return fail("Cannot show Stop control")}
   timer.postDelayed(expire,60000)
   return ok()
  }
- fun stop(){timer.removeCallbacks(expire);active=false;overlay?.let{try{(getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it)}catch(_:Exception){}};overlay=null;nodes.clear();token=""}
+ private var stopReason="No active accessibility task"
+ fun stop(reason:String="Stopped by Friday task controller"){if(active)stopReason=reason;timer.removeCallbacks(expire);active=false;overlay?.let{try{(getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it)}catch(_:Exception){}};overlay=null;nodes.clear();token=""}
  private fun fail(msg:String)=mapOf("success" to false,"error" to msg)
  private fun ok()=mapOf("success" to true)
  fun observe():Map<String,Any>{
-  if(!active)return fail("Agent stopped")
+  if(!active)return fail(stopReason.ifEmpty{"No active accessibility task"})
   val currentWindows=windows
   val appWindows=currentWindows.filter{it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION && (it.isActive||it.isFocused)}.sortedByDescending{it.isFocused}
   val focused=appWindows.filter{it.isFocused};val roots=(if(focused.isNotEmpty())focused else appWindows.filter{it.isActive}).mapNotNull{it.root}
@@ -93,8 +94,8 @@ class FridayAccessibilityService:AccessibilityService(){
   return mapOf("success" to true,"package" to pkg,"screen" to (root.className?.toString()?:""),"elements" to elements,"token" to token,"truncated" to (visits>=400||elements.size>=70))
  }
  fun act(a:Map<String,Any>,oldToken:String,result:MethodChannel.Result){
-  if(!active){result.success(fail("Agent stopped"));return}
-  val now=observe();if(now["token"]!=oldToken){result.success(fail("Screen changed. Observe again"));return}
+  if(!active){result.success(fail(stopReason.ifEmpty{"No active accessibility task"}));return}
+  val now=observe();if(now["success"]==false){result.success(now);return};if(now["token"]!=oldToken){result.success(fail("Screen changed. Observe again"));return}
   val action=a["action"]?.toString()?:"";val target=a["target"] as? Map<*,*>?:emptyMap<Any,Any>()
   if(action=="open_app"){
    if(target["package"]!=allowed){result.success(fail("App outside user goal"));return}
