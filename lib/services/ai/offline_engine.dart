@@ -162,8 +162,19 @@ class OfflineEngine {
       .replaceAll(RegExp(r'\blook[ -]+out\b'), 'lookout')
       .replaceAll(RegExp(r'\b(?:sona|oru|aura|auro|orrow|oro gold)\b'), 'oro');
 
+  static String normalizeTradeSpeech(String text) {
+    // Only normalize within an explicit trade-query shape, not personality
+    // questions or a literal app name containing traits.
+    if (!RegExp(
+            r'\b(open|running|active|current)\s+(?:traits|tradez|trade.s)\b')
+        .hasMatch(text)) return text;
+    if (RegExp(r'\b(personality|character|app)\b').hasMatch(text)) return text;
+    return text.replaceAll(RegExp(r"\b(?:traits|tradez|trade's)\b"), 'trades');
+  }
+
   FridayResponse handle(String text, {DateTime? now}) {
-    final t = normalizeSiblingNames(text.trim().toLowerCase());
+    final t =
+        normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
 
     if (t.contains('lookout') &&

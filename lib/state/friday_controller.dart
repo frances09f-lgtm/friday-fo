@@ -190,7 +190,7 @@ class FridayController extends ChangeNotifier {
       // A question, not a task: no okay/done wrapper - the answer from
       // Oro's real data is the reply itself.
       reply = await router.executeAll(actions);
-      if (reply.isEmpty) reply = "I couldn't read Oro's data.";
+      if (reply.isEmpty) reply = "I couldn't read Sona's saved data.";
     } else if (actions.isNotEmpty) {
       oroContext.clear();
       // One final result, not a second acknowledgement bubble.
