@@ -34,9 +34,11 @@ class FridayController extends ChangeNotifier {
     required this.speech,
     required this.settings,
     this.link,
+    this.agentRunning,
   });
 
   final DeviceLink? link;
+  final bool Function()? agentRunning;
   final AIBrain brain;
   final IntentRouter router;
   final ChatStore chatStore;
@@ -59,7 +61,7 @@ class FridayController extends ChangeNotifier {
 
   /// Every send speaks its reply unless the user muted Friday in Settings.
   Future<void> send(String text) async {
-    if (text.trim().isEmpty || busy) return;
+    if (text.trim().isEmpty || busy || agentRunning?.call() == true) return;
     try {
       await _send(text);
     } catch (_) {
@@ -223,7 +225,8 @@ class FridayController extends ChangeNotifier {
   }
 
   Future<String> receiveRemote(String text) async {
-    if (busy) return 'Friday is busy. Try again in a moment.';
+    if (busy || agentRunning?.call() == true)
+      return 'Friday is busy. Try again in a moment.';
     final response = const OfflineEngine().handle(text);
     const allowed = {
       FridayActionType.openApp,

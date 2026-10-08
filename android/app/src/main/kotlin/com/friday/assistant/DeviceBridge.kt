@@ -28,6 +28,7 @@ object DeviceBridge {
     private const val PERMISSION_REQUEST = 4242
 
     fun register(messenger: BinaryMessenger, context: Context, activity: Activity?) {
+        FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -113,7 +114,7 @@ object DeviceBridge {
         return out
     }
 
-    private fun openApp(context: Context, pkg: String?): Boolean {
+    fun openApp(context: Context, pkg: String?): Boolean {
         if (pkg.isNullOrEmpty()) return false
         return try {
             val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: return false

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 import '../../models/chat_message.dart';
@@ -12,6 +14,7 @@ import 'cloud_provider.dart';
 class LocalModelService {
   InferenceModel? _model;
   bool _loading = false;
+  Future<void> _tail = Future.value();
 
   bool get isReady => _model != null;
 
@@ -47,7 +50,23 @@ class LocalModelService {
     }
   }
 
-  Future<String> generate({
+  Future<String> generate(
+      {required String system,
+      required String userText,
+      List<ChatMessage> history = const []}) {
+    final done = Completer<String>();
+    _tail = _tail.then((_) async {
+      try {
+        done.complete(await _generate(
+            system: system, userText: userText, history: history));
+      } catch (e, st) {
+        done.completeError(e, st);
+      }
+    });
+    return done.future;
+  }
+
+  Future<String> _generate({
     required String system,
     required String userText,
     List<ChatMessage> history = const [],

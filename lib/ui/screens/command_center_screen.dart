@@ -10,6 +10,8 @@ import 'background_tasks_screen.dart';
 import 'assistant_setup_screen.dart';
 import 'device_link_screen.dart';
 import 'notifications_screen.dart';
+import 'agent_mode_screen.dart';
+import '../../services/agent/friday_agent.dart';
 
 class CommandCenterScreen extends StatefulWidget {
   const CommandCenterScreen({super.key});
@@ -32,7 +34,7 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
   Future<void> talk() async {
     final s = context.read<SpeechService>();
     final c = context.read<FridayController>();
-    if (c.busy) return;
+    if (c.busy || (context.read<FridayAgent?>()?.running ?? false)) return;
     if (s.isListening) {
       await s.stopListening();
       if (mounted) setState(() {});
@@ -109,6 +111,10 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
           : AppBar(
               title: Text(tab == 0 ? 'Friday' : 'Activity'),
               actions: [
+                IconButton(
+                    tooltip: 'Agent Mode',
+                    onPressed: () => open(const AgentModeScreen()),
+                    icon: const Icon(Icons.smart_toy_outlined)),
                 IconButton(
                   tooltip: 'Notifications',
                   onPressed: () => open(const NotificationsScreen()),
@@ -232,6 +238,10 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                           'Screen reading and tapping are not available in this version. Friday will not pretend to inspect another app.',
                         ),
                         actions: [
+                          IconButton(
+                              tooltip: 'Agent Mode',
+                              onPressed: () => open(const AgentModeScreen()),
+                              icon: const Icon(Icons.smart_toy_outlined)),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx),
                             child: const Text('Close'),
