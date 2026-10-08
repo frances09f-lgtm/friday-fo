@@ -33,6 +33,11 @@ void main() {
             .readAsStringSync();
     final name =
         RegExp('android:sessionService="([^"]+)"').firstMatch(xml)!.group(1)!;
+    expect(name, startsWith('com.friday.assistant.'));
+    expect(
+        xml,
+        contains(
+            'android:recognitionService="com.friday.assistant.FridayRecognitionService"'));
     final service = RegExp(
             '<service\\s[^>]*android:name="${RegExp.escape(name)}"[^>]*>',
             dotAll: true)

@@ -56,6 +56,13 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
               : 'Could not start floating assistant.');
         return;
       }
+      if (method == 'assistantSessionTest' && outcome != 'requested') {
+        if (mounted)
+          setState(() => error = outcome == 'not_active'
+              ? 'Friday voice service is not active. Choose None, then Friday again in default assistant settings.'
+              : 'System session test failed. Refresh and read invocation details.');
+        return;
+      }
       await refresh();
     } catch (_) {
       if (mounted)
@@ -111,10 +118,34 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
         const Text(
             'Then open another app and hold the power button. The bar should appear over it and listen. You can close it with the X.'),
         const SizedBox(height: 12),
+        Card(
+            child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Power-button diagnostic',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                          'Voice service: ${state?['serviceReady'] == true ? 'Ready' : 'Not active'}'),
+                      SelectableText(
+                          'Android voice service: ${state?['voiceService'] ?? 'Not checked'}'),
+                      SelectableText(
+                          'Android assist app: ${state?['assistComponent'] ?? 'Not checked'}'),
+                      OutlinedButton(
+                          onPressed: () => action('assistantSessionTest'),
+                          child: const Text('Test system assistant session')),
+                      const Text(
+                          'This tests the Android session, not just the floating bar. If not active after an update, select None then Friday in default assistant settings.'),
+                    ]))),
         const Text('Last assistant invocation'),
         SelectableText(state?['invocation']?.toString() ?? 'Not checked'),
         const Text(
             'If holding power does nothing, refresh this screen and send the invocation line. It shows whether Android called Friday or failed to open the overlay.'),
+        if ((state?['invocationHistory']?.toString() ?? '').isNotEmpty)
+          ExpansionTile(title: const Text('Invocation history'), children: [
+            SelectableText(state!['invocationHistory'].toString())
+          ]),
         if (error != null) Text(error!),
       ]));
 }

@@ -97,7 +97,7 @@
         </service>
 
         <service
-            android:name=".FridayAssistantSessionService"
+            android:name="com.friday.assistant.FridayAssistantSessionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
 
@@ -107,7 +107,7 @@
              laptop build uses), so choosing Friday as the default assistant
              keeps voice input working instead of breaking it. -->
         <service
-            android:name=".FridayRecognitionService"
+            android:name="com.friday.assistant.FridayRecognitionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true">
             <intent-filter>

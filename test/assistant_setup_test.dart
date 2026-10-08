@@ -87,6 +87,9 @@ void main() {
     expect(calls, contains('assistantOverlayPermission'));
     expect(t.takeException(), isNull);
     await t.runAsync(() async {
+      await t.drag(find.byType(ListView),const Offset(0,-550));
+      await t.pumpAndSettle();
+      expect(find.text('Test system assistant session'),findsOneWidget);
       final im = await (key.currentContext!.findRenderObject()
               as RenderRepaintBoundary)
           .toImage();

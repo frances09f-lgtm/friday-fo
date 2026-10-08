@@ -71,9 +71,14 @@ object DeviceBridge {
                     }
                 }
                 "bubbleStop" -> {context.stopService(Intent(context,AssistantOverlayService::class.java));result.success(true)}
+                "assistantSessionTest" -> {result.success(FridayAssistantService.ready?.testSession()?:"not_active")}
                 "assistantState" -> result.success(mapOf(
                     "overlay" to Settings.canDrawOverlays(context),
                     "bubble" to AssistantOverlayService.active,
+                    "serviceReady" to (FridayAssistantService.ready!=null),
+                    "voiceService" to (Settings.Secure.getString(context.contentResolver,"voice_interaction_service")?:"None"),
+                    "assistComponent" to (Settings.Secure.getString(context.contentResolver,"assistant")?:"None"),
+                    "invocationHistory" to context.getSharedPreferences("assistant_invocation",0).getString("history",""),
                     "invocation" to context.getSharedPreferences("assistant_invocation",0).getString("last","No assistant invocation recorded"),
                     "microphone" to hasPermission(context, Manifest.permission.RECORD_AUDIO),
                     "selected" to (Settings.Secure.getString(context.contentResolver, "voice_interaction_service")?.startsWith(context.packageName + "/") == true)))
