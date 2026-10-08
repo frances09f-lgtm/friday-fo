@@ -17,7 +17,7 @@ class AssistantTrampolineActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Settings.canDrawOverlays(this)) {
-            startService(Intent(this, AssistantOverlayService::class.java))
+            AssistantInvocation.start(this,"ACTION_ASSIST activity")
         } else {
             startActivity(
                 Intent(

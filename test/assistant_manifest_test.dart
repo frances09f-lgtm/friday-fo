@@ -2,6 +2,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('assistant gesture starts overlay directly with diagnostic evidence',
+      () {
+    final s = File(
+            'android/app/src/main/kotlin/com/friday/assistant/FridayAssistantService.kt')
+        .readAsStringSync();
+    expect(s, contains('setUiEnabled(false)'));
+    expect(
+        s,
+        contains(
+            'AssistantInvocation.start(context,"System assistant gesture'));
+    expect(s, contains('ContextCompat.startForegroundService'));
+    expect(s, contains('System created assistant session'));
+  });
   test('native overlay entrypoint is retained in main Dart library', () {
     final main = File('lib/main.dart').readAsStringSync();
     expect(main, contains("import 'assistant_overlay.dart' as overlay;"));

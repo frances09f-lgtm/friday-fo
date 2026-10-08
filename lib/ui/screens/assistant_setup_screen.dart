@@ -110,6 +110,11 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
             'A persistent Android notification stays visible while enabled. Hide here, in the panel, or from that notification. It does not auto-start at boot; Android may end the service. Enable microphone before holding for voice.'),
         const Text(
             'Then open another app and hold the power button. The bar should appear over it and listen. You can close it with the X.'),
+        const SizedBox(height: 12),
+        const Text('Last assistant invocation'),
+        SelectableText(state?['invocation']?.toString() ?? 'Not checked'),
+        const Text(
+            'If holding power does nothing, refresh this screen and send the invocation line. It shows whether Android called Friday or failed to open the overlay.'),
         if (error != null) Text(error!),
       ]));
 }

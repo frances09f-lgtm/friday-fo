@@ -67,7 +67,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(const MethodChannel('friday/assistant'),
               (call) async => {'voice': voice});
-      await t.binding.setSurfaceSize(const Size(412, 230));
+      await t.binding.setSurfaceSize(const Size(412, 132));
       final key = GlobalKey();
       await t.pumpWidget(MultiProvider(providers: [
         ChangeNotifierProvider<FridayController>.value(value: c),
@@ -76,6 +76,9 @@ void main() {
       await t.pumpAndSettle();
       expect(speech.starts, voice ? 1 : 0);
       expect(find.text('Ask Friday...'), findsOneWidget);
+      final input = t.getRect(find.byType(TextField));
+      expect(input.bottom, greaterThan(90));
+      expect(input.bottom, lessThan(132));
       expect(t.takeException(), isNull);
       await t.runAsync(() async {
         final im = await (key.currentContext!.findRenderObject()

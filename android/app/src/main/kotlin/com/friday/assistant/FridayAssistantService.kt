@@ -5,55 +5,46 @@ import android.os.Bundle
 import android.service.voice.VoiceInteractionService
 import android.service.voice.VoiceInteractionSession
 import android.service.voice.VoiceInteractionSessionService
+import android.provider.Settings
 
-/// Presence of this service (plus the manifest declaration) is what makes
-/// Friday appear in Settings > Default apps > Digital assistant app. When
-/// Friday holds the assistant role, the long-press-power gesture binds this
-/// service and shows a session; the session immediately hands off to the
-/// trampoline, which opens the floating panel - the same path as the
-/// ASSIST intent, so behavior is identical however the gesture arrives.
-/// The power-button/corner-swipe gestures are delivered by the system
-/// straight into showSession (SHOW_SOURCE_ASSIST_GESTURE) - there is no
-/// app-side callback to implement for them on Android 14.
-class FridayAssistantService : VoiceInteractionService()
-
-class FridayAssistantSessionService : VoiceInteractionSessionService() {
-    override fun onNewSession(args: Bundle?): VoiceInteractionSession =
-        FridayAssistantSession(this)
+/** System holds this light service while Friday is the default assistant. */
+class FridayAssistantService : VoiceInteractionService() {
+    override fun onReady(){super.onReady();AssistantInvocation.record(this,"Assistant service ready")}
 }
 
-class FridayAssistantSession(context: android.content.Context) :
-    VoiceInteractionSession(context) {
-
-    override fun onShow(args: Bundle?, showFlags: Int) {
-        super.onShow(args, showFlags)
-        val intent = Intent(context, AssistantTrampolineActivity::class.java)
-        var launched = false
-        // startAssistantActivity is the sanctioned way for a session to
-        // open its own UI and is exempt from background-activity-start
-        // blocking; a plain context.startActivity from the session context
-        // can be silently swallowed on OxygenOS - which looked exactly like
-        // "long-press power does nothing".
-        try {
-            startAssistantActivity(intent)
-            launched = true
-        } catch (_: Exception) {
+object AssistantInvocation {
+    fun record(context:android.content.Context,stage:String){
+        val p=context.getSharedPreferences("assistant_invocation",0)
+        p.edit().putString("last","${java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.US).format(java.util.Date())}: $stage").apply()
+        android.util.Log.i("FridayAssistant",stage)
+    }
+    fun start(context:android.content.Context,source:String):Boolean{
+        record(context,"$source received")
+        if(!Settings.canDrawOverlays(context)){record(context,"$source: display-over-apps permission missing");return false}
+        return try{
+            androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java))
+            record(context,"$source: overlay start requested")
+            true
+        }catch(e:Exception){record(context,"$source: ${e.javaClass.simpleName}: ${e.message}");false}
+    }
+}
+class FridayAssistantSessionService : VoiceInteractionSessionService() {
+    override fun onNewSession(args:Bundle?):VoiceInteractionSession {
+        AssistantInvocation.record(this,"System created assistant session")
+        return FridayAssistantSession(this)
+    }
+}
+class FridayAssistantSession(context:android.content.Context):VoiceInteractionSession(context){
+    override fun onPrepareShow(args:Bundle?,flags:Int){super.onPrepareShow(args,flags);setUiEnabled(false)}
+    override fun onShow(args:Bundle?,showFlags:Int){
+        super.onShow(args,showFlags)
+        // Avoid a trampoline activity whose launch can be cancelled by finishing
+        // the voice session. Start the foreground overlay directly while active.
+        if(AssistantInvocation.start(context,"System assistant gesture flags=$showFlags")){
+            finish()
+        }else{
+            try{startAssistantActivity(Intent(context,AssistantTrampolineActivity::class.java))}
+            catch(e:Exception){AssistantInvocation.record(context,"Assistant fallback: ${e.javaClass.simpleName}: ${e.message}");finish()}
         }
-        if (!launched) {
-            try {
-                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                launched = true
-            } catch (_: Exception) {
-            }
-        }
-        if (!launched) {
-            // Last resort: the overlay service itself. Service starts from
-            // the active assistant are allowed, and the panel is the point.
-            try {
-                context.startService(Intent(context, AssistantOverlayService::class.java))
-            } catch (_: Exception) {
-            }
-        }
-        finish()
     }
 }

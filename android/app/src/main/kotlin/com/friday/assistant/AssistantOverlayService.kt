@@ -21,6 +21,7 @@ import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.android.FlutterView
+import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -56,6 +57,7 @@ class AssistantOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        AssistantInvocation.record(this,"Overlay service created")
         startForeground(NOTIF_ID, buildNotification())
 
         windowManager=getSystemService(WINDOW_SERVICE) as WindowManager
@@ -82,7 +84,7 @@ class AssistantOverlayService : Service() {
             };true
         }
         bubble=v
-        try{windowManager?.addView(v,params)}catch(_:Exception){stopSelf()}
+        try{windowManager?.addView(v,params);AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     private fun openFriday(){startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
     private fun showPanel(listen:Boolean){
@@ -92,6 +94,12 @@ class AssistantOverlayService : Service() {
         val e=FlutterEngine(this)
         MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).setMethodCallHandler{call,result->
             when(call.method){
+                "panelExpanded"->{
+                    val expanded=call.argument<Boolean>("expanded")==true
+                    view?.let{v-> val lp=v.layoutParams as? WindowManager.LayoutParams
+                        if(lp!=null){lp.height=((if(expanded)360 else 132)*resources.displayMetrics.density).toInt();windowManager?.updateViewLayout(v,lp)}
+                    };result.success(null)
+                }
                 "launchMode"->result.success(mapOf("voice" to voice))
                 "dismiss"->{result.success(null);handler.post{if(persistent)showBubble()else stopSelf()}}
                 "hideBubble"->{result.success(null);stopSelf()}
@@ -102,9 +110,9 @@ class AssistantOverlayService : Service() {
         DeviceBridge.register(e.dartExecutor.binaryMessenger,this,null)
         engine=e
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint(loader.findAppBundlePath(),"assistantOverlayMain"))
-        val v=FlutterView(this);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
-        val params=WindowManager.LayoutParams(-1,(360*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
-        try{windowManager?.addView(v,params)}catch(_:Exception){stopSelf()}
+        val texture=FlutterTextureView(this).apply{isOpaque=false};val v=FlutterView(this,texture);v.setBackgroundColor(android.graphics.Color.TRANSPARENT);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
+        val params=WindowManager.LayoutParams(-1,(132*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        try{windowManager?.addView(v,params);AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
         if(intent?.action==ACTION_STOP){stopSelf();return START_NOT_STICKY}

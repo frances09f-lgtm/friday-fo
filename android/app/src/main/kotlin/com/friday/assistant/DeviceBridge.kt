@@ -74,6 +74,7 @@ object DeviceBridge {
                 "assistantState" -> result.success(mapOf(
                     "overlay" to Settings.canDrawOverlays(context),
                     "bubble" to AssistantOverlayService.active,
+                    "invocation" to context.getSharedPreferences("assistant_invocation",0).getString("last","No assistant invocation recorded"),
                     "microphone" to hasPermission(context, Manifest.permission.RECORD_AUDIO),
                     "selected" to (Settings.Secure.getString(context.contentResolver, "voice_interaction_service")?.startsWith(context.packageName + "/") == true)))
                 "assistantOverlayPermission" -> {
