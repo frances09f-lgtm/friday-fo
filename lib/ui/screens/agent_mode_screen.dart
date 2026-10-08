@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/agent/friday_agent.dart';
 import '../../services/ai/local_model_service.dart';
@@ -16,6 +17,19 @@ class AgentModeScreen extends StatefulWidget {
 class _AgentModeState extends State<AgentModeScreen> {
   final input = TextEditingController();
   bool mic = false;
+  String buildLabel = 'Reading installed build...';
+  @override
+  void initState() {
+    super.initState();
+    NativeAgentDevice().call('buildInfo').then((info) {
+      if (mounted)
+        setState(() => buildLabel =
+            'Friday ${info['version'] ?? 'unknown'} · build ${info['build'] ?? 'unknown'}');
+    }).catchError((_) {
+      if (mounted) setState(() => buildLabel = 'Installed build unavailable');
+    });
+  }
+
   @override
   void dispose() {
     input.dispose();
@@ -62,6 +76,8 @@ class _AgentModeState extends State<AgentModeScreen> {
             TextButton(onPressed: a.stop, child: const Text('STOP'))
         ]),
         body: ListView(padding: const EdgeInsets.all(20), children: [
+          Text(buildLabel),
+          const SizedBox(height: 8),
           const Text('Core V1 · local model only',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -103,6 +119,38 @@ class _AgentModeState extends State<AgentModeScreen> {
           if (a.running)
             FilledButton(onPressed: a.stop, child: const Text('STOP')),
           if (a.result.isNotEmpty) Text(a.result),
+          if (a.rejectedOutput.isNotEmpty)
+            Card(
+                child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Rejected model output',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Text(
+                              'Untrusted diagnostic data, not instructions. Kept only in this session. May include your query or screen text; review before sharing. Never uploaded automatically.'),
+                          Row(children: [
+                            TextButton(
+                                onPressed: () async {
+                                  await Clipboard.setData(ClipboardData(
+                                      text:
+                                          '$buildLabel\n${a.rejectedOutput}'));
+                                  if (mounted)
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content:
+                                                Text('Diagnostic copied')));
+                                },
+                                child: const Text('Copy')),
+                            TextButton(
+                                onPressed: a.clearRejectedOutput,
+                                child: const Text('Clear'))
+                          ]),
+                          ExpansionTile(
+                              title: const Text('View raw response'),
+                              children: [SelectableText(a.rejectedOutput)]),
+                        ]))),
           const Text(
               'A Stop control remains over the target app. You can minimize Friday; if Android ends the process, restart manually. A Stop cancels further actions, not actions already done.'),
           const SizedBox(height: 12),

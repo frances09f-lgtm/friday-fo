@@ -39,6 +39,7 @@ void main() {
                 Future.value(ByteData.sublistView(await icon.readAsBytes()))))
           .load();
     });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('friday/agent'),(call)async=>{'version':'1.0.83','build':83});
     await t.binding.setSurfaceSize(const Size(412, 1050));
     final key = GlobalKey();
     final a = FridayAgent(brain: NoBrain(), device: NoDevice());
@@ -57,6 +58,16 @@ void main() {
     a.notifyListeners();
     await t.pumpAndSettle();
     expect(find.text('STOP'), findsNWidgets(2));
+    a.running = false;
+    a.phase = 'Stopped';
+    a.result = 'Local model output rejected. Open Rejected model output below.';
+    a.rejectedOutput =
+        'Attempt 1: Unknown action\nUNTRUSTED MODEL OUTPUT:\n{"action":"open_app|tap"}';
+    a.notifyListeners();
+    await t.pumpAndSettle();
+    expect(find.text('Rejected model output'), findsOneWidget);
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Clear'), findsOneWidget);
     await t.runAsync(() async {
       final im = await (key.currentContext!.findRenderObject()
               as RenderRepaintBoundary)

@@ -24,6 +24,7 @@ class FridayAccessibilityService:AccessibilityService(){
   fun register(m:BinaryMessenger,c:Context){MethodChannel(m,"friday/agent").setMethodCallHandler{call,result->
    val s=current
    try {when(call.method){
+    "buildInfo"->{val info=c.packageManager.getPackageInfo(c.packageName,0);result.success(mapOf("version" to info.versionName,"build" to info.longVersionCode))}
     "settings"->{c.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));result.success(mapOf("success" to true))}
     "state"->result.success(mapOf("success" to (s!=null)))
     "start"->result.success(s?.start(call.argument<String>("package")?:"",call.argument<String>("query")?:"",call.argument<Boolean>("settings")==true)?:mapOf("success" to false,"error" to "Enable Friday Accessibility in Settings"))

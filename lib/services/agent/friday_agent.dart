@@ -10,6 +10,14 @@ abstract class AgentBrain {
       AgentGoal goal, Map<String, dynamic> screen, List<String> history);
 }
 
+class AgentOutputFailure implements Exception {
+  final String diagnostic;
+  AgentOutputFailure(this.diagnostic);
+  @override
+  String toString() =>
+      'Local model output rejected. Open Rejected model output below. No action taken for that decision.';
+}
+
 class LocalBrain implements AgentBrain {
   final LocalModelService local;
   LocalBrain(this.local);
@@ -54,6 +62,7 @@ class LocalBrain implements AgentBrain {
           'elements': elements
         })}';
     FormatException? failure;
+    final rejected = <String>[];
     for (var attempt = 0; attempt < 3; attempt++) {
       final raw = await local.generate(
           system: rules,
@@ -65,10 +74,13 @@ class LocalBrain implements AgentBrain {
         return AgentAction.parse(raw);
       } on FormatException catch (e) {
         failure = e;
+        // Local view only. May contain private screen/query text; never log or
+        // upload it. Preserve bounded raw data for the user to inspect.
+        rejected.add(
+            'Attempt ${attempt + 1}: ${e.message}\nUNTRUSTED MODEL OUTPUT:\n${raw.length > 4096 ? raw.substring(0, 4096) + ' [truncated]' : raw}');
       }
     }
-    throw FormatException(
-        'Local model returned invalid action JSON after 3 attempts: ${failure!.message}');
+    throw AgentOutputFailure(rejected.join('\n\n'));
   }
 }
 
@@ -97,6 +109,12 @@ class FridayAgent extends ChangeNotifier {
       this.maxRetries = 3});
   bool running = false;
   String phase = 'Ready', result = '';
+  String rejectedOutput = '';
+  void clearRejectedOutput() {
+    rejectedOutput = '';
+    notifyListeners();
+  }
+
   int steps = 0, retries = 0;
   int _epoch = 0;
   final List<String> log = [];
@@ -133,6 +151,7 @@ class FridayAgent extends ChangeNotifier {
     retries = 0;
     log.clear();
     result = '';
+    rejectedOutput = '';
     running = true;
     try {
       final start = await device.call('start',
@@ -206,6 +225,8 @@ class FridayAgent extends ChangeNotifier {
       if (result.isEmpty && epoch == _epoch)
         result = 'Step limit reached. Task not verified complete.';
     } catch (e) {
+      if (e is AgentOutputFailure && epoch == _epoch)
+        rejectedOutput = e.diagnostic;
       if (epoch == _epoch)
         result =
             'Agent stopped: ${e is TimeoutException ? 'Local decision timed out' : e.toString()}. No completion claimed.';

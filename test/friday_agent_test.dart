@@ -98,7 +98,8 @@ void main() {
     await expectLater(
         LocalBrain(l).decide(
             AgentGoal.parse('Open YouTube and search for GTA 6')!, {}, []),
-        throwsFormatException);
+        throwsA(isA<AgentOutputFailure>().having(
+            (e) => e.diagnostic, 'raw output', contains('{"action":"pay"}'))));
     expect(l.calls, 3);
   });
   for (final task in [
@@ -116,6 +117,18 @@ void main() {
           true);
     });
   }
+  test('rejected raw output stays local and dispatches no action', () async {
+    final l = OutputLocal(
+        List.filled(3, '{"action":"invalid_format"}', growable: true));
+    final d = Device(screen('com.google.android.youtube'));
+    final a = FridayAgent(brain: LocalBrain(l), device: d);
+    await a.start('Open YouTube and search for GTA 6');
+    expect(d.acts, 0);
+    expect(a.rejectedOutput, contains('invalid_format'));
+    expect(a.log, isEmpty);
+    a.clearRejectedOutput();
+    expect(a.rejectedOutput, isEmpty);
+  });
   test('unsupported and irreversible tasks never enter core', () {
     for (final t in [
       'Send Rahul hi',
