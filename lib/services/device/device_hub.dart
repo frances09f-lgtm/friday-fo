@@ -244,28 +244,52 @@ class DeviceHub {
     }
     final apps = await getInstalledApps();
 
-    for (final app in apps) {
-      if (app.label.toLowerCase() == q || app.packageName.toLowerCase() == q) {
-        return await _launch(app) ? app : null;
-      }
-    }
-    for (final app in apps) {
-      if (app.label.toLowerCase().contains(q) ||
-          app.packageName.toLowerCase().contains(q)) {
-        return await _launch(app) ? app : null;
-      }
-    }
-    // Word overlap: "play store" matches "Play Store".
-    final words = q.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
-    if (words.isNotEmpty) {
+    final app = matchApp(q, apps);
+    return app != null && await _launch(app) ? app : null;
+  }
+
+  static const sonaPackage = 'com.ambi.gold_paper_trading';
+  static const sonaAliases = {
+    'sona',
+    'oro',
+    'oru',
+    'aura',
+    'auro',
+    'orrow',
+    'oro gold'
+  };
+  static InstalledApp? matchApp(String query, List<InstalledApp> apps) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return null;
+    // Alias is authoritative, including when the target is absent. Never fall
+    // through to another installed app with a vaguely similar label/package.
+    if (sonaAliases.contains(q)) {
       for (final app in apps) {
-        final label = app.label.toLowerCase();
-        if (words.every(label.contains)) {
-          return await _launch(app) ? app : null;
-        }
+        if (app.packageName == sonaPackage) return app;
       }
+      return null;
     }
-    return null;
+    final exact = apps
+        .where((a) =>
+            a.label.toLowerCase() == q || a.packageName.toLowerCase() == q)
+        .toList();
+    if (exact.length == 1) return exact.single;
+    if (exact.length > 1) return null;
+    // Conservative whole-word partial labels only, no package substrings or
+    // edit-distance guesses. All requested words and at least 2/3 label words.
+    final words =
+        q.split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty).toSet();
+    if (q.length < 4 || words.isEmpty) return null;
+    final candidates = apps.where((a) {
+      final labelWords = a.label
+          .toLowerCase()
+          .split(RegExp(r'[^a-z0-9]+'))
+          .where((w) => w.isNotEmpty)
+          .toSet();
+      return words.every(labelWords.contains) &&
+          words.length / labelWords.length >= 0.66;
+    }).toList();
+    return candidates.length == 1 ? candidates.single : null;
   }
 
   Future<bool> _launch(InstalledApp app) async {

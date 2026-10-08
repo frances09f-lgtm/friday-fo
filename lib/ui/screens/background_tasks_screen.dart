@@ -53,13 +53,13 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> {
         ]),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           const Text(
-              'Gold alerts read Oro\'s saved quotes on this phone. They do not fetch live prices or place trades. Quotes more than 5 minutes old cannot trigger an alert.'),
+              'Gold alerts read Sona\'s saved quotes on this phone. They do not fetch live prices or place trades. Quotes more than 5 minutes old cannot trigger an alert.'),
           const SizedBox(height: 12),
           if (data?['runtime'] != null)
             Text('Last recorded execution: ${data!['runtime']}'),
           if (data?['mode'] == 'unsupported')
             const Text(
-                'These checks run on the Android phone, where Oro is installed.')
+                'These checks run on the Android phone, where Sona is installed.')
           else if (data != null)
             SwitchListTile(
                 contentPadding: EdgeInsets.zero,

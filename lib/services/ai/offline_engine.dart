@@ -160,7 +160,7 @@ class OfflineEngine {
 
   static String normalizeSiblingNames(String text) => text
       .replaceAll(RegExp(r'\blook[ -]+out\b'), 'lookout')
-      .replaceAll(RegExp(r'\b(?:auro|orrow|oro gold)\b'), 'oro');
+      .replaceAll(RegExp(r'\b(?:sona|oru|aura|auro|orrow|oro gold)\b'), 'oro');
 
   FridayResponse handle(String text, {DateTime? now}) {
     final t = normalizeSiblingNames(text.trim().toLowerCase());
@@ -181,7 +181,7 @@ class OfflineEngine {
 
     if (RegExp(r'^(?:check |show |ask )?oro(?: status)?[.!?]*$').hasMatch(t)) {
       return const FridayResponse(
-          reply: 'Reading Oro.',
+          reply: 'Reading Sona.',
           action:
               FridayAction(type: FridayActionType.oroStatus, target: 'price'));
     }
@@ -190,21 +190,21 @@ class OfflineEngine {
         RegExp(r'\b(profit|loss|losing|making|pnl|p/l)\b').hasMatch(t) &&
         RegExp(r'\b(trade|trades|position|positions|my|total)\b').hasMatch(t)) {
       return const FridayResponse(
-          reply: 'Checking Oro.',
+          reply: 'Checking Sona.',
           action: FridayAction(type: FridayActionType.oroStatus, target: 'pnl'),
           source: FridaySource.offline);
     }
     if (RegExp(r'\b(risk|risking)\b').hasMatch(t) &&
         RegExp(r'\b(trade|trades|my|total)\b').hasMatch(t)) {
       return const FridayResponse(
-          reply: 'Checking Oro.',
+          reply: 'Checking Sona.',
           action:
               FridayAction(type: FridayActionType.oroStatus, target: 'risk'),
           source: FridaySource.offline);
     }
     if (_oroTpsl.hasMatch(t)) {
       return FridayResponse(
-        reply: 'Checking Oro.',
+        reply: 'Checking Sona.',
         action: FridayAction(
             type: FridayActionType.oroStatus,
             target:
@@ -214,7 +214,7 @@ class OfflineEngine {
     }
     if (_oroTrades.hasMatch(t)) {
       return const FridayResponse(
-        reply: 'Checking Oro.',
+        reply: 'Checking Sona.',
         action:
             FridayAction(type: FridayActionType.oroStatus, target: 'trades'),
         source: FridaySource.offline,
@@ -222,7 +222,7 @@ class OfflineEngine {
     }
     if (_oroBalance.hasMatch(t)) {
       return const FridayResponse(
-        reply: 'Checking Oro.',
+        reply: 'Checking Sona.',
         action:
             FridayAction(type: FridayActionType.oroStatus, target: 'balance'),
         source: FridaySource.offline,
@@ -230,7 +230,7 @@ class OfflineEngine {
     }
     if (_oroPrice.hasMatch(t)) {
       return const FridayResponse(
-        reply: 'Checking Oro.',
+        reply: 'Checking Sona.',
         action: FridayAction(type: FridayActionType.oroStatus, target: 'price'),
         source: FridaySource.offline,
       );
@@ -432,7 +432,7 @@ class OfflineEngine {
 
     return const FridayResponse(
       reply:
-          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth, close all apps, or answer gold price and open trades from Oro.",
+          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth, close all apps, or answer gold price and open trades from Sona.",
       source: FridaySource.offline,
     );
   }

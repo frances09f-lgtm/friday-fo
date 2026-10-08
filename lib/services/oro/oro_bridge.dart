@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../device/device_hub.dart';
 
-/// One open Oro paper position as exposed by the offline bridge.
+/// One open Sona paper position as exposed by the offline bridge.
 class OroPosition {
   const OroPosition({this.dir, this.qty, this.entry, this.tp, this.sl});
 
@@ -15,7 +15,7 @@ class OroPosition {
 
 /// The real snapshot Oro publishes on the phone: latest quote it actually
 /// saw, the paper balance, and open positions. Every number came from
-/// Oro's own live data - the quote timestamp travels along so answers can
+/// Sona's own live data - the quote timestamp travels along so answers can
 /// say how old they are instead of pretending to be live.
 class OroSnapshot {
   const OroSnapshot({
@@ -68,7 +68,7 @@ class OroSnapshot {
   }
 }
 
-/// Reads Oro's on-device snapshot and builds spoken answers from it.
+/// Reads Sona's on-device snapshot and builds spoken answers from it.
 /// Phone-only by design (user: the connection must work offline); the
 /// router keeps the laptop on an honest "phone only" line.
 class OroBridge {
@@ -87,18 +87,18 @@ class OroBridge {
   static String answer(String kind, OroSnapshot? s, {int? nowMs}) {
     final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
     if (s == null) {
-      return "I couldn't read Oro's data - open Oro once on this phone so it can share its latest numbers.";
+      return "I couldn't read Sona's data - open Sona once on this phone so it can share its latest numbers.";
     }
     final quoteAge = s.quoteAt > 0 ? _age(now - s.quoteAt) : 'an unknown time';
     final accountAge =
         s.accountAt > 0 ? _age(now - s.accountAt) : 'an unknown time';
     if (kind != 'price' && s.accountKnown == false) {
-      return "Oro has not synced account data yet. I cannot tell whether there are open trades. Open Oro and let it sync.";
+      return "Sona has not synced account data yet. I cannot tell whether there are open trades. Open Sona and let it sync.";
     }
     switch (kind) {
       case 'price':
         if (s.bid == null || s.ask == null) {
-          return "Oro hasn't seen a live gold price yet - open Oro and let it connect once.";
+          return "Sona hasn't seen a live gold price yet - open Sona and let it connect once.";
         }
         final mid = (s.bid! + s.ask!) / 2;
         return 'Gold is at ${_price(mid)}, as of $quoteAge.';
@@ -167,7 +167,7 @@ class OroBridge {
         return 'Entry-to-stop paper risk is \$${_money(risk)}, as of $accountAge. This estimate excludes slippage and fees; stops are not guaranteed fills.';
       case 'balance':
         if (s.balance == null) {
-          return "Oro hasn't synced the paper balance yet - open it once.";
+          return "Sona hasn't synced the paper balance yet - open it once.";
         }
         return 'Your paper balance is \$${_money(s.balance!)}, as of $accountAge.';
       default:

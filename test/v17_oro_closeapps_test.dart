@@ -103,7 +103,7 @@ void main() {
 
     test('no snapshot: honest, no invented numbers', () {
       final a = OroBridge.answer('price', null, nowMs: now);
-      expect(a, contains("couldn't read Oro"));
+      expect(a, contains("couldn't read Sona"));
       expect(a, isNot(contains(RegExp(r'\d,\d{3}'))));
     });
 

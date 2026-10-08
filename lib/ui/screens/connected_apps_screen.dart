@@ -16,9 +16,9 @@ class ConnectedAppsScreen extends StatelessWidget {
         appBar: AppBar(title: const Text('Connected apps')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
           const Text(
-              'Same Android phone. No pairing or cloud relay. Open Oro and Lookout once after installing their updates.'),
+              'Same Android phone. No pairing or cloud relay. Open Sona and Lookout once after installing their updates.'),
           const SizedBox(height: 16),
-          const Text('Oro', style: TextStyle(fontSize: 22)),
+          const Text('Sona', style: TextStyle(fontSize: 22)),
           const Text(
               'Reads saved quote and paper account data with age. It never places or closes a trade.'),
           Wrap(spacing: 8, children: [
@@ -27,7 +27,7 @@ class ConnectedAppsScreen extends StatelessWidget {
             command('Open trades', 'my open trades'),
             command('TP / SL', 'my trade tp sl'),
             command('Paper P/L', 'my total trade pnl'),
-            command('Open Oro', 'open Oro')
+            command('Open Sona', 'open Sona')
           ]),
           const SizedBox(height: 16),
           const Text('Lookout', style: TextStyle(fontSize: 22)),

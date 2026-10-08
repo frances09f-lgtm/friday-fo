@@ -165,10 +165,14 @@ class IntentRouter {
 
   Future<String> _openApp(String appQuery) async {
     final app = await deviceHub.openAppByName(appQuery);
-    if (app == null) {
-      return "I couldn't find an app matching \"$appQuery\" on this phone.";
-    }
-    return ''; // silent success - single confirmation
+    return appLaunchResult(appQuery, app);
+  }
+
+  static String appLaunchResult(String appQuery, InstalledApp? app) {
+    if (app == null)
+      return "I couldn't find or launch a unique app matching \"$appQuery\". Say its exact name.";
+    final label = app.packageName == DeviceHub.sonaPackage ? 'Sona' : app.label;
+    return 'Launch requested for $label. I cannot verify it became visible.';
   }
 
   Future<String> _readMessages({String query = ''}) async {
@@ -201,7 +205,7 @@ class IntentRouter {
     }
     switch (callResult) {
       case 'calling':
-        return ''; // silent success - single confirmation
+        return ''; // existing single-confirmation call behavior
       case 'dialer':
         return 'Opening the dialer with $who - tap the call button. Grant the call permission and I can dial directly.';
       case 'asked':
