@@ -119,6 +119,23 @@ class FridayAgent extends ChangeNotifier {
   int _epoch = 0;
   final List<String> log = [];
   Map<String, dynamic> observation = {};
+  Future<Map<String, dynamic>> _observe(int epoch) async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final s = await device.call('observe');
+      if (s['transient'] != true || !running || epoch != _epoch) return s;
+      _status('Waiting for readable app window (${attempt + 1}/10)');
+      if (attempt < 9)
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      else
+        return {
+          ...s,
+          'error':
+              '${s['error']}. ${s['windowDiagnostic'] ?? ''}. Keep the target app foreground and retry.'
+        };
+    }
+    return {'success': false, 'error': 'Window unavailable'};
+  }
+
   AgentAction? lastAction;
   Map<String, dynamic> lastResult = {};
   AgentGoal? goal;
@@ -162,7 +179,7 @@ class FridayAgent extends ChangeNotifier {
             start['error']?.toString() ?? 'Accessibility not ready');
       while (running && epoch == _epoch && steps < maxSteps) {
         _status('Observing screen');
-        observation = await device.call('observe');
+        observation = await _observe(epoch);
         if (!running || epoch != _epoch) break;
         if (observation['success'] == false)
           throw StateError(
@@ -216,7 +233,7 @@ class FridayAgent extends ChangeNotifier {
         if (!running || epoch != _epoch) break;
         await Future<void>.delayed(const Duration(milliseconds: 900));
         _status('Verifying ${a.action}');
-        final after = await device.call('observe');
+        final after = await _observe(epoch);
         final ok = lastResult['success'] == true &&
             verify(a, after) &&
             ({'wait', 'read_screen', 'type'}.contains(a.action) ||

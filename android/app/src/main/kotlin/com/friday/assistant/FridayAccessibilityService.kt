@@ -47,7 +47,9 @@ class FridayAccessibilityService:AccessibilityService(){
  private var overlay:LinearLayout?=null
  private val nodes=mutableListOf<AccessibilityNodeInfo>()
  private var token=""
- override fun onServiceConnected(){current=this}
+ override fun onServiceConnected(){current=this
+  serviceInfo=serviceInfo.apply{flags=flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED}
+ }
  override fun onAccessibilityEvent(event:AccessibilityEvent?){}
  override fun onInterrupt(){stop()}
  override fun onDestroy(){stop();current=null;super.onDestroy()}
@@ -70,7 +72,11 @@ class FridayAccessibilityService:AccessibilityService(){
  private fun ok()=mapOf("success" to true)
  fun observe():Map<String,Any>{
   if(!active)return fail("Agent stopped")
-  val root=windows.firstOrNull{it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION && it.isActive}?.root ?: rootInActiveWindow ?: return fail("No readable active window")
+  val currentWindows=windows
+  val appWindows=currentWindows.filter{it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION && (it.isActive||it.isFocused)}.sortedByDescending{it.isFocused}
+  val focused=appWindows.filter{it.isFocused};val roots=(if(focused.isNotEmpty())focused else appWindows.filter{it.isActive}).mapNotNull{it.root}
+  val root=roots.firstOrNull{it.packageName?.toString()==allowed}?:roots.firstOrNull()?:rootInActiveWindow
+  if(root==null)return mapOf("success" to false,"error" to "No readable active window","transient" to true,"windowDiagnostic" to "Connected; windows=${currentWindows.size}; applications=${appWindows.size}; active=${currentWindows.count{it.isActive}}; focused=${currentWindows.count{it.isFocused}}; flags=${serviceInfo.flags}")
   timer.removeCallbacks(expire);timer.postDelayed(expire,60000)
   nodes.clear();val elements=mutableListOf<Map<String,Any>>();var visits=0
   fun walk(n:AccessibilityNodeInfo,depth:Int){

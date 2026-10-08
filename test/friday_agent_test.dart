@@ -61,7 +61,36 @@ class OutputLocal extends LocalModelService {
   }
 }
 
+class TransitionDevice extends Device {
+  int reads = 0;
+  TransitionDevice(super.s);
+  @override
+  Future<Map<String, dynamic>> call(String m,
+      [Map<String, dynamic> args = const {}]) async {
+    if (m == 'observe' && reads++ < 2)
+      return {
+        'success': false,
+        'transient': true,
+        'error': 'No readable active window'
+      };
+    return super.call(m, args);
+  }
+}
+
 void main() {
+  test('read-only retry survives launch window transition without actions',
+      () async {
+    final g = AgentGoal.parse('Open YouTube and search for GTA 6')!;
+    final d = TransitionDevice(
+        screen(g.package, text: g.query, extra: 'Videos Results'));
+    final a = FridayAgent(
+        brain: Brain([AgentAction(action: 'finish', confidence: 1)]),
+        device: d);
+    await a.start(g.task);
+    expect(a.result, 'Done');
+    expect(d.reads, 3);
+    expect(d.acts, 0);
+  });
   test('parsed pauses name confidence, goal scope and help separately',
       () async {
     final goal = AgentGoal.parse('Open YouTube and search for GTA 6')!;
