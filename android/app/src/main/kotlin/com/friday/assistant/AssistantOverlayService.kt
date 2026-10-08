@@ -11,6 +11,12 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import android.view.MotionEvent
+import android.widget.TextView
+import android.graphics.drawable.GradientDrawable
+import android.provider.Settings
+import android.os.Handler
+import android.os.Looper
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -28,11 +34,23 @@ class AssistantOverlayService : Service() {
         private const val CHANNEL = "friday/assistant"
         private const val NOTIF_CHANNEL = "friday_assistant"
         private const val NOTIF_ID = 71
+        var active=false
+        const val MODE_BUBBLE="bubble"
+        private const val ACTION_STOP="com.friday.assistant.STOP_BUBBLE"
+
     }
 
     private var engine: FlutterEngine? = null
     private var view: FlutterView? = null
     private var windowManager: WindowManager? = null
+    private var bubble:TextView?=null
+    private var persistent=false
+    private var voice=false
+    private val handler=Handler(Looper.getMainLooper())
+    private var hold:Runnable?=null
+    private var downX=0f;private var downY=0f
+    private var longTriggered=false
+
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -40,60 +58,59 @@ class AssistantOverlayService : Service() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
 
-        val loader = FlutterInjector.instance().flutterLoader()
-        loader.startInitialization(applicationContext)
-        loader.ensureInitializationComplete(applicationContext, null)
-
-        val e = FlutterEngine(this)
-        e.dartExecutor.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint(
-                loader.findAppBundlePath(),
-                "assistantOverlayMain",
-            )
-        )
-        MethodChannel(e.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "dismiss" -> {
-                        result.success(null)
-                        stopSelf()
-                    }
-                    "openFriday" -> {
-                        startActivity(
-                            Intent(this, MainActivity::class.java)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
-                        result.success(null)
-                        stopSelf()
-                    }
-                    else -> result.notImplemented()
-                }
-            }
-        engine = e
-        DeviceBridge.register(e.dartExecutor.binaryMessenger, this, null)
-
-        val v = FlutterView(this)
-        v.attachToFlutterEngine(e)
-        e.lifecycleChannel.appIsResumed()
-        view = v
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-            PixelFormat.TRANSLUCENT,
-        )
-        params.gravity = Gravity.BOTTOM
-        params.softInputMode =
-            android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        windowManager = wm
-        wm.addView(v, params)
+        windowManager=getSystemService(WINDOW_SERVICE) as WindowManager
     }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    private fun clearPanel(){
+        view?.let{try{windowManager?.removeView(it)}catch(_:Exception){};it.detachFromFlutterEngine()}
+        engine?.destroy();engine=null;view=null
+    }
+    private fun clearBubble(){hold?.let{handler.removeCallbacks(it)};hold=null;bubble?.let{try{windowManager?.removeView(it)}catch(_:Exception){}};bubble=null}
+    private fun showBubble(){
+        clearPanel();clearBubble()
+        if(!Settings.canDrawOverlays(this)){stopSelf();return}
+        val density=resources.displayMetrics.density
+        val size=(56*density).toInt()
+        val v=TextView(this).apply{text="F";textSize=24f;gravity=Gravity.CENTER;setTextColor(-1);contentDescription="Friday bubble. Tap for panel, hold for voice, swipe sideways to open Friday.";background=GradientDrawable().apply{shape=GradientDrawable.OVAL;colors=intArrayOf(0xffa17cff.toInt(),0xff6750a4.toInt());setStroke((2*density).toInt(),0xffc5b3ff.toInt())}}
+        val params=WindowManager.LayoutParams(size,size,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=resources.displayMetrics.widthPixels-size;y=resources.displayMetrics.heightPixels/3}
+        v.setOnTouchListener{_,event->
+            when(event.actionMasked){
+                MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;longTriggered=false;hold=Runnable{longTriggered=true;showPanel(true)};handler.postDelayed(hold!!,600)}
+                MotionEvent.ACTION_MOVE->{if(kotlin.math.abs(event.rawX-downX)>20*density||kotlin.math.abs(event.rawY-downY)>20*density)hold?.let{handler.removeCallbacks(it)}}
+                MotionEvent.ACTION_UP->{hold?.let{handler.removeCallbacks(it)};val dx=event.rawX-downX;val dy=event.rawY-downY
+                    if(!longTriggered){if(kotlin.math.abs(dx)>50*density){openFriday();showBubble()}else if(kotlin.math.abs(dy)>30*density){params.y=(params.y+dy.toInt()).coerceIn(0,resources.displayMetrics.heightPixels-size);windowManager?.updateViewLayout(v,params)}else showPanel(false)}}
+                MotionEvent.ACTION_CANCEL->{hold?.let{handler.removeCallbacks(it)}}
+            };true
+        }
+        bubble=v
+        try{windowManager?.addView(v,params)}catch(_:Exception){stopSelf()}
+    }
+    private fun openFriday(){startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
+    private fun showPanel(listen:Boolean){
+        clearBubble();clearPanel();voice=listen
+        if(!Settings.canDrawOverlays(this)){stopSelf();return}
+        val loader=FlutterInjector.instance().flutterLoader();loader.startInitialization(applicationContext);loader.ensureInitializationComplete(applicationContext,null)
+        val e=FlutterEngine(this)
+        MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).setMethodCallHandler{call,result->
+            when(call.method){
+                "launchMode"->result.success(mapOf("voice" to voice))
+                "dismiss"->{result.success(null);handler.post{if(persistent)showBubble()else stopSelf()}}
+                "hideBubble"->{result.success(null);stopSelf()}
+                "openFriday"->{openFriday();result.success(null);handler.post{if(persistent)showBubble()else stopSelf()}}
+                else->result.notImplemented()
+            }
+        }
+        DeviceBridge.register(e.dartExecutor.binaryMessenger,this,null)
+        engine=e
+        e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint(loader.findAppBundlePath(),"assistantOverlayMain"))
+        val v=FlutterView(this);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
+        val params=WindowManager.LayoutParams(-1,(360*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        try{windowManager?.addView(v,params)}catch(_:Exception){stopSelf()}
+    }
+    override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
+        if(intent?.action==ACTION_STOP){stopSelf();return START_NOT_STICKY}
+        if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
+        active=true
+        if(intent?.getBooleanExtra(MODE_BUBBLE,false)==true){persistent=true;showBubble()}else showPanel(true)
         return START_NOT_STICKY
     }
 
@@ -121,24 +138,13 @@ class AssistantOverlayService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("Friday is listening")
+            .setContentTitle("Friday assistant available")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(open)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel,"Hide",PendingIntent.getService(this,1,Intent(this,AssistantOverlayService::class.java).setAction(ACTION_STOP),PendingIntent.FLAG_IMMUTABLE))
             .setOngoing(true)
             .build()
     }
 
-    override fun onDestroy() {
-        view?.let { v ->
-            try {
-                windowManager?.removeView(v)
-            } catch (_: Exception) {
-            }
-            v.detachFromFlutterEngine()
-        }
-        engine?.destroy()
-        engine = null
-        view = null
-        super.onDestroy()
-    }
+    override fun onDestroy(){active=false;clearBubble();clearPanel();super.onDestroy()}
 }

@@ -80,8 +80,9 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Display over other apps: Not allowed'), findsOneWidget);
     expect(find.text('Microphone: Allowed'), findsOneWidget);
-    expect(t.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
-    await t.tap(find.text('Allow floating bar'));
+    expect(t.widget<FilledButton>(find.byType(FilledButton).first).onPressed,
+        isNull);
+    await t.tap(find.text('Allow display over other apps'));
     await t.pumpAndSettle();
     expect(calls, contains('assistantOverlayPermission'));
     expect(t.takeException(), isNull);

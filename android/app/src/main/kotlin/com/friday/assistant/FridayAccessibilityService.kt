@@ -38,6 +38,7 @@ class FridayAccessibilityService:AccessibilityService(){
  }
  private val timer=android.os.Handler(android.os.Looper.getMainLooper())
  private val expire=Runnable { stop() }
+ val isRunning:Boolean get()=active
  private var active=false
  private var allowed=""
  private var query=""

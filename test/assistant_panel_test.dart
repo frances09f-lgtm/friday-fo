@@ -37,49 +37,54 @@ class LiveSpeech extends SpeechService {
 }
 
 void main() {
-  testWidgets('assistant panel starts mic once and fits a bottom bar',
-      (t) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final settings = SettingsStore(const FlutterSecureStorage(), prefs);
-    final speech = LiveSpeech();
-    final c = FridayController(
-        brain: AIBrain(settings: settings, local: LocalModelService()),
-        router:
-            IntentRouter(deviceHub: DeviceHub(), reminders: ReminderService()),
-        chatStore: ChatStore(prefs),
-        speech: speech,
-        settings: settings);
-    await t.runAsync(() async {
-      for (final item in {
-        'Roboto': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-        'MaterialIcons':
-            '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
-      }.entries) {
-        if (!await File(item.value).exists()) continue;
-        final l = FontLoader(item.key)
-          ..addFont(Future.value(
-              ByteData.sublistView(await File(item.value).readAsBytes())));
-        await l.load();
-      }
+  for (final voice in [true, false]) {
+    testWidgets('assistant panel voice=$voice starts only on explicit hold',
+        (t) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settings = SettingsStore(const FlutterSecureStorage(), prefs);
+      final speech = LiveSpeech();
+      final c = FridayController(
+          brain: AIBrain(settings: settings, local: LocalModelService()),
+          router: IntentRouter(
+              deviceHub: DeviceHub(), reminders: ReminderService()),
+          chatStore: ChatStore(prefs),
+          speech: speech,
+          settings: settings);
+      await t.runAsync(() async {
+        for (final item in {
+          'Roboto': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+          'MaterialIcons':
+              '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
+        }.entries) {
+          if (!await File(item.value).exists()) continue;
+          final l = FontLoader(item.key)
+            ..addFont(Future.value(
+                ByteData.sublistView(await File(item.value).readAsBytes())));
+          await l.load();
+        }
+      });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('friday/assistant'),
+              (call) async => {'voice': voice});
+      await t.binding.setSurfaceSize(const Size(412, 230));
+      final key = GlobalKey();
+      await t.pumpWidget(MultiProvider(providers: [
+        ChangeNotifierProvider<FridayController>.value(value: c),
+        Provider<SpeechService>.value(value: speech)
+      ], child: RepaintBoundary(key: key, child: const AssistantOverlayApp())));
+      await t.pumpAndSettle();
+      expect(speech.starts, voice ? 1 : 0);
+      expect(find.text('Ask Friday...'), findsOneWidget);
+      expect(t.takeException(), isNull);
+      await t.runAsync(() async {
+        final im = await (key.currentContext!.findRenderObject()
+                as RenderRepaintBoundary)
+            .toImage();
+        final d = await im.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/friday-assistant-panel.png')
+            .writeAsBytes(d!.buffer.asUint8List());
+      });
     });
-    await t.binding.setSurfaceSize(const Size(412, 230));
-    final key = GlobalKey();
-    await t.pumpWidget(MultiProvider(providers: [
-      ChangeNotifierProvider<FridayController>.value(value: c),
-      Provider<SpeechService>.value(value: speech)
-    ], child: RepaintBoundary(key: key, child: const AssistantOverlayApp())));
-    await t.pumpAndSettle();
-    expect(speech.starts, 1);
-    expect(find.text('Ask Friday...'), findsOneWidget);
-    expect(t.takeException(), isNull);
-    await t.runAsync(() async {
-      final im = await (key.currentContext!.findRenderObject()
-              as RenderRepaintBoundary)
-          .toImage();
-      final d = await im.toByteData(format: ui.ImageByteFormat.png);
-      await File('/tmp/friday-assistant-panel.png')
-          .writeAsBytes(d!.buffer.asUint8List());
-    });
-  });
+  }
 }

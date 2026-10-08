@@ -31,6 +31,9 @@ object DeviceBridge {
         FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
+            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
+                result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
+            }
             when (call.method) {
                 "modelStorage" -> {val mem=android.app.ActivityManager.MemoryInfo();(context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem);result.success(mapOf("freeBytes" to android.os.StatFs(context.filesDir.absolutePath).availableBytes,"totalRam" to mem.totalMem))}
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
@@ -62,8 +65,15 @@ object DeviceBridge {
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
                 "setBrightness" -> result.success(setBrightnessPercent(context, activity, call.argument<Int>("percent") ?: -1))
+                "bubbleStart" -> {
+                    if(!Settings.canDrawOverlays(context)){result.success("permission_required")}else{
+                        try{androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java).putExtra(AssistantOverlayService.MODE_BUBBLE,true));result.success("requested")}catch(_:Exception){result.success("failed")}
+                    }
+                }
+                "bubbleStop" -> {context.stopService(Intent(context,AssistantOverlayService::class.java));result.success(true)}
                 "assistantState" -> result.success(mapOf(
                     "overlay" to Settings.canDrawOverlays(context),
+                    "bubble" to AssistantOverlayService.active,
                     "microphone" to hasPermission(context, Manifest.permission.RECORD_AUDIO),
                     "selected" to (Settings.Secure.getString(context.contentResolver, "voice_interaction_service")?.startsWith(context.packageName + "/") == true)))
                 "assistantOverlayPermission" -> {

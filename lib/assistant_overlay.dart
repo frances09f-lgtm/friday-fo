@@ -64,7 +64,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
       if (!mounted) return;
       final speech = context.read<SpeechService>();
       try {
-        if (await speech.initSpeech()) {
+        final mode =
+            await _channel.invokeMapMethod<String, dynamic>('launchMode');
+        if (mode?['voice'] == true && await speech.initSpeech()) {
           _startListening(speech);
           return;
         }
@@ -99,12 +101,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _dismiss() async {
+    await context.read<SpeechService>().stopListening();
     try {
       await _channel.invokeMethod<void>('dismiss');
     } catch (_) {}
   }
 
   Future<void> _openFullApp() async {
+    await context.read<SpeechService>().stopListening();
     try {
       await _channel.invokeMethod<void>('openFriday');
     } catch (_) {}
@@ -133,6 +137,15 @@ class _AssistantPanelState extends State<AssistantPanel> {
                 const SizedBox(width: 16),
                 Text('Friday', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
+                IconButton(
+                    tooltip: 'Hide floating assistant',
+                    icon: const Icon(Icons.visibility_off_outlined, size: 20),
+                    onPressed: () async {
+                      await context.read<SpeechService>().stopListening();
+                      try {
+                        await _channel.invokeMethod('hideBubble');
+                      } catch (_) {}
+                    }),
                 IconButton(
                   icon: const Icon(Icons.open_in_full, size: 20),
                   tooltip: 'Open Friday',
@@ -170,8 +183,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                     .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                              m.text,
+                          child: Text(m.text,
                               style: const TextStyle(fontSize: 13)),
                         ),
                       );

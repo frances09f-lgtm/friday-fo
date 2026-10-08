@@ -48,7 +48,14 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
 
   Future<void> action(String method) async {
     try {
-      await channel.invokeMethod(method);
+      final outcome = await channel.invokeMethod(method);
+      if (method == 'bubbleStart' && outcome != 'requested') {
+        if (mounted)
+          setState(() => error = outcome == 'permission_required'
+              ? 'Allow display over other apps first.'
+              : 'Could not start floating assistant.');
+        return;
+      }
       await refresh();
     } catch (_) {
       if (mounted)
@@ -64,13 +71,13 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
       ]),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         const Text(
-            'Friday can show a small listening bar over other apps. Android requires your permission once.'),
+            'Enable a global Friday bubble over other apps. Tap opens the command panel, hold starts voice, swipe sideways opens full Friday. Android requires display-over-apps permission.'),
         const SizedBox(height: 16),
         Text(
             'Display over other apps: ${state == null ? 'Not checked' : state!['overlay'] == true ? 'Allowed' : 'Not allowed'}'),
         OutlinedButton(
             onPressed: () => action('assistantOverlayPermission'),
-            child: const Text('Allow floating bar')),
+            child: const Text('Allow display over other apps')),
         Text(
             'Microphone: ${state == null ? 'Not checked' : state!['microphone'] == true ? 'Allowed' : 'Not allowed'}'),
         OutlinedButton(
@@ -89,6 +96,18 @@ class _AssistantSetupScreenState extends State<AssistantSetupScreen>
                 ? () => action('assistantPreview')
                 : null,
             child: const Text('Test floating bar')),
+        const SizedBox(height: 12),
+        Text(
+            'Floating assistant: ${state?['bubble'] == true ? 'Service running' : 'Off'}'),
+        FilledButton(
+            onPressed:
+                state?['overlay'] == true ? () => action('bubbleStart') : null,
+            child: const Text('Show floating bubble')),
+        OutlinedButton(
+            onPressed: () => action('bubbleStop'),
+            child: const Text('Hide floating bubble')),
+        const Text(
+            'A persistent Android notification stays visible while enabled. Hide here, in the panel, or from that notification. It does not auto-start at boot; Android may end the service. Enable microphone before holding for voice.'),
         const Text(
             'Then open another app and hold the power button. The bar should appear over it and listen. You can close it with the X.'),
         if (error != null) Text(error!),
