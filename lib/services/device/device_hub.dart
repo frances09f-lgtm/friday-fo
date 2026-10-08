@@ -88,8 +88,7 @@ class DeviceHub {
   /// Returns calling | dialer | asked | no_match | error.
   Future<String> callContact(String who) async {
     try {
-      return await _channel
-              .invokeMethod<String>('callContact', {'who': who}) ??
+      return await _channel.invokeMethod<String>('callContact', {'who': who}) ??
           'error';
     } on Exception {
 // ignore: unreachable_switch_case
@@ -101,8 +100,8 @@ class DeviceHub {
   /// Returns sent | asked | no_match | error.
   Future<String> sendText(String who, String body) async {
     try {
-      return await _channel.invokeMethod<String>(
-              'sendText', {'who': who, 'text': body}) ??
+      return await _channel
+              .invokeMethod<String>('sendText', {'who': who, 'text': body}) ??
           'error';
     } on Exception {
 // ignore: unreachable_switch_case
@@ -125,8 +124,8 @@ class DeviceHub {
   Future<bool> setVolumePercent(int percent) async {
     if (_isWindows) return WindowsDevice.setVolumePercent(percent);
     try {
-      return await _channel.invokeMethod<bool>(
-              'setVolume', {'percent': percent}) ??
+      return await _channel
+              .invokeMethod<bool>('setVolume', {'percent': percent}) ??
           false;
     } on Exception {
 // ignore: unreachable_switch_case
@@ -158,8 +157,8 @@ class DeviceHub {
       return await WindowsDevice.setBrightnessPercent(percent) ? 'ok' : 'error';
     }
     try {
-      return await _channel.invokeMethod<String>(
-              'setBrightness', {'percent': percent}) ??
+      return await _channel
+              .invokeMethod<String>('setBrightness', {'percent': percent}) ??
           'error';
     } on Exception {
 // ignore: unreachable_switch_case
@@ -194,8 +193,7 @@ class DeviceHub {
   Future<bool> openSystemPanel(String which) async {
     if (_isWindows) return WindowsDevice.openSettingsPanel(which);
     try {
-      return await _channel
-              .invokeMethod<bool>('openPanel', {'which': which}) ??
+      return await _channel.invokeMethod<bool>('openPanel', {'which': which}) ??
           false;
     } on Exception {
 // ignore: unreachable_switch_case
@@ -209,6 +207,15 @@ class DeviceHub {
   /// nothing on the phone matches.
   /// Raw JSON snapshot from Oro's offline bridge provider, or null when
   /// Oro is not installed / has nothing yet. Phone-only by design.
+  Future<String?> lookoutStatusRaw() async {
+    if (_isWindows || kIsWeb) return null;
+    try {
+      return await _channel.invokeMethod<String>('lookoutStatus');
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<String?> oroStatusRaw() async {
     if (_isWindows || kIsWeb) return null;
     try {
@@ -238,8 +245,7 @@ class DeviceHub {
     final apps = await getInstalledApps();
 
     for (final app in apps) {
-      if (app.label.toLowerCase() == q ||
-          app.packageName.toLowerCase() == q) {
+      if (app.label.toLowerCase() == q || app.packageName.toLowerCase() == q) {
         return await _launch(app) ? app : null;
       }
     }

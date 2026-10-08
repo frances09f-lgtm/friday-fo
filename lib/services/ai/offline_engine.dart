@@ -162,6 +162,15 @@ class OfflineEngine {
     final t = text.trim().toLowerCase();
     final clock = now ?? DateTime.now();
 
+    if (t.contains('lookout') &&
+        RegExp(r'\b(status|watches|watch list|monitoring|tasks)\b')
+            .hasMatch(t) &&
+        !RegExp(r'\b(pause|resume|delete|create|stop|start)\b').hasMatch(t)) {
+      return const FridayResponse(
+          reply: 'Reading Lookout.',
+          action: FridayAction(type: FridayActionType.lookoutStatus),
+          source: FridaySource.offline);
+    }
     // Multi-part commands first - the single ladder swallows one half.
     final multi = _multiActions(t, text.trim());
     if (multi != null) return multi;

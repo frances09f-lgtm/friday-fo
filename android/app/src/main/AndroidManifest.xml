@@ -30,6 +30,7 @@
         <!-- See Oro's offline bridge provider so Friday can read the
              on-device trade snapshot (user project: connect the apps) -->
         <provider android:authorities="com.ambi.gold_paper_trading.bridge" />
+        <provider android:authorities="com.ambi.lookout.bridge" />
     </queries>
 
     <application

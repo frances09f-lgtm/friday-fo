@@ -81,6 +81,7 @@ object DeviceBridge {
                 "taskCancelAll" -> result.success(GoldTasks.cancelAll(context))
                 "taskMode" -> result.success(GoldTasks.setMode(context, call.argument<Boolean>("saver") == true))
                 "oroStatus" -> result.success(oroStatus(context))
+                "lookoutStatus" -> result.success(lookoutStatus(context))
                 else -> result.notImplemented()
             }
         }
@@ -474,4 +475,12 @@ object DeviceBridge {
             null
         }
     }
+    private fun lookoutStatus(context: Context): String? {
+        return try {
+            context.contentResolver.query(Uri.parse("content://com.ambi.lookout.bridge/status"), null, null, null, null)?.use { c ->
+                if(c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (_: Exception) { null }
+    }
+
 }

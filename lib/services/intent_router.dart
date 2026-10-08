@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/friday_response.dart';
 import 'device/device_hub.dart';
 import 'oro/oro_bridge.dart';
+import 'lookout_bridge.dart';
 import 'device/reminder_service.dart';
 import 'usage_reporter.dart';
 
@@ -47,6 +48,7 @@ class IntentRouter {
     FridayActionType.brightnessDown,
     FridayActionType.openApp,
     FridayActionType.oroStatus,
+    FridayActionType.lookoutStatus,
   };
 
   static bool get _isPhone => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -68,7 +70,9 @@ class IntentRouter {
   };
 
   Future<String> execute(FridayAction action) async {
-    if (action.type != FridayActionType.none) {
+    if (action.type != FridayActionType.none &&
+        action.type != FridayActionType.oroStatus &&
+        action.type != FridayActionType.lookoutStatus) {
       UsageReporter.report('action', {'type': action.type.name});
     }
     if (!_isPhone &&
@@ -124,6 +128,8 @@ class IntentRouter {
         return _setVolume(action);
       case FridayActionType.setBrightness:
         return _setBrightness(action);
+      case FridayActionType.lookoutStatus:
+        return LookoutBridge.answer(await deviceHub.lookoutStatusRaw());
       case FridayActionType.oroStatus:
         return _oroStatus(action);
       case FridayActionType.closeAllApps:

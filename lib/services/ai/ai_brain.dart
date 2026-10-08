@@ -43,7 +43,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
       try {
         final raw = await provider.complete(
           system: _system,
-          history: history.take(12).toList(),
+          history: history.where((m) => !m.localOnly).take(12).toList(),
           userText: userText,
         );
         final parsed = parser.parse(raw, source: FridaySource.cloud);
@@ -61,7 +61,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
         final raw = await local.generate(
           system: _system,
           userText: userText,
-          history: history.take(8).toList(),
+          history: history.where((m) => !m.localOnly).take(8).toList(),
         );
         final parsed = parser.parse(raw, source: FridaySource.local);
         if (parsed.reply.trim().isNotEmpty) {

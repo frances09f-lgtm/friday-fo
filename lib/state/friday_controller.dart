@@ -178,9 +178,15 @@ class FridayController extends ChangeNotifier {
         .where((a) => a.type != FridayActionType.none)
         .toList();
     final infoOnly = actions.isNotEmpty &&
-        actions.every((a) => a.type == FridayActionType.oroStatus);
+        actions.every((a) =>
+            a.type == FridayActionType.oroStatus ||
+            a.type == FridayActionType.lookoutStatus);
     if (infoOnly) {
-      oroContext.remember(DateTime.now());
+      if (actions.any((a) => a.type == FridayActionType.oroStatus)) {
+        oroContext.remember(DateTime.now());
+      } else {
+        oroContext.clear();
+      }
       // A question, not a task: no okay/done wrapper - the answer from
       // Oro's real data is the reply itself.
       reply = await router.executeAll(actions);
@@ -202,6 +208,7 @@ class FridayController extends ChangeNotifier {
         id: '${DateTime.now().microsecondsSinceEpoch}r',
         role: MessageRole.friday,
         text: reply,
+        localOnly: infoOnly,
         at: DateTime.now(),
       ),
     );

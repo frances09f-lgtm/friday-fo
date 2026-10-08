@@ -9,10 +9,12 @@ class ChatMessage {
     required this.text,
     required this.at,
     this.source,
+    this.localOnly = false,
   });
 
   final String id;
   final MessageRole role;
+  final bool localOnly;
   final String text;
   final DateTime at;
 
@@ -23,6 +25,7 @@ class ChatMessage {
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
         'role': role.name,
+        if (localOnly) 'localOnly': true,
         'text': text,
         'at': at.toIso8601String(),
         if (source != null) 'source': source!.name,
@@ -35,6 +38,7 @@ class ChatMessage {
           orElse: () => MessageRole.friday,
         ),
         text: json['text'] as String? ?? '',
+        localOnly: json['localOnly'] == true,
         at: DateTime.tryParse(json['at'] as String? ?? '') ?? DateTime.now(),
         source: FridaySource.values
             .where((s) => s.name == json['source'])

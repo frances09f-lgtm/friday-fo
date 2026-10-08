@@ -17,6 +17,7 @@ enum FridayActionType {
   brightnessUp,
   brightnessDown,
   oroStatus,
+  lookoutStatus,
   closeAllApps,
 }
 

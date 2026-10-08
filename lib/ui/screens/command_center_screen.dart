@@ -5,6 +5,7 @@ import '../../models/chat_message.dart';
 import '../../state/friday_controller.dart';
 import '../../services/speech/speech_service.dart';
 import 'home_screen.dart';
+import 'connected_apps_screen.dart';
 import 'background_tasks_screen.dart';
 import 'assistant_setup_screen.dart';
 import 'device_link_screen.dart';
@@ -238,6 +239,11 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  ActionChip(
+                    label: const Text('Connected apps'),
+                    avatar: const Icon(Icons.hub_outlined, size: 18),
+                    onPressed: () => open(const ConnectedAppsScreen()),
                   ),
                   ActionChip(
                     label: const Text('Tasks'),

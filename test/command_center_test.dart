@@ -86,6 +86,18 @@ void main() {
       await File('/tmp/friday-command-center.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
+    await t.tap(find.text('Connected apps'));
+    await t.pumpAndSettle();
+    expect(find.text('Gold price'), findsOneWidget);
+    expect(find.text('Watch status'), findsOneWidget);
+    expect(find.textContaining('never places or closes'), findsOneWidget);
+    await t.runAsync(() async {
+      final im = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
+      final d = await im.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/friday-connected-apps.png').writeAsBytes(d!.buffer.asUint8List());
+    });
+    await t.pageBack();
+    await t.pumpAndSettle();
     await t.tap(find.text('Activity'));
     await t.pumpAndSettle();
     expect(find.textContaining('No activity yet'), findsOneWidget);
