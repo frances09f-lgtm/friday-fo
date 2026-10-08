@@ -11,6 +11,7 @@ import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
 import '../../models/chat_message.dart';
 import 'cloud_provider.dart';
+import 'model_download.dart';
 
 /// The on-device backup brain. Runs a small Gemma model locally with
 /// flutter_gemma (Google AI Edge / MediaPipe), so Friday still answers and
@@ -25,11 +26,44 @@ class LocalModelService extends ChangeNotifier {
   static const modelRevision = '6c237a59eedeb06a821b21f0a59b03d346ac8bc3';
   static const modelFile =
       'Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task';
+  static const installedFilename = 'friday-qwen05.task';
   static const modelBytes = 546660344;
   static const modelSha =
       'e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2';
   static const modelUrl =
       'https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/$modelRevision/$modelFile';
+  String setupStage = 'Not started';
+  String? lastLoadError;
+  String diagnostics = '';
+  void _stage(String stage, String status) {
+    setupStage = stage;
+    setupStatus = status;
+    debugPrint('Friday local model stage: $stage');
+    notifyListeners();
+  }
+
+  Future<void> _failure(Object error) async {
+    final rawReason = error
+        .toString()
+        .replaceAll(RegExp(r'https?://\S+'), '[source]')
+        .replaceAll(RegExp(r'gsk_[A-Za-z0-9]+'), '[redacted]');
+    final reason = error is TimeoutException
+        ? 'No response for two minutes or inference test timeout. Retry; saved download bytes are kept. $rawReason'
+        : error is SocketException
+            ? 'Network connection failed. Retry on a stable connection; saved bytes are kept. $rawReason'
+            : error is FileSystemException
+                ? 'Could not read/write model file. Check free storage and retry. $rawReason'
+                : rawReason;
+    diagnostics =
+        '${DateTime.now().toIso8601String()} | $setupStage | ${reason.length > 700 ? reason.substring(0, 700) : reason}';
+    debugPrint('Friday local model failure: $diagnostics');
+    try {
+      await (await SharedPreferences.getInstance())
+          .setString('friday_model_diagnostic', diagnostics);
+    } catch (_) {}
+    setupStatus = '$setupStage failed: $reason. Agent is not ready.';
+  }
+
   bool setupBusy = false;
   int downloaded = 0;
   String setupStatus = 'No guided model installed';
@@ -43,9 +77,22 @@ class LocalModelService extends ChangeNotifier {
 
   Future<void> checkSetup() async {
     final p = await SharedPreferences.getInstance();
-    if (p.getString('friday_local_kind') == 'qwen05') {
-      _type = ModelType.qwen;
-      setupStatus = 'Qwen 0.5B installed · tap Load and test';
+    if (p.getString('friday_local_kind') == 'qwen05') _type = ModelType.qwen;
+    if (!setupBusy) {
+      diagnostics = p.getString('friday_model_diagnostic') ?? '';
+      try {
+        final dir = await getApplicationSupportDirectory();
+        final complete = File('${dir.path}/$installedFilename');
+        final part = await complete.exists()
+            ? complete
+            : File('${dir.path}/friday-qwen05.task.part');
+        downloaded = await part.exists() ? await part.length() : 0;
+        if (p.getString('friday_local_kind') == 'qwen05')
+          setupStatus = 'Qwen 0.5B registered · tap Load and test';
+        else if (downloaded > 0)
+          setupStatus =
+              'Saved ${(downloaded / 1000000).toStringAsFixed(1)} MB. Download resumes from this file.';
+      } catch (_) {}
     }
     notifyListeners();
   }
@@ -53,8 +100,7 @@ class LocalModelService extends ChangeNotifier {
   Future<bool> loadAndTest() async {
     if (setupBusy) return false;
     setupBusy = true;
-    setupStatus = 'Loading and testing local inference...';
-    notifyListeners();
+    _stage('Engine initialization', 'Preparing local engine...');
     try {
       await initEngine();
       await _tail;
@@ -66,9 +112,8 @@ class LocalModelService extends ChangeNotifier {
       setupStatus =
           'Local inference responded. Agent task accuracy still needs testing.';
       return true;
-    } catch (_) {
-      setupStatus =
-          'Model could not run on this phone. Check storage/RAM or retry. Agent is not ready.';
+    } catch (e) {
+      await _failure(e);
       return false;
     } finally {
       setupBusy = false;
@@ -80,68 +125,44 @@ class LocalModelService extends ChangeNotifier {
     if (setupBusy) return false;
     setupBusy = true;
     _cancel = false;
-    setupStatus = 'Checking free space...';
-    notifyListeners();
+    _stage('Engine initialization', 'Preparing local engine...');
     try {
       await initEngine();
       await _tail;
+      _stage('Storage check', 'Checking free space and RAM...');
       final stats = await const MethodChannel('friday/device')
           .invokeMapMethod<String, dynamic>('modelStorage');
       if (stats == null || (stats['freeBytes'] as num?) == null)
         throw StateError('Storage check unavailable');
-      if ((stats['freeBytes'] as num).toInt() < modelBytes * 2 + 268435456)
-        throw StateError('Need at least 1.4 GB free storage');
+      final dir = await getApplicationSupportDirectory();
+      final complete = File('${dir.path}/$installedFilename');
+      var part = await complete.exists()
+          ? complete
+          : File('${dir.path}/friday-qwen05.task.part');
+      final saved = await part.exists() ? await part.length() : 0;
+      final requiredFree =
+          modelBytes - (saved <= modelBytes ? saved : 0) + 268435456;
+      if ((stats['freeBytes'] as num).toInt() < requiredFree)
+        throw StateError(
+            'Not enough free storage. Need ${(requiredFree / 1000000).ceil()} MB free for remaining download and setup.');
       if ((stats['totalRam'] as num?) != null &&
           (stats['totalRam'] as num).toInt() < 3 * 1024 * 1024 * 1024)
         throw StateError('At least 3 GB total RAM required for this trial');
-      final dir = await getApplicationSupportDirectory();
-      final part = File('${dir.path}/friday-qwen05.task.part');
-      var offset = await part.exists() ? await part.length() : 0;
-      if (offset > modelBytes) {
-        await part.delete();
-        offset = 0;
-      }
-      downloaded = offset;
-      if (offset < modelBytes) {
-        setupStatus = 'Downloading Qwen 0.5B (547 MB). Keep Friday open.';
-        notifyListeners();
-        final client = HttpClient()
-          ..connectionTimeout = const Duration(seconds: 30);
-        _download = client;
-        final req = await client.getUrl(Uri.parse(modelUrl));
-        if (offset > 0) req.headers.set('Range', 'bytes=$offset-');
-        final response = await req.close().timeout(const Duration(seconds: 45));
-        if (response.statusCode == 200) {
-          offset = 0;
-          downloaded = 0;
-        } else if (response.statusCode == 206) {
-          if (!(response.headers.value('content-range') ?? '')
-              .startsWith('bytes $offset-'))
-            throw StateError('Invalid resume response');
-        } else
-          throw StateError('Download HTTP ${response.statusCode}');
-        final sink =
-            part.openWrite(mode: offset > 0 ? FileMode.append : FileMode.write);
-        try {
-          await for (final bytes
-              in response.timeout(const Duration(seconds: 45))) {
-            if (_cancel) throw StateError('Cancelled');
-            downloaded += bytes.length;
-            if (downloaded > modelBytes) throw StateError('Oversized model');
-            sink.add(bytes);
+      _stage('Download', 'Downloading Qwen 0.5B (547 MB). Keep Friday open.');
+      await ModelDownload.fetch(
+          url: Uri.parse(modelUrl),
+          part: part,
+          expectedBytes: modelBytes,
+          cancelled: () => _cancel,
+          progress: (bytes) {
+            downloaded = bytes;
             notifyListeners();
-          }
-        } finally {
-          await sink.close();
-          client.close();
-          _download = null;
-        }
-      }
+          },
+          clientChanged: (client) => _download = client);
       if (_cancel) throw StateError('Cancelled');
       if (await part.length() != modelBytes)
         throw StateError('Incomplete download. Retry to resume');
-      setupStatus = 'Verifying SHA-256...';
-      notifyListeners();
+      _stage('Integrity check', 'Verifying SHA-256...');
       final hash = await crypto.sha256.bind(part.openRead()).first;
       final hex =
           hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
@@ -150,8 +171,8 @@ class LocalModelService extends ChangeNotifier {
         throw StateError('Integrity mismatch; download removed');
       }
       if (_cancel) throw StateError('Cancelled');
-      setupStatus = 'Installing verified local model...';
-      notifyListeners();
+      if (part.path != complete.path) part = await part.rename(complete.path);
+      _stage('Registration', 'Registering verified local model...');
       await _model?.close();
       _model = null;
       await FlutterGemma.installModel(
@@ -162,8 +183,7 @@ class LocalModelService extends ChangeNotifier {
       await p.setString('friday_local_kind', 'qwen05');
       _type = ModelType.qwen;
       // fromFile registers this path without copying; retain the verified file.
-      setupStatus = 'Model installed. Loading and testing...';
-      notifyListeners();
+      _stage('Load', 'Model registered. Loading native inference...');
       final output = await _generate(
               system: 'Reply briefly.', userText: 'Reply with only READY.')
           .timeout(const Duration(seconds: 90));
@@ -172,9 +192,9 @@ class LocalModelService extends ChangeNotifier {
       setupStatus = 'Local inference responded. Ready for an Agent Mode trial.';
       return true;
     } catch (e) {
-      setupStatus = _cancel
-          ? 'Download cancelled. Retry resumes a partial download.'
-          : 'Setup failed: $e. No readiness claimed.';
+      await _failure(e);
+      if (_cancel)
+        setupStatus = 'Download cancelled. Retry resumes a partial download.';
       return false;
     } finally {
       setupBusy = false;
@@ -215,15 +235,44 @@ class LocalModelService extends ChangeNotifier {
     if (_loading) return false;
     _loading = true;
     try {
+      _stage('Load', 'Loading native inference...');
       await initEngine();
       await checkSetup();
+      if (_type == ModelType.qwen) {
+        final dir = await getApplicationSupportDirectory();
+        final target = File('${dir.path}/$installedFilename');
+        final legacy = File('${dir.path}/friday-qwen05.task.part');
+        if (!await target.exists() &&
+            await legacy.exists() &&
+            await legacy.length() == modelBytes) {
+          _stage('Integrity check', 'Checking existing completed download...');
+          if ((await crypto.sha256.bind(legacy.openRead()).first).toString() !=
+              modelSha)
+            throw StateError(
+                'Existing file checksum mismatch. Use Download to retry.');
+          await legacy.rename(target.path);
+        }
+        if (!await target.exists())
+          throw StateError(
+              'Complete model file not found. Use Download to resume.');
+        if (await target.length() != modelBytes)
+          throw StateError('Model file size is wrong. Use Download to retry.');
+        _stage('Registration', 'Registering local .task file...');
+        await FlutterGemma.installModel(
+                modelType: ModelType.qwen, fileType: ModelFileType.task)
+            .fromFile(target.path)
+            .install();
+      }
+      _stage('Load', 'Loading native inference...');
       _model = await FlutterGemmaPlugin.instance.createModel(
         modelType: _type,
         preferredBackend: PreferredBackend.cpu,
         maxTokens: 1280,
       );
+      lastLoadError = null;
       return true;
-    } catch (_) {
+    } catch (e) {
+      lastLoadError = e.toString();
       _model = null;
       return false;
     } finally {
@@ -256,8 +305,11 @@ class LocalModelService extends ChangeNotifier {
     List<ChatMessage> history = const [],
   }) async {
     if (!await ensureReady()) {
-      throw FridayApiException('No local model available');
+      throw FridayApiException(lastLoadError ??
+          'Local model is already loading. Retry when that operation finishes.');
     }
+    if (setupBusy)
+      _stage('Inference test', 'Native model loaded. Testing inference...');
     final chat = await _model!.createChat(
         temperature: .1, topK: 1, modelType: _type, maxOutputTokens: 192);
     try {

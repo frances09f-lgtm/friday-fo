@@ -32,6 +32,8 @@ void main() {
     expect(
         LocalModelService.modelUrl, contains(LocalModelService.modelRevision));
     expect(LocalModelService.modelUrl, endsWith('.task'));
+    expect(LocalModelService.installedFilename, endsWith('.task'));
+    expect(LocalModelService.installedFilename, isNot(endsWith('.part')));
     expect(LocalModelService.modelBytes, 546660344);
     expect(LocalModelService.modelSha.length, 64);
   });
@@ -40,11 +42,18 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel('friday/device'),
             (call) async => {'freeBytes': 1, 'totalRam': 8000000000});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'),(call)async=>'/tmp/friday-model-test-empty');
     final l = LocalModelService();
     expect(await l.downloadGuided(), false);
     expect(l.setupStatus, contains('free storage'));
     expect(l.isReady, false);
     expect(l.setupBusy, false);
+    expect(l.setupStatus, contains('Storage check failed'));
+    expect(l.diagnostics, contains('Storage check'));
+    expect(
+        (await SharedPreferences.getInstance())
+            .getString('friday_model_diagnostic'),
+        isNotNull);
   });
   test('setup state blocks inference generation', () async {
     final l = LocalModelService()..setupBusy = true;
@@ -78,10 +87,18 @@ void main() {
     expect(find.text('Download and test local model'), findsOneWidget);
     l.setupBusy = true;
     l.downloaded = 120000000;
+    l.setupStage = 'Download';
     l.setupStatus = 'Downloading Qwen 0.5B (547 MB). Keep Friday open.';
     l.notifyListeners();
     await t.pump();
     expect(find.text('Cancel download'), findsOneWidget);
+    l.setupBusy = false;
+    l.setupStatus =
+        'Load failed: Unsupported model format: .part. Agent is not ready.';
+    l.diagnostics = 'Load | Unsupported model format: .part';
+    l.notifyListeners();
+    await t.pump();
+    expect(find.text('Last failure details'), findsOneWidget);
     await t.runAsync(() async {
       final im = await (key.currentContext!.findRenderObject()
               as RenderRepaintBoundary)

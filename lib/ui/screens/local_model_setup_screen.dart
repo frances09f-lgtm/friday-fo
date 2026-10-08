@@ -30,18 +30,28 @@ class _LocalModelSetupState extends State<LocalModelSetupScreen> {
               'Public Apache 2.0 model, converted by LiteRT community for Android CPU inference. No account or API key needed. Uses Friday\'s existing local engine, not Replier\'s GGUF files.'),
           const SizedBox(height: 12),
           const Text(
-              'Download: 547 MB. Allow about 1.4 GB free storage during setup and at least 3 GB phone RAM. Keep Friday open; Wi-Fi recommended. Download can resume after interruption. Once installed, screen inference stays on your phone.'),
+              'Mobile data: a fresh download uses about 547 MB. Load and test reuses the saved complete file without a network download. Download: 547 MB. Allow about 1.4 GB free storage during setup and at least 3 GB phone RAM. Keep Friday open; Wi-Fi recommended. Download can resume after interruption. Once installed, screen inference stays on your phone.'),
           const SizedBox(height: 16),
           Text(l.setupStatus),
-          if (l.setupBusy) ...[
+          if (l.diagnostics.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ExpansionTile(title: const Text('Last failure details'), children: [
+              Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(l.diagnostics))
+            ]),
+          ],
+          if (l.setupBusy || l.downloaded > 0) ...[
             const SizedBox(height: 12),
             LinearProgressIndicator(
                 value: l.downloaded > 0
                     ? l.downloaded / LocalModelService.modelBytes
                     : null),
             Text('${(l.downloaded / 1000000).toStringAsFixed(1)} / 546.7 MB'),
-            TextButton(
-                onPressed: l.cancelSetup, child: const Text('Cancel download'))
+            if (l.setupBusy && l.setupStage == 'Download')
+              TextButton(
+                  onPressed: l.cancelSetup,
+                  child: const Text('Cancel download'))
           ],
           const SizedBox(height: 12),
           FilledButton(
