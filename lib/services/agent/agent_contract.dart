@@ -28,12 +28,31 @@ class AgentAction {
     'ask_confirmation'
   };
   factory AgentAction.parse(String raw) {
-    final m = jsonDecode(raw) as Map<String, dynamic>;
+    var source = raw.trim();
+    if (source.startsWith('```')) {
+      final fenced =
+          RegExp(r'^```(?:json)?\s*([\s\S]*?)\s*```$', caseSensitive: false)
+              .firstMatch(source);
+      if (fenced == null)
+        throw const FormatException('Expected one JSON object');
+      source = fenced[1]!;
+    }
+    final decoded = jsonDecode(source);
+    if (decoded is! Map<String, dynamic>)
+      throw const FormatException('Expected one JSON object');
+    final m = Map<String, dynamic>.from(decoded);
+    if (m['action'] is String)
+      m['action'] =
+          (m['action'] as String).trim().toLowerCase().replaceAll(' ', '_');
     if (!actions.contains(m['action']))
       throw const FormatException('Unknown action');
     if (m.containsKey('x') || m.containsKey('y'))
       throw const FormatException('Coordinates disabled in core V1');
     final t = m['target'];
+    if (t is Map && (t.containsKey('x') || t.containsKey('y')))
+      throw const FormatException('Coordinates disabled in core V1');
+    if (m['confidence'] != null && m['confidence'] is! num)
+      throw const FormatException('Confidence must be a number');
     return AgentAction(
         action: m['action'],
         target: t is Map

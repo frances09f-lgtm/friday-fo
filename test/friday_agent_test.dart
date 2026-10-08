@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:friday/services/agent/agent_contract.dart';
 import 'package:friday/services/agent/friday_agent.dart';
+import 'package:friday/services/ai/local_model_service.dart';
+import 'package:friday/models/chat_message.dart';
 
 Map<String, dynamic> screen(String pkg,
         {String text = '', bool editable = false, String extra = ''}) =>
@@ -43,7 +45,62 @@ class Device implements AgentDevice {
   }
 }
 
+class OutputLocal extends LocalModelService {
+  final List<String> outputs;
+  int calls = 0;
+  String prompt = '';
+  OutputLocal(this.outputs);
+  @override
+  Future<String> generate(
+      {required String system,
+      required String userText,
+      List<ChatMessage> history = const []}) async {
+    calls++;
+    prompt = system;
+    return outputs.removeAt(0);
+  }
+}
+
 void main() {
+  test(
+      'strict parser allows fences and case, never mixed actions or coordinates',
+      () {
+    expect(
+        AgentAction.parse(
+                '```json\n{"action":"OPEN APP","confidence":0.9}\n```')
+            .action,
+        'open_app');
+    for (final raw in [
+      '{"action":"open_app|tap"}',
+      '{"action":"tap","target":{"x":1,"y":2}}',
+      '{"action":"tap","confidence":"0.9"}',
+      '[{"action":"tap"}]',
+      '{"action":"send_message"}',
+      '{"action":"tap"} trailing'
+    ]) expect(() => AgentAction.parse(raw), throwsFormatException);
+  });
+  test(
+      'local format repair retries without side effects and uses concrete examples',
+      () async {
+    final l = OutputLocal([
+      '{"action":"open_app|tap"}',
+      '```json\n{"action":"OPEN_APP","confidence":0.9}\n```'
+    ]);
+    final result = await LocalBrain(l)
+        .decide(AgentGoal.parse('Open YouTube and search for GTA 6')!, {}, []);
+    expect(result.action, 'open_app');
+    expect(l.calls, 2);
+    expect(l.prompt, contains('"action":"open_app"'));
+    expect(l.prompt, isNot(contains('"action":"open_app|')));
+  });
+  test('invalid local output is bounded to three decisions', () async {
+    final l = OutputLocal(List.filled(3, '{"action":"pay"}', growable: true));
+    await expectLater(
+        LocalBrain(l).decide(
+            AgentGoal.parse('Open YouTube and search for GTA 6')!, {}, []),
+        throwsFormatException);
+    expect(l.calls, 3);
+  });
   for (final task in [
     'Open YouTube and search for GTA 6',
     "Open Chrome and search for today's gold price",
