@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart' as crypto;
 
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
 import '../../models/chat_message.dart';
 import 'cloud_provider.dart';
@@ -18,6 +19,9 @@ import 'cloud_provider.dart';
 /// The model file is NOT bundled: it is downloaded once from the URL the user
 /// sets in Settings (see README for free weights), then kept on the device.
 class LocalModelService extends ChangeNotifier {
+  static Future<void>? _engineInit;
+  static Future<void> initEngine() => _engineInit ??=
+      FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()]);
   static const modelRevision = '6c237a59eedeb06a821b21f0a59b03d346ac8bc3';
   static const modelFile =
       'Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task';
@@ -52,6 +56,7 @@ class LocalModelService extends ChangeNotifier {
     setupStatus = 'Loading and testing local inference...';
     notifyListeners();
     try {
+      await initEngine();
       await _tail;
       await checkSetup();
       final result = await _generate(
@@ -78,6 +83,7 @@ class LocalModelService extends ChangeNotifier {
     setupStatus = 'Checking free space...';
     notifyListeners();
     try {
+      await initEngine();
       await _tail;
       final stats = await const MethodChannel('friday/device')
           .invokeMapMethod<String, dynamic>('modelStorage');
@@ -189,6 +195,7 @@ class LocalModelService extends ChangeNotifier {
   Future<bool> installFromUrl(String url) async {
     if (url.trim().isEmpty) return false;
     try {
+      await initEngine();
       await _model?.close();
       _model = null;
       await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
@@ -208,6 +215,7 @@ class LocalModelService extends ChangeNotifier {
     if (_loading) return false;
     _loading = true;
     try {
+      await initEngine();
       await checkSetup();
       _model = await FlutterGemmaPlugin.instance.createModel(
         modelType: _type,
