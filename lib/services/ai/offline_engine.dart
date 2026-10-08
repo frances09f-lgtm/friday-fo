@@ -158,8 +158,12 @@ class OfflineEngine {
     );
   }
 
+  static String normalizeSiblingNames(String text) => text
+    .replaceAll(RegExp(r'\blook[ -]+out\b'), 'lookout')
+    .replaceAll(RegExp(r'\b(?:auro|orrow|oro gold)\b'), 'oro');
+
   FridayResponse handle(String text, {DateTime? now}) {
-    final t = text.trim().toLowerCase();
+    final t = normalizeSiblingNames(text.trim().toLowerCase());
     final clock = now ?? DateTime.now();
 
     if (t.contains('lookout') &&
@@ -175,6 +179,9 @@ class OfflineEngine {
     final multi = _multiActions(t, text.trim());
     if (multi != null) return multi;
 
+    if (RegExp(r'^(?:check |show |ask )?oro(?: status)?[.!?]*$').hasMatch(t)) {
+      return const FridayResponse(reply: 'Reading Oro.', action: FridayAction(type: FridayActionType.oroStatus, target: 'price'));
+    }
     // Oro trade questions - answered from the on-device bridge.
     if (!_oroTpsl.hasMatch(t) &&
         RegExp(r'\b(profit|loss|losing|making|pnl|p/l)\b').hasMatch(t) &&

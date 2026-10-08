@@ -61,4 +61,11 @@ void main() {
             .length,
         2);
   });
+ test('speech aliases stay app scoped',(){
+  for(final q in ['look out status','look-out watches']){expect(const OfflineEngine().handle(q).action.type,FridayActionType.lookoutStatus);}
+  for(final q in ['auro','orrow status','oro gold']){expect(const OfflineEngine().handle(q).action.type,FridayActionType.oroStatus);}
+  expect(const OfflineEngine().handle('open auro').action.app,'oro');
+  expect(const OfflineEngine().handle('open look out').action.app,'lookout');
+ });
+
 }
