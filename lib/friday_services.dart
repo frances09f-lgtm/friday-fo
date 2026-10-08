@@ -30,6 +30,7 @@ class FridayServices {
     required this.controller,
     required this.link,
     required this.agent,
+    required this.local,
   });
 
   final SettingsStore settings;
@@ -37,11 +38,13 @@ class FridayServices {
   final FridayController controller;
   final DeviceLink link;
   final FridayAgent agent;
+  final LocalModelService local;
 
   List<SingleChildWidget> get providers => [
         ChangeNotifierProvider<DeviceLink>.value(value: link),
         Provider<SettingsStore>.value(value: settings),
         Provider<SpeechService>.value(value: speech),
+        ChangeNotifierProvider<LocalModelService>.value(value: local),
         ChangeNotifierProvider<FridayAgent>.value(value: agent),
         ChangeNotifierProvider<FridayController>.value(value: controller),
       ];
@@ -70,7 +73,7 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
   final link = DeviceLink();
   final controller = FridayController(
     link: link,
-    agentRunning: () => agent.running,
+    agentRunning: () => agent.running || local.setupBusy,
     brain: brain,
     router: IntentRouter(deviceHub: DeviceHub(), reminders: reminders),
     chatStore: ChatStore(prefs),
@@ -89,5 +92,6 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
       speech: speech,
       controller: controller,
       link: link,
-      agent: agent);
+      agent: agent,
+      local: local);
 }

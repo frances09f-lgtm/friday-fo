@@ -32,6 +32,7 @@ object DeviceBridge {
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "modelStorage" -> {val mem=android.app.ActivityManager.MemoryInfo();(context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem);result.success(mapOf("freeBytes" to android.os.StatFs(context.filesDir.absolutePath).availableBytes,"totalRam" to mem.totalMem))}
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))

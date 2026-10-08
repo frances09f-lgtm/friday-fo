@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/agent/friday_agent.dart';
+import '../../services/ai/local_model_service.dart';
+import 'local_model_setup_screen.dart';
 import '../../services/speech/speech_service.dart';
 import '../../services/storage/settings_store.dart';
 import '../../state/friday_controller.dart';
@@ -22,6 +24,13 @@ class _AgentModeState extends State<AgentModeScreen> {
 
   Future<void> run() async {
     final a = context.read<FridayAgent>();
+    final local = context.read<LocalModelService>();
+    if (local.setupBusy || !await local.ensureReady()) {
+      if (mounted)
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const LocalModelSetupScreen()));
+      return;
+    }
     if (context.read<FridayController>().busy) return;
     await a.start(input.text);
     if (mounted &&
@@ -59,6 +68,14 @@ class _AgentModeState extends State<AgentModeScreen> {
           const Text(
               'Real Accessibility actions, one at a time. Search/navigation only. No messages, payments, permissions or settings changes. No screenshot analysis in this milestone.'),
           const SizedBox(height: 12),
+          OutlinedButton(
+              onPressed: a.running
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const LocalModelSetupScreen())),
+              child: const Text('Set up local model · 547 MB')),
           OutlinedButton(
               onPressed: () => NativeAgentDevice().call('settings'),
               child: const Text('Enable Friday Accessibility')),

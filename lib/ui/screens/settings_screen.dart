@@ -1,3 +1,4 @@
+import '../../services/agent/friday_agent.dart';
 import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
 import 'package:provider/provider.dart';
@@ -26,7 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _localFallback = true;
   bool _speakReplies = true;
 
-  final LocalModelService _local = LocalModelService();
+  LocalModelService get _local => context.read<LocalModelService>();
   String _modelStatus = '';
 
   @override
@@ -71,6 +72,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadLocalModel() async {
+    if (context.read<FridayAgent?>()?.running == true || _local.setupBusy)
+      return;
     setState(() => _modelStatus = 'Downloading model...');
     final ok = await _local.installFromUrl(_modelUrl.text);
     setState(() {
