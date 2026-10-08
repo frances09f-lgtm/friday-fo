@@ -76,7 +76,8 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     agentRunning: () => agent.running || local.setupBusy,
     brain: brain,
     router: IntentRouter(deviceHub: DeviceHub(), reminders: reminders),
-    chatStore: ChatStore(prefs),
+    chatStore: ChatStore(prefs,
+        storageKey: loadHistory ? 'friday_chat_log' : 'friday_overlay_log'),
     speech: speech,
     settings: settings,
   );

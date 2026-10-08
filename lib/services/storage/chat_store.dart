@@ -6,9 +6,10 @@ import '../../models/chat_message.dart';
 
 /// Persists the conversation so Friday remembers across restarts.
 class ChatStore {
-  ChatStore(this._prefs);
+  ChatStore(this._prefs, {String storageKey = 'friday_chat_log'})
+      : _storeKey = storageKey;
 
-  static const _storeKey = 'friday_chat_log';
+  final String _storeKey;
   static const _maxMessages = 200;
 
   final SharedPreferences _prefs;

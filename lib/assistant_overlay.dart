@@ -208,10 +208,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
                 child: Row(children: [
                   IconButton(
                     icon: Icon(speech.isListening ? Icons.mic : Icons.mic_none),
-                    onPressed: () {
+                    onPressed: () async {
                       if (speech.isListening) {
                         speech.stopListening();
-                      } else {
+                      } else if (await speech.initSpeech() && mounted) {
                         _startListening(speech);
                       }
                     },
