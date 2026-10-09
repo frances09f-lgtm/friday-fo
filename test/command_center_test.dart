@@ -70,10 +70,16 @@ void main() {
     await t.pumpWidget(MultiProvider(providers: [
       ChangeNotifierProvider<FridayController>.value(value: c),
       Provider<SpeechService>.value(value: speech),
+      ChangeNotifierProvider<SettingsStore>.value(value: settings),
+      ChangeNotifierProvider<LocalModelService>(create: (_) => LocalModelService()),
       ChangeNotifierProvider<DeviceLink>(create: (_) => DeviceLink()),
     ], child: RepaintBoundary(key: key, child: const FridayApp())));
     await t.pumpAndSettle();
     expect(speech.starts, 0);
+    expect(find.byTooltip('Notifications'), findsNothing);
+    expect(find.byTooltip('Pair devices'), findsNothing);
+    expect(find.byTooltip('Assistant setup'), findsNothing);
+    expect(find.byTooltip('Settings'), findsOneWidget);
     expect(find.text('What do you want me to do?'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
@@ -86,15 +92,33 @@ void main() {
       await File('/tmp/friday-command-center.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
+    await t.tap(find.byTooltip('Settings'));
+    await t.pumpAndSettle();
+    expect(find.text('Assistant setup'), findsOneWidget);
+    expect(find.text('Connected devices'), findsOneWidget);
+    expect(find.text('Notifications'), findsNothing);
+    await t.runAsync(() async {
+      final im = await (key.currentContext!.findRenderObject()
+              as RenderRepaintBoundary)
+          .toImage();
+      final d = await im.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/friday-v42-settings.png')
+          .writeAsBytes(d!.buffer.asUint8List());
+    });
+    await t.pageBack();
+    await t.pumpAndSettle();
     await t.tap(find.text('Connected apps'));
     await t.pumpAndSettle();
     expect(find.text('Gold price'), findsOneWidget);
     expect(find.text('Watch status'), findsOneWidget);
     expect(find.textContaining('never places or closes'), findsOneWidget);
     await t.runAsync(() async {
-      final im = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
+      final im = await (key.currentContext!.findRenderObject()
+              as RenderRepaintBoundary)
+          .toImage();
       final d = await im.toByteData(format: ui.ImageByteFormat.png);
-      await File('/tmp/friday-connected-apps.png').writeAsBytes(d!.buffer.asUint8List());
+      await File('/tmp/friday-connected-apps.png')
+          .writeAsBytes(d!.buffer.asUint8List());
     });
     await t.pageBack();
     await t.pumpAndSettle();

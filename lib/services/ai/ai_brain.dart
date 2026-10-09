@@ -38,7 +38,8 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
   }) async {
     // Device actions and Oro reads must not go through cloud guessing.
     final command = offline.handle(userText);
-    if (GoldTaskRequest.isAlertRequest(userText)) return command;
+    if (GoldTaskRequest.isAlertRequest(userText) ||
+        GoldTaskRequest.isWatchLike(userText)) return command;
     if (command.allActions.any((a) => a.type != FridayActionType.none))
       return command;
     for (final provider in settings.buildProviders()) {

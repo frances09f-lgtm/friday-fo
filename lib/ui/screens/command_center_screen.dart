@@ -7,9 +7,6 @@ import '../../services/speech/speech_service.dart';
 import 'home_screen.dart';
 import 'connected_apps_screen.dart';
 import 'background_tasks_screen.dart';
-import 'assistant_setup_screen.dart';
-import 'device_link_screen.dart';
-import 'notifications_screen.dart';
 import 'agent_mode_screen.dart';
 import '../../services/agent/friday_agent.dart';
 
@@ -115,21 +112,6 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                     tooltip: 'Agent Mode',
                     onPressed: () => open(const AgentModeScreen()),
                     icon: const Icon(Icons.smart_toy_outlined)),
-                IconButton(
-                  tooltip: 'Notifications',
-                  onPressed: () => open(const NotificationsScreen()),
-                  icon: const Icon(Icons.notifications_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Pair devices',
-                  onPressed: () => open(const DeviceLinkScreen()),
-                  icon: const Icon(Icons.devices),
-                ),
-                IconButton(
-                  tooltip: 'Assistant setup',
-                  onPressed: () => open(const AssistantSetupScreen()),
-                  icon: const Icon(Icons.assistant),
-                ),
                 IconButton(
                   tooltip: 'Settings',
                   onPressed: () => Navigator.pushNamed(context, '/settings'),

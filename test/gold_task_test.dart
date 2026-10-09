@@ -2,6 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:friday/services/tasks/gold_task.dart';
 
 void main() {
+  test('garbled monitoring speech is intercepted, not reminder or cloud', () {
+    for (final text in [
+      'check old every 5 minutes and tell me feed goes above 4185',
+      'checkool delivery 5 minutes and tell me goes a boob for 185'
+    ]) {
+      // First has the strong repeated-check shape, second cannot be guessed.
+      expect(GoldTaskRequest.isWatchLike(text), true);
+      expect(GoldTaskRequest.parse(text), isNull);
+    }
+    expect(
+        GoldTaskRequest.parse(
+                'check gold every 5 minutes and tell me it goes above 4185')
+            ?.threshold,
+        4185);
+  });
   test('exact supported gold tasks parse without a cloud model', () {
     final r = GoldTaskRequest.parse(
         'Check gold every 5 minutes and tell me if it goes below 4150');

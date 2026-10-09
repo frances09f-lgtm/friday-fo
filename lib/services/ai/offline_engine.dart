@@ -177,6 +177,13 @@ class OfflineEngine {
     final t =
         normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
+    if (GoldTaskRequest.isWatchLike(text) &&
+        GoldTaskRequest.parse(text) == null) {
+      return const FridayResponse(
+          reply:
+              'I could not read the watch command clearly. No watch or reminder was created. Please confirm the item, above/below target and interval, for example: "check gold every 5 minutes and tell me if it goes above 4185". Gold checks read Sona saved quotes, not a live feed.',
+          source: FridaySource.offline);
+    }
     if (RegExp(
             r'^(?:ok\s+)?(?:friday[,\s]+)?(?:please\s+)?(?:play|resume|start)\s+(?:my\s+|the\s+)?(?:music|songs?|playback)(?:\s+(?:please|again))?[.!?]*$')
         .hasMatch(t)) {

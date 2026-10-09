@@ -2,6 +2,7 @@ import '../../services/agent/friday_agent.dart';
 import 'commands_screen.dart';
 import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
+import 'device_link_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'dart:io' show Platform;
@@ -91,6 +92,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ListTile(
+              title: const Text('Assistant setup'),
+              subtitle: const Text('Floating bar, microphone and power button'),
+              leading: const Icon(Icons.assistant),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const AssistantSetupScreen()))),
+          ListTile(
+            leading: const Icon(Icons.devices),
+            title: const Text('Connected devices'),
+            subtitle:
+                const Text('Pair this phone with Friday on another device'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const DeviceLinkScreen())),
+          ),
           Card(
               child: ListTile(
                   leading: const Icon(Icons.terminal),
@@ -188,12 +204,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
           SizedBox(height: 24),
-          ListTile(
-              title: const Text('Assistant setup'),
-              subtitle: const Text('Floating bar, microphone and power button'),
-              leading: const Icon(Icons.assistant),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const AssistantSetupScreen()))),
           FilledButton.icon(
             icon: const Icon(Icons.save),
             label: const Text('Save'),

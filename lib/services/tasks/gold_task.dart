@@ -5,6 +5,11 @@ class GoldTaskRequest {
   final double threshold;
   final int intervalMinutes;
 
+  static bool isWatchLike(String text) => RegExp(
+          r'\b(?:check\w*|watch|monitor)\b.*\d+\s*(?:minutes?|mins?|hours?)\b.*\b(?:tell|notify|alert)\b|\b(?:check|watch|monitor)\b.*\bevery\b.*\b(?:tell|notify|alert)\b|\b(?:gold|xau)\b.*\b(?:above|below)\b.*\d',
+          caseSensitive: false)
+      .hasMatch(text);
+
   static bool isAlertRequest(String text) => RegExp(
           r'\b(ping|alert|notify|tell)\b.*\b(when|if)\b.*\b(gold|xau)\b|\b(gold|xau)\b.*\b(alert|notify|ping)\b',
           caseSensitive: false)
@@ -21,7 +26,7 @@ class GoldTaskRequest {
     }
 
     final match = RegExp(
-      r'^check\s+gold\s+every\s+(?:(\d+)\s*(minutes?|mins?|hours?|hrs?)|(hour))\s+and\s+(?:tell|notify|alert)\s+me\s+(?:if|when)\s+(?:it|gold|the price)\s+(?:goes|drops|rises|is)\s+(below|above)\s+(\d+(?:\.\d+)?)[.!]?$',
+      r'^check\s+gold\s+every\s+(?:(\d+)\s*(minutes?|mins?|hours?|hrs?)|(hour))\s+and\s+(?:tell|notify|alert)\s+me\s+(?:(?:if|when)\s+)?(?:it|gold|the price)\s+(?:goes|drops|rises|is)\s+(below|above)\s+(\d+(?:\.\d+)?)[.!]?$',
       caseSensitive: false,
     ).firstMatch(text.trim());
     if (match == null) return null;
