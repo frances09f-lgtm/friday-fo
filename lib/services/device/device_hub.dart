@@ -341,8 +341,8 @@ class DeviceHub {
       if (label.isEmpty) continue;
       final d = editDistance(clean, label);
       // Short words allow one edit only; larger names at most two.
-      if (d <= (clean.length >= 8 ? 2 : 1) && d / label.length <= 0.25)
-        scored.add((app: app, distance: d));
+      if (d <= ((clean.length >= 8 || label.length >= 8) ? 2 : 1) &&
+          d / label.length <= 0.25) scored.add((app: app, distance: d));
     }
     scored.sort((a, b) => a.distance.compareTo(b.distance));
     // Any close rival is ambiguous, even if one is slightly better.
