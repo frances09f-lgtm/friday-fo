@@ -19,6 +19,7 @@ class WindowsDevice {
       'camera': 'microsoft.windows.camera:',
       'chrome': 'chrome',
       'google chrome': 'chrome',
+      'brave': 'brave',
       'edge': 'msedge',
       'firefox': 'firefox',
       'notepad': 'notepad',
@@ -70,18 +71,12 @@ if ($procs.Count -eq 0) { 'none' } elseif ($n -gt 0) { 'requested' } else { 'err
     if (query.trim().isEmpty) return false;
     final target = resolveAppTarget(query);
     try {
+      if (!RegExp(r'^[a-zA-Z0-9 ._:-]{1,60}$').hasMatch(target)) return false;
       final res = await Process.run(
         'powershell',
-        ['-NoProfile', '-Command', "Start-Process '$target' -ErrorAction Stop"],
+        ['-NoProfile', '-Command', "\$ErrorActionPreference='Stop'; Start-Process '$target' -ErrorAction Stop"],
       );
       if (res.exitCode == 0) return true;
-      // Last resort: cmd's start handles some registered names Start-Process
-      // misses, but it does not report failure - only trust it for URI
-      // schemes, where a missing handler is rare.
-      if (target.endsWith(':')) {
-        await Process.run('cmd', ['/c', 'start', '', target]);
-        return true;
-      }
       return false;
     } catch (_) {
       return false;
@@ -130,24 +125,25 @@ public class FridayAudio {
     return _coreAudioType +
         "\$cur = [FridayAudio]::GetVolume(); "
             "\$new = [Math]::Min(1.0, [Math]::Max(0.0, \$cur + ($delta))); "
-            "[FridayAudio]::SetVolume([single]\$new)";
+            "[FridayAudio]::SetVolume([single]\$new); Start-Sleep -Milliseconds 300; "
+            "if ([Math]::Abs([FridayAudio]::GetVolume()-\$new) -gt 0.015) { throw 'Volume readback mismatch' }; 'verified'";
   }
 
   /// Absolute volume: bottom out with 50 downs, then climb (n / 2) ups.
   static String setVolumeScript(int percent) {
-    final ups = (percent.clamp(0, 100) / 2).round();
-    return "\$w = New-Object -ComObject WScript.Shell; "
-        "1..50 | % { \$w.SendKeys([char]174); Start-Sleep -m 15 }; "
-        "1..$ups | % { \$w.SendKeys([char]175); Start-Sleep -m 15 }";
+    final target = percent.clamp(0, 100) / 100.0;
+    return _coreAudioType +
+        "[FridayAudio]::SetVolume([single]$target); Start-Sleep -Milliseconds 300; "
+        "if ([Math]::Abs([FridayAudio]::GetVolume()-$target) -gt 0.015) { throw 'Volume readback mismatch' }; 'verified'";
   }
 
   static Future<bool> _runShell(String script) async {
     try {
       final res = await Process.run(
         'powershell',
-        ['-NoProfile', '-Command', script],
+        ['-NoProfile', '-Command', "\$ErrorActionPreference='Stop'; " + script],
       );
-      return res.exitCode == 0;
+      return res.exitCode == 0 && res.stdout.toString().trim().split('\n').last.trim() == 'verified';
     } catch (_) {
       return false;
     }
@@ -162,7 +158,9 @@ public class FridayAudio {
     final delta = up ? percent : -percent;
     return "\$cur = (Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; "
         "\$new = [Math]::Min(100, [Math]::Max(0, \$cur + ($delta))); "
-        "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightnessMethods -ErrorAction Stop).WmiSetBrightness(1, [byte]\$new) | Out-Null";
+        "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightnessMethods -ErrorAction Stop).WmiSetBrightness(1, [byte]\$new) | Out-Null; Start-Sleep -Milliseconds 350; "
+        "\$after = (Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; "
+        "if (@(\$after).Count -ne 1 -or [Math]::Abs([int]\$after-\$new) -gt 1) { throw 'Brightness readback mismatch' }; 'verified'";
   }
 
   static Future<bool> adjustBrightness({required bool up}) =>
@@ -173,7 +171,9 @@ public class FridayAudio {
 
   static String brightnessScript(int percent) =>
       "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightnessMethods "
-      "-ErrorAction Stop).WmiSetBrightness(1, ${percent.clamp(0, 100)})";
+      "-ErrorAction Stop).WmiSetBrightness(1, ${percent.clamp(0, 100)}) | Out-Null; Start-Sleep -Milliseconds 350; "
+      "\$after = (Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; "
+      "if (@(\$after).Count -ne 1 -or [Math]::Abs([int]\$after-${percent.clamp(0, 100)}) -gt 1) { throw 'Brightness readback mismatch' }; 'verified'";
 
   static Future<bool> setBrightnessPercent(int percent) =>
       _runShell(brightnessScript(percent));

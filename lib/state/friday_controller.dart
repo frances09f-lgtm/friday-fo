@@ -16,6 +16,9 @@ import '../services/storage/settings_store.dart';
 class FridayController extends ChangeNotifier {
   // Nonempty execution results include failures and pending prompts.
   // Never prepend success to them.
+  static bool targetIsOtherDevice(String target, {required bool isAndroid}) =>
+      (target.toLowerCase() == 'phone' || target.toLowerCase() == 'mobile') != isAndroid;
+
   static String actionResultReply(String outcome) =>
       outcome.isEmpty ? 'Done.' : outcome;
 
@@ -66,11 +69,11 @@ class FridayController extends ChangeNotifier {
             r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
             caseSensitive: false)
         .firstMatch(clean);
-    if (remote != null && link != null) {
+    if (remote != null) {
       final target = remote.group(1)!.toLowerCase();
       final targetPhone = target == 'phone' || target == 'mobile';
-      if (targetPhone != Platform.isAndroid) {
-        final reply = await link!.send(clean.substring(0, remote.start));
+      if (targetIsOtherDevice(target, isAndroid: Platform.isAndroid)) {
+        final reply = link == null ? 'Pair the other device first. No action was run on this device.' : await link!.send(clean.substring(0, remote.start));
         messages.add(ChatMessage(
             id: '${DateTime.now().microsecondsSinceEpoch}r',
             role: MessageRole.friday,
@@ -166,7 +169,7 @@ class FridayController extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await router.executeAll(actions);
-      final reply = result.isEmpty ? 'Done on this device.' : result;
+      final reply = result.isEmpty ? 'Action requested on this device; completion is not verified.' : result;
       messages.add(ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}remote',
           role: MessageRole.friday,

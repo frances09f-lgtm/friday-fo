@@ -162,7 +162,7 @@ class IntentRouter {
     if (app == null) {
       return "I couldn't find an app matching \"$appQuery\" on this phone.";
     }
-    return ''; // silent success - "Done." says it
+    return 'Launch requested for ${app.label}. I cannot verify it became visible.';
   }
 
   Future<String> _readMessages({String query = ''}) async {
@@ -255,13 +255,13 @@ class IntentRouter {
     final n = int.tryParse(action.target);
     if (n == null) return 'Tell me the volume percent, like "set volume 30%".';
     final ok = await deviceHub.setVolumePercent(n.clamp(0, 100));
-    return ok ? '' : "I couldn't set the volume.";
+    return ok ? (_isWindows ? 'Volume verified by system readback on this laptop.' : 'Volume requested; completion is not verified.') : "I couldn't set or verify the volume.";
   }
 
   Future<String> _adjustBrightness({required bool up}) async {
     switch (await deviceHub.adjustBrightness(up: up)) {
       case 'ok':
-        return '';
+        return _isWindows ? 'Brightness verified by system readback on this laptop.' : 'Brightness requested; completion is not verified.';
       case 'asked':
         return 'I need permission to change brightness - allow Friday on the screen that just opened, then ask again.';
       default:
@@ -275,7 +275,7 @@ class IntentRouter {
       return 'Tell me the brightness percent, like "brightness 40%".';
     switch (await deviceHub.setBrightnessPercent(n.clamp(0, 100))) {
       case 'ok':
-        return '';
+        return _isWindows ? 'Brightness verified by system readback on this laptop.' : 'Brightness requested; completion is not verified.';
       case 'asked':
         return 'I need permission to change brightness - allow Friday on the screen that just opened, then ask again.';
       default:

@@ -47,11 +47,11 @@ void main() {
     expect(down, contains('WmiSetBrightness'));
   });
 
-  test('set-volume script bottoms out then climbs percent/2 steps', () {
-    final s = WindowsDevice.setVolumeScript(30);
-    expect(s, contains('1..50')); // 50 downs to reach zero
-    expect(s, contains('1..15')); // 15 ups = 30%
-    expect(WindowsDevice.setVolumeScript(150), contains('1..50'));
+  test('exact volume uses Core Audio and a measured readback', () {
+    final s=WindowsDevice.setVolumeScript(30);
+    expect(s,contains('SetVolume([single]0.3)'));
+    expect(s,contains('Volume readback mismatch'));
+    expect(s,isNot(contains('SendKeys')));
   });
 
   test('brightness script targets the WMI brightness method', () {
