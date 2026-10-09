@@ -49,6 +49,27 @@ class WorkflowPlanner {
         AgentGoal.unsafeLabel(label(e)) &&
         RegExp(r'login|log.?in|sign.?in|permission|allow', caseSensitive: false)
             .hasMatch(label(e)))) return null;
+    if (g.package == 'com.android.chrome') {
+      final bars = es
+          .where((e) => RegExp(
+                  r'url_bar|search_box|omnibox|search or type|search or enter',
+                  caseSensitive: false)
+              .hasMatch(label(e)))
+          .toList();
+      if (bars.length != 1) return null;
+      final bar = bars.single;
+      if (bar['editable'] != true || bar['focused'] != true) {
+        final a = choose('tap', bars, expected: null);
+        if (a == null) return null;
+        return AgentAction(
+            action: a.action,
+            target: a.target,
+            confidence: 1,
+            expect: {'package': g.package, 'editable': true, 'focused': true});
+      }
+      if (bar['text'] != g.query) return choose('type', bars, text: g.query);
+      return choose('submit', bars, text: g.query);
+    }
     if (g.workflow == 'question') {
       final sent = es.any((e) => e['editable'] != true && e['text'] == g.query);
       if (sent)
