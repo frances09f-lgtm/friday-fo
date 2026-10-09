@@ -91,8 +91,8 @@ class FridayAccessibilityService : AccessibilityService() {
   try{
    val box=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0xff202020.toInt())}
    indicator=TextView(this).apply{text="Friday screen control";setTextColor(-1);setPadding(12,12,12,12)};box.addView(indicator)
-   box.addView(Button(this).apply{text="STOP";setOnClickListener{stop("Stopped with the floating STOP button")}})
-   (getSystemService(WINDOW_SERVICE)as WindowManager).addView(box,WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,android.graphics.PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.END;y=60});overlay=box
+   box.addView(Button(this).apply{text="STOP";setOnClickListener{stop("Stop control activated. Touch source could not be determined; no completion claimed")}})
+   (getSystemService(WINDOW_SERVICE)as WindowManager).addView(box,WindowManager.LayoutParams(-2,-2,WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,android.graphics.PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM or Gravity.START;y=80});overlay=box
   }catch(_:Exception){active=false;return fail("Cannot show Stop control")}
   timer.postDelayed(expire,60000);return mapOf("success" to true,"package" to allowed)
  }
@@ -143,7 +143,7 @@ class FridayAccessibilityService : AccessibilityService() {
   }
   if(now["package"]!=allowed){result.success(fail("Wrong foreground app",true));return}
   if(action in setOf("wait","read_screen")){result.success(ok());return}
-  if(action=="back"){resultAnswer(result,performGlobalAction(GLOBAL_ACTION_BACK));return}
+  if(action=="back"){if(workflow!="commands"||commands.none{it["action"]=="back"}){result.success(fail("Back not authorized by this workflow",true));return};resultAnswer(result,performGlobalAction(GLOBAL_ACTION_BACK));return}
   // Home deliberately not dispatched: changes target context without a goal.
   val fields=listOf("text","contentDescription","resourceId").filter{(target[it]?.toString()?:"").isNotBlank()}
   var matches=nodes.filter{n->fields.isNotEmpty()&&fields.all{f->val actual=when(f){"text"->n.text?.toString();"contentDescription"->n.contentDescription?.toString();else->n.viewIdResourceName};actual.equals(target[f]?.toString(),true)}}
@@ -182,14 +182,23 @@ class FridayAccessibilityService : AccessibilityService() {
     // Coordinate fallback uses only this exact, unique, enabled semantic node's
     // freshly observed bounds, never model-supplied coordinates.
     val bounds=Rect();click.getBoundsInScreen(bounds)
+    if(overlapsOverlay(bounds)){result.success(fail("Tap fallback overlaps Friday Stop control. No gesture dispatched",true));return}
     if(bounds.isEmpty||!click.isVisibleToUser){result.success(fail("No safe bounds for fallback"));return}
     val path=Path().apply{moveTo(bounds.centerX().toFloat(),bounds.centerY().toFloat())};gesture(path,70,result)
    }finally{parents.forEach{it.recycle()}}
    return
   }
   if(action=="scroll"&&!settings){resultAnswer(result,node.performAction(if(text=="up")AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD));return}
-  if(action=="swipe"&&!settings&&node.isScrollable){val b=Rect();node.getBoundsInScreen(b);val path=Path();val up=text=="up";path.moveTo(b.centerX().toFloat(),(if(up)b.top+b.height()/4 else b.bottom-b.height()/4).toFloat());path.lineTo(b.centerX().toFloat(),(if(up)b.bottom-b.height()/4 else b.top+b.height()/4).toFloat());gesture(path,300,result);return}
+  if(action=="swipe"&&!settings&&node.isScrollable){val b=Rect();node.getBoundsInScreen(b);if(overlapsOverlay(b)){result.success(fail("Swipe intersects Friday Stop control. Use semantic scroll",true));return};val path=Path();val up=text=="up";path.moveTo(b.centerX().toFloat(),(if(up)b.top+b.height()/4 else b.bottom-b.height()/4).toFloat());path.lineTo(b.centerX().toFloat(),(if(up)b.bottom-b.height()/4 else b.top+b.height()/4).toFloat());gesture(path,300,result);return}
   result.success(fail("Unsupported screen action"))
+ }
+ private fun overlapsOverlay(bounds:Rect):Boolean {
+  val v=overlay?:return false
+  val xy=IntArray(2);v.getLocationOnScreen(xy)
+  val overlayBounds=Rect(xy[0],xy[1],xy[0]+v.width,xy[1]+v.height)
+  // Expand slightly so the stroke cannot hit an edge after rounding.
+  overlayBounds.inset(-12,-12)
+  return Rect.intersects(bounds,overlayBounds)
  }
  private fun capture(result:MethodChannel.Result){
   if(!active||locked()){result.success(fail("Screenshot requires an active unlocked task",true));return}

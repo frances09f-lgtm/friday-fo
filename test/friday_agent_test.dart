@@ -307,7 +307,9 @@ void main() {
       'ACTION_SET_TEXT',
       'ACTION_IME_ENTER',
       'Action needs review',
-      'Wrong foreground app'
+      'Wrong foreground app',
+      'overlapsOverlay(bounds)',
+      'Stop control activated. Touch source could not be determined'
     ]) expect(native, contains(s));
   });
 }

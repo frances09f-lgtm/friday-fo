@@ -16,6 +16,15 @@ class Output extends LocalModelService {
 }
 
 void main() {
+  test('app workflow cannot close target through model back or home', () {
+    final g = AgentGoal.parse('open YouTube and play GTA 6')!;
+    expect(g.permits(AgentAction(action: 'back', confidence: 1)), false);
+    expect(g.permits(AgentAction(action: 'home', confidence: 1)), false);
+    expect(
+        AgentGoal.parse('Go back')!
+            .permits(AgentAction(action: 'back', confidence: 1)),
+        true);
+  });
   test(
       'generic resource ID retains semantic Search label across recovery gates',
       () async {

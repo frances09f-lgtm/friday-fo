@@ -189,7 +189,9 @@ class AgentGoal {
         a.action == 'read_screen' ||
         a.action == 'finish') return true;
     if (a.action == 'open_app') return a.target['package'] == package;
-    if (a.action == 'home' || a.action == 'back') return true;
+    if (a.action == 'home') return false;
+    if (a.action == 'back')
+      return workflow == 'commands' && commands.any((c) => c.action == 'back');
     if (a.action == 'type')
       return !settings &&
           (workflow == 'commands'
