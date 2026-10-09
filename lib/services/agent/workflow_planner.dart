@@ -16,11 +16,10 @@ class WorkflowPlanner {
         final value = e[key]?.toString() ?? '';
         if (value.isNotEmpty) {
           target[key] = value;
-          break;
         }
       }
       if (target.isEmpty) return null;
-      return AgentAction(
+      final proposed = AgentAction(
           action: action,
           target: target,
           text: text,
@@ -31,6 +30,7 @@ class WorkflowPlanner {
             if (action == 'type') 'textEquals': text,
             if (expected != null) 'contains': expected
           });
+      return g.permits(proposed) ? proposed : null;
     }
 
     String label(Map<String, dynamic> e) =>

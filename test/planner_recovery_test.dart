@@ -16,6 +16,42 @@ class Output extends LocalModelService {
 }
 
 void main() {
+  test(
+      'generic resource ID retains semantic Search label across recovery gates',
+      () async {
+    final g = AgentGoal.parse(
+        'open YouTube and search for free alternatives of jio hotstar')!;
+    final a =
+        await LocalBrain(Output('{"action":"tap","confidence":0}')).decide(g, {
+      'package': g.package,
+      'elements': [
+        {
+          'resourceId': 'com.google.android.youtube:id/menu_item',
+          'contentDescription': 'Search',
+          'clickable': true
+        }
+      ]
+    }, []);
+    expect(a.target, {
+      'resourceId': 'com.google.android.youtube:id/menu_item',
+      'contentDescription': 'Search'
+    });
+    expect(g.permits(a), true);
+    expect(a.expect['package'], g.package);
+  });
+  test('semantic recovery does not hide protected text behind search ID',
+      () async {
+    final g = AgentGoal.parse(
+        'open YouTube and search for free alternatives of jio hotstar')!;
+    await expectLater(
+        LocalBrain(Output('{"action":"tap","confidence":0}')).decide(g, {
+          'package': g.package,
+          'elements': [
+            {'resourceId': 'search', 'text': 'Allow permission'}
+          ]
+        }, []),
+        throwsA(isA<AgentOutputFailure>()));
+  });
   test('phone ChatGPT commands separate app target from query', () {
     for (final entry in {
       'ask chatgpt how are you': 'how are you',
