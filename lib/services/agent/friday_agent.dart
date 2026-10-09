@@ -38,8 +38,7 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
   @override
   Future<AgentAction> decide(
       AgentGoal goal, Map<String, dynamic> screen, List<String> history) async {
-    if (goal.package == 'com.android.chrome' ||
-        goal.package == 'com.google.android.youtube') {
+    if (!goal.settings) {
       final recipe = WorkflowPlanner.next(goal, screen, history);
       if (recipe != null) return recipe;
     }
@@ -339,11 +338,11 @@ class FridayAgent extends ChangeNotifier {
         if (g.workflow == 'question' &&
             a.action == 'submit' &&
             lastResult['success'] == true) questionSubmitted = true;
-        await Future<void>.delayed(const Duration(milliseconds: 900));
+        await Future<void>.delayed(const Duration(milliseconds: 250));
         _status('Verifying ${a.action}');
         var after = await _observe(epoch);
         for (var settle = 0;
-            settle < 5 && running && epoch == _epoch && !verify(a, after);
+            settle < 8 && running && epoch == _epoch && !verify(a, after);
             settle++) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           after = await _observe(epoch);
