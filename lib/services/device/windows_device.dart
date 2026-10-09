@@ -93,8 +93,9 @@ using System;
 using System.Runtime.InteropServices;
 [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IAudioEndpointVolume {
-    int _0(); int _1(); int _2(); int _3(); int _4();
+    int _0(); int _1(); int _2(); int _3();
     int SetMasterVolumeLevelScalar(float level, Guid eventContext);
+    int _getMasterDb();
     int GetMasterVolumeLevelScalar(out float level);
 }
 [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -103,19 +104,20 @@ interface IMMDevice {
 }
 [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDeviceEnumerator {
+    int _enumAudioEndpoints();
     int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
 }
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
 public class FridayAudio {
     static IAudioEndpointVolume Epv() {
         var en = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
-        IMMDevice dev; en.GetDefaultAudioEndpoint(0, 1, out dev);
+        IMMDevice dev; Marshal.ThrowExceptionForHR(en.GetDefaultAudioEndpoint(0, 1, out dev));
         Guid iid = typeof(IAudioEndpointVolume).GUID;
-        object o; dev.Activate(ref iid, 1, IntPtr.Zero, out o);
+        object o; Marshal.ThrowExceptionForHR(dev.Activate(ref iid, 1, IntPtr.Zero, out o));
         return (IAudioEndpointVolume)o;
     }
-    public static float GetVolume() { float v; Epv().GetMasterVolumeLevelScalar(out v); return v; }
-    public static void SetVolume(float v) { Epv().SetMasterVolumeLevelScalar(v, Guid.Empty); }
+    public static float GetVolume() { float v; Marshal.ThrowExceptionForHR(Epv().GetMasterVolumeLevelScalar(out v)); return v; }
+    public static void SetVolume(float v) { Marshal.ThrowExceptionForHR(Epv().SetMasterVolumeLevelScalar(v, Guid.Empty)); }
 }
 '@
 """;
