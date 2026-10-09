@@ -13,8 +13,11 @@ void main() {
   testWidgets('device link has visible enable button and pairing instructions',
       (t) async {
     await t.runAsync(() async {
-      final bytes = await File('/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf')
-          .readAsBytes();
+      final font = File(Platform.isWindows
+          ? '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts/arial.ttf'
+          : '/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf');
+      if (!await font.exists()) return;
+      final bytes = await font.readAsBytes();
       final loader = FontLoader('Roboto')
         ..addFont(Future.value(ByteData.sublistView(bytes)));
       await loader.load();
@@ -35,7 +38,7 @@ void main() {
           key.currentContext!.findRenderObject() as RenderRepaintBoundary;
       final image = await boundary.toImage(pixelRatio: 1);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      await File('/tmp/link-screen.png')
+      await File('${Directory.systemTemp.path}/link-screen.png')
           .writeAsBytes(data!.buffer.asUint8List());
     });
   });
