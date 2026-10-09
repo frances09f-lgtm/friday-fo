@@ -41,6 +41,8 @@ void main() {
     expect(native,
         contains('getStreamVolume(AudioManager.STREAM_MUSIC) == target'));
     expect(native, contains('== next && next != cur'));
+    expect(native,
+        contains('early==target&&after==target&&after!=before&&sameRoute'));
     final brightness = native.substring(
         native.indexOf('private fun setBrightnessPercent'),
         native.indexOf('private fun readSms'));

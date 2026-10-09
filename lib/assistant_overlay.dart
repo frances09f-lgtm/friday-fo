@@ -113,10 +113,20 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final before = controller.messages.length;
     _sending = true;
     try {
+      // Recognition/audio teardown must settle before Android volume writes.
+      await context.read<SpeechService>().stopListening();
       await controller.send(text);
       // Give the finished response a short reading window. Failed requests and
       // questions also end this invocation; this never claims task success.
       if (mounted && controller.messages.length > before) {
+        final volumeCommand =
+            RegExp(r'\bvolume\b|\blouder\b|\bquieter\b', caseSensitive: false)
+                .hasMatch(text);
+        // Leave measured volume evidence on screen for a screenshot/retry.
+        if (volumeCommand && !_closeRequested) {
+          _sending = false;
+          return;
+        }
         if (!_closeRequested)
           await Future<void>.delayed(const Duration(milliseconds: 1500));
         if (mounted) {

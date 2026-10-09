@@ -35,15 +35,24 @@ class DeviceHub {
   }
 
   Future<void> spotifySettings() => _channel.invokeMethod('spotifySettings');
+  static String volumeEvidence(String? result) {
+    final text = (result ?? '').trim();
+    if (text.isEmpty ||
+        RegExp(r'^(?:done|ok|success)[.!]?$', caseSensitive: false)
+            .hasMatch(text)) {
+      return 'Volume change has no measured result. No success claimed.';
+    }
+    return text;
+  }
+
   Future<String> verifiedVolumeSet(int percent) async {
     if (_isWindows)
       return await setVolumePercent(percent)
           ? 'Requested volume change on Windows.'
           : 'Could not change volume.';
     try {
-      return await _channel.invokeMethod<String>(
-              'volumeSetVerified', {'percent': percent}) ??
-          'Volume verification unavailable.';
+      return volumeEvidence(await _channel
+          .invokeMethod<String>('volumeSetVerified', {'percent': percent}));
     } catch (_) {
       return 'Volume verification unavailable. No success claimed.';
     }
@@ -55,9 +64,8 @@ class DeviceHub {
           ? 'Requested volume change on Windows.'
           : 'Could not change volume.';
     try {
-      return await _channel
-              .invokeMethod<String>('volumeStepVerified', {'up': up}) ??
-          'Volume verification unavailable.';
+      return volumeEvidence(await _channel
+          .invokeMethod<String>('volumeStepVerified', {'up': up}));
     } catch (_) {
       return 'Volume verification unavailable. No success claimed.';
     }

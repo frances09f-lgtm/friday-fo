@@ -183,30 +183,42 @@ object DeviceBridge {
     /// User request: "increase/decrease volume" steps exactly 5%. Stream
     /// volume is an integer index (often 0-15 or 0-25), so 5% rounds to the
     /// nearest index step - at least one, never a fake fractional move.
+    private fun volumeBuild(context:Context):String = try {
+        "Friday " + context.packageManager.getPackageInfo(context.packageName,0).versionName
+    }catch(_:Exception){"Friday build unknown"}
+    private fun volumeRoute(am:AudioManager):String = try {
+        am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).joinToString(","){it.type.toString()}.ifBlank{"none"}
+    }catch(_:Exception){"unknown"}
     private fun verifiedVolumeSet(context:Context,percent:Int,result:MethodChannel.Result){
         if(percent !in 0..100){result.success("Volume percent must be 0 to 100.");return}
-        try{
-            val am=context.getSystemService(AudioManager::class.java);val max=am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);val before=am.getStreamVolume(AudioManager.STREAM_MUSIC);val target=Math.round(max*percent/100.0f)
-            if(am.isVolumeFixed){result.success("This audio route has fixed volume. Use the device's own controls.");return}
-            if(before==target){result.success("Media volume is already $before/$max. No change made.");return}
-            am.setStreamVolume(AudioManager.STREAM_MUSIC,target,AudioManager.FLAG_SHOW_UI)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({try{val after=am.getStreamVolume(AudioManager.STREAM_MUSIC);result.success(if(after==target&&after!=before)"Media volume verified: $before/$max to $after/$max."else "Media volume did not reach the requested value. No success claimed.")}catch(_:Exception){result.success("Could not verify media volume.")}},350)
-        }catch(_:Exception){result.success("Android refused the media-volume change. No success claimed.")}
+        measuredVolume(context,percent,null,result)
     }
-
-    private fun verifiedVolume(context:Context,up:Boolean,result:MethodChannel.Result){
+    private fun verifiedVolume(context:Context,up:Boolean,result:MethodChannel.Result){measuredVolume(context,null,up,result)}
+    private fun measuredVolume(context:Context,percent:Int?,up:Boolean?,result:MethodChannel.Result){
+        val build=volumeBuild(context)
         try{
             val am=context.getSystemService(AudioManager::class.java)
-            val before=am.getStreamVolume(AudioManager.STREAM_MUSIC)
             val max=am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            if(am.isVolumeFixed){result.success("This audio route has fixed volume. Use the speaker or Bluetooth device's controls.");return}
-            if((up&&before>=max)||(!up&&before<=0)){result.success("Media volume is already at its limit ($before/$max). No change made.");return}
-            am.adjustStreamVolume(AudioManager.STREAM_MUSIC,if(up)AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,AudioManager.FLAG_SHOW_UI)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try{val after=am.getStreamVolume(AudioManager.STREAM_MUSIC);result.success(if((up&&after>before)||(!up&&after<before))"Media volume verified: $before/$max to $after/$max." else "Media volume did not change ($before/$max). Check Bluetooth/cast/fixed-volume device controls.")}
-                catch(_:Exception){result.success("Could not verify media volume. No success claimed.")}
-            },350)
-        }catch(_:Exception){result.success("Android refused the media-volume change. No success claimed.")}
+            val before=am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val target=if(percent!=null)Math.round(max*percent/100.0f) else (before+(if(up==true)1 else -1)).coerceIn(0,max)
+            val route=volumeRoute(am);val mode=am.mode
+            val evidence="$build; media stream; requested ${percent?.toString()?:if(up==true)"up"else "down"}; before $before/$max; target $target/$max; audio mode $mode; output types $route."
+            if(am.isVolumeFixed){result.success("Fixed-volume route. No write made. $evidence");return}
+            if(before==target){result.success("Media volume already at target. No change made. $evidence");return}
+            // Write an exact stream index instead of suggested/active stream selection.
+            am.setStreamVolume(AudioManager.STREAM_MUSIC,target,AudioManager.FLAG_SHOW_UI)
+            val h=android.os.Handler(android.os.Looper.getMainLooper())
+            h.postDelayed({try{
+                val early=am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                h.postDelayed({try{
+                    val after=am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val sameRoute=volumeRoute(am)==route
+                    val confirmed=early==target&&after==target&&after!=before&&sameRoute
+                    val prefix=if(confirmed)"Media volume verified by two readbacks."else "Media volume not verified. No success claimed."
+                    result.success("$prefix $evidence Readbacks $early/$max, $after/$max; route ${if(sameRoute)"stable"else "changed"}. This is phone media volume, not a remote cast speaker's volume.")
+                }catch(_:Exception){result.success("Could not read back volume. No success claimed. $evidence")}},650)
+            }catch(_:Exception){result.success("Could not read back volume. No success claimed. $evidence")}},350)
+        }catch(e:Exception){result.success("Android refused volume change (${e.javaClass.simpleName}). No success claimed. $build.")}
     }
 
     private fun stepVolume(context: Context, up: Boolean): Boolean = try {
