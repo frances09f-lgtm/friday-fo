@@ -3,7 +3,8 @@ import 'agent_contract.dart';
 /// Deterministic recovery for known workflows. Only unique observed controls are
 /// proposed. No hardcoded coordinates, no send-message fallback, no fuzzy contacts.
 class WorkflowPlanner {
-  static AgentAction? next(AgentGoal g, Map<String, dynamic> screen) {
+  static AgentAction? next(AgentGoal g, Map<String, dynamic> screen,
+      [List<String> history = const []]) {
     final es = ((screen['elements'] as List?) ?? [])
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
@@ -97,7 +98,26 @@ class WorkflowPlanner {
       final result = es.any((e) =>
           e['editable'] != true &&
           '${e['text'] ?? ''}'.toLowerCase().contains(g.query.toLowerCase()));
-      if (!result) return choose('submit', fields, text: g.query);
+      if (!result) {
+        if (history.any((h) => h.contains('submit: not verified'))) {
+          final buttons = es
+              .where((e) =>
+                  e['editable'] != true &&
+                  e['clickable'] == true &&
+                  RegExp(r'^(search|submit search)$', caseSensitive: false)
+                      .hasMatch(
+                          (e['contentDescription']?.toString().isNotEmpty ==
+                                          true
+                                      ? e['contentDescription']
+                                      : e['text'])
+                                  ?.toString() ??
+                              ''))
+              .toList();
+          final button = choose('submit', buttons, text: g.query);
+          if (button != null) return button;
+        }
+        return choose('submit', fields, text: g.query);
+      }
     }
     if (g.workflow == 'contact') {
       final contacts = es

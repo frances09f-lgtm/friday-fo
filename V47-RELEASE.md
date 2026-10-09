@@ -5,3 +5,5 @@ Adds a deterministic recipe for the user's Chrome search phone-test failure: use
 Keeps v46 search-label/Stop-overlay guards and existing .task local planner/runtime/model for other workflows. No new model download, GGUF engine, permission or notification access. 216 automated Flutter tests pass; analyze no errors(existing warnings). Native CI and phone retest required.
 
 Retest "Open Chrome and search for latest gold price". If blocked, Agent Mode's Last decision, build label and metadata log identify the failed step. Real-device workflow success remains unverified. Music Play/Next direct session issue remains pending user's app/queue/access choice.
+
+YouTube v46 phone feedback: opens and types GTA6, but search did not submit. Added observed YouTube recipe: submit exact typed query through IME, then try a distinct uniquely observed Search button if IME did not verify. Native alternate submit requires one editable field containing the exact authorized query. Duplicate buttons remain blocked; results verification still required. 218 tests pass after submit regressions. This addresses a tested failed step, but new submit behavior needs phone retest.

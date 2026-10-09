@@ -160,6 +160,7 @@ class FridayAccessibilityService : AccessibilityService() {
   }
   if(action=="submit"||(action=="tap"&&node.isEditable&&node.text?.toString()==query)){
    if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
+   if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable||!search(labels)||node.text?.toString()!=query){result.success(fail("Submit limited to the exact requested search",true));return}
    if(android.os.Build.VERSION.SDK_INT<30){result.success(fail("Submitting search requires Android 11+ IME action; use visible search button manually",true));return}
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id));return

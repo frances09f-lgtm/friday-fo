@@ -38,8 +38,9 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
   @override
   Future<AgentAction> decide(
       AgentGoal goal, Map<String, dynamic> screen, List<String> history) async {
-    if (goal.package == 'com.android.chrome') {
-      final recipe = WorkflowPlanner.next(goal, screen);
+    if (goal.package == 'com.android.chrome' ||
+        goal.package == 'com.google.android.youtube') {
+      final recipe = WorkflowPlanner.next(goal, screen, history);
       if (recipe != null) return recipe;
     }
     const rules =
@@ -113,7 +114,7 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
             goal.permits(parsed) &&
             (terminal || parsed.expect['package'] == goal.package);
         if (!accepted) {
-          final fallback = WorkflowPlanner.next(goal, screen);
+          final fallback = WorkflowPlanner.next(goal, screen, history);
           if (fallback != null) return fallback;
           throw const FormatException(
               'Decision lacks valid confidence, scope or verification target');
@@ -127,7 +128,7 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
             'Attempt ${attempt + 1}: ${e.message}\nUNTRUSTED MODEL OUTPUT:\n${raw.length > 4096 ? raw.substring(0, 4096) + ' [truncated]' : raw}');
       }
     }
-    final fallback = WorkflowPlanner.next(goal, screen);
+    final fallback = WorkflowPlanner.next(goal, screen, history);
     if (fallback != null) return fallback;
     throw AgentOutputFailure(rejected.join('\n\n'));
   }
