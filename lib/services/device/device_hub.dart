@@ -25,6 +25,16 @@ class DeviceHub {
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
+  Future<Map<String, dynamic>> spotifyState() async {
+    try {
+      return Map<String, dynamic>.from(
+          await _channel.invokeMapMethod('spotifyState') ?? {});
+    } catch (_) {
+      return {'enabled': false, 'error': 'Spotify session status unavailable'};
+    }
+  }
+
+  Future<void> spotifySettings() => _channel.invokeMethod('spotifySettings');
   Future<String> verifiedVolumeSet(int percent) async {
     if (_isWindows)
       return await setVolumePercent(percent)

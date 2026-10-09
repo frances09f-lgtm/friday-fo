@@ -39,6 +39,8 @@ object DeviceBridge {
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
+                "spotifyState" -> result.success(SpotifySessionControl.state(context))
+                "spotifySettings" -> {SpotifySessionControl.settings(context);result.success(true)}
                 "musicControl" -> MusicPlayback.control(context, call.argument<String>("command") ?: "", result)
                 "playMusic" -> MusicPlayback.resume(context, result)
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))

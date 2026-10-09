@@ -74,6 +74,32 @@ class IntentRouter {
     FridayActionType.closeAllApps,
   };
 
+  static String? spotifyReply(String outcome) {
+    switch (outcome) {
+      case 'access_required':
+        return 'Spotify session access is off. Open Settings > Spotify controls, review Android notification access, then enable Friday yourself if you agree.';
+      case 'no_spotify_session':
+        return 'No active Spotify session. Open Spotify and choose a track or queue first.';
+      case 'ambiguous_spotify_session':
+        return 'More than one Spotify session is active. Choose the player in Spotify first.';
+      case 'unsupported_spotify_action':
+        return 'Spotify does not expose this control for the current session or queue. No command sent.';
+      case 'spotify_already_playing':
+        return 'Spotify was already playing. No new change made.';
+      case 'spotify_already_inactive':
+        return 'Spotify was already paused or stopped. No new change made.';
+      case 'spotify_metadata_unavailable':
+        return 'Spotify accepted the request but track metadata is unavailable. Track change not verified.';
+      case 'spotify_session_lost':
+        return 'Spotify session disconnected before verification. No completion claimed.';
+    }
+    if (outcome.startsWith('spotify_verified_'))
+      return 'Spotify ${outcome.substring(17)} verified from playback or track state.';
+    if (outcome.startsWith('spotify_unverified_'))
+      return 'Spotify ${outcome.substring(19)} requested, but state did not change. Check the queue. No completion claimed.';
+    return null;
+  }
+
   Future<String> execute(FridayAction action) async {
     if (action.type != FridayActionType.none &&
         action.type != FridayActionType.oroStatus &&
@@ -95,6 +121,8 @@ class IntentRouter {
                 ? 'previous'
                 : 'stop';
         final outcome = await deviceHub.musicControl(command);
+        final spotify = spotifyReply(outcome);
+        if (spotify != null) return spotify;
         if (outcome == 'stopped')
           return 'Audio changed from active to inactive after Stop. Track/session state is not available.';
         if (outcome == 'inactive')
@@ -103,7 +131,10 @@ class IntentRouter {
             ? "I couldn't send that media command."
             : 'Requested $command, but the player or track change could not be verified. No completion claimed.';
       case FridayActionType.playMusic:
-        switch (await deviceHub.playMusic()) {
+        final playback = await deviceHub.playMusic();
+        final spotify = spotifyReply(playback);
+        if (spotify != null) return spotify;
+        switch (playback) {
           case 'already_active':
             return 'Audio was already active. No new playback change verified.';
           case 'playing':

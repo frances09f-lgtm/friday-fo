@@ -1,5 +1,6 @@
 import '../../services/agent/friday_agent.dart';
 import 'commands_screen.dart';
+import 'spotify_controls_screen.dart';
 import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
 import 'device_link_screen.dart';
@@ -92,6 +93,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (!kIsWeb && Platform.isAndroid)
+            ListTile(
+                title: const Text('Spotify controls'),
+                subtitle: const Text('Review optional notification access'),
+                leading: const Icon(Icons.music_note),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SpotifyControlsScreen()))),
           ListTile(
               title: const Text('Assistant setup'),
               subtitle: const Text('Floating bar, microphone and power button'),
