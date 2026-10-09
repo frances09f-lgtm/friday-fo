@@ -124,12 +124,50 @@ class FridayController extends ChangeNotifier {
     phase = 'Thinking';
     notifyListeners();
 
+    final remote = RegExp(
+      r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (remote != null) {
+      final target = remote.group(1)!.toLowerCase();
+      final targetPhone = target == 'phone' || target == 'mobile';
+      if (targetIsOtherDevice(target, isAndroid: Platform.isAndroid)) {
+        final remoteText = clean.substring(0, remote.start);
+        final isOro = const OfflineEngine()
+            .handle(remoteText)
+            .allActions
+            .any((a) => a.type == FridayActionType.oroStatus);
+        if (isOro)
+          oroContext.remember(
+            DateTime.now(),
+            device: targetPhone ? 'phone' : 'laptop',
+          );
+        else
+          oroContext.clear();
+        final reply = link == null ? 'Pair the other device first. No action was run on this device.' : await link!.send(remoteText);
+        messages.add(
+          ChatMessage(
+            id: '${DateTime.now().microsecondsSinceEpoch}r',
+            role: MessageRole.friday,
+            text: reply,
+            at: DateTime.now(),
+          ),
+        );
+        busy = false;
+        phase = 'Ready';
+        notifyListeners();
+        await chatStore.save(messages);
+        if (settings.speakReplies) await speech.speak(conciseReply(reply));
+        return;
+      }
+    }
+    final localText = remote == null ? clean : clean.substring(0, remote.start);
     if (Platform.isAndroid &&
         screenAgent != null &&
-        AgentGoal.parse(clean) != null) {
+        AgentGoal.parse(localText) != null) {
       phase = 'Screen control';
       notifyListeners();
-      await screenAgent!.start(clean);
+      await screenAgent!.start(localText);
       final reply = screenAgent!.result;
       final privateScreen = screenAgent!.goal?.workflow == 'read';
       messages.add(ChatMessage(
@@ -178,44 +216,6 @@ class FridayController extends ChangeNotifier {
       return;
     }
 
-    final remote = RegExp(
-      r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
-      caseSensitive: false,
-    ).firstMatch(clean);
-    if (remote != null) {
-      final target = remote.group(1)!.toLowerCase();
-      final targetPhone = target == 'phone' || target == 'mobile';
-      if (targetIsOtherDevice(target, isAndroid: Platform.isAndroid)) {
-        final remoteText = clean.substring(0, remote.start);
-        final isOro = const OfflineEngine()
-            .handle(remoteText)
-            .allActions
-            .any((a) => a.type == FridayActionType.oroStatus);
-        if (isOro)
-          oroContext.remember(
-            DateTime.now(),
-            device: targetPhone ? 'phone' : 'laptop',
-          );
-        else
-          oroContext.clear();
-        final reply = link == null ? 'Pair the other device first. No action was run on this device.' : await link!.send(remoteText);
-        messages.add(
-          ChatMessage(
-            id: '${DateTime.now().microsecondsSinceEpoch}r',
-            role: MessageRole.friday,
-            text: reply,
-            at: DateTime.now(),
-          ),
-        );
-        busy = false;
-        phase = 'Ready';
-        notifyListeners();
-        await chatStore.save(messages);
-        if (settings.speakReplies) await speech.speak(conciseReply(reply));
-        return;
-      }
-    }
-    final localText = remote == null ? clean : clean.substring(0, remote.start);
     final response = await brain.ask(localText, history: List.of(messages));
 
     var reply = response.reply;
