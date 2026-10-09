@@ -42,7 +42,7 @@ class FridayServices {
 
   List<SingleChildWidget> get providers => [
         ChangeNotifierProvider<DeviceLink>.value(value: link),
-        Provider<SettingsStore>.value(value: settings),
+        ChangeNotifierProvider<SettingsStore>.value(value: settings),
         Provider<SpeechService>.value(value: speech),
         ChangeNotifierProvider<LocalModelService>.value(value: local),
         ChangeNotifierProvider<FridayAgent>.value(value: agent),

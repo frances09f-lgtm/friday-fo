@@ -97,11 +97,6 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
   Widget build(BuildContext context) {
     final c = context.watch<FridayController>();
     final s = context.read<SpeechService>();
-    final status = s.isListening ? 'Listening' : c.phase;
-    final lastCommand =
-        c.messages.where((m) => m.role == MessageRole.user).lastOrNull;
-    final lastResult =
-        c.messages.where((m) => m.role == MessageRole.friday).lastOrNull;
     return Scaffold(
       appBar: tab == 1
           ? null
@@ -122,150 +117,88 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
       body: IndexedStack(
         index: tab,
         children: [
-          ListView(
-            padding: const EdgeInsets.all(24),
+          Column(
             children: [
-              const SizedBox(height: 24),
-              const Center(
-                child: Text(
-                  'What do you want me to do?',
-                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(height: 28),
               Center(
-                child: GestureDetector(
-                  onTap: talk,
-                  onLongPress: talk,
-                  child: Semantics(
+                  child: GestureDetector(
+                onTap: talk,
+                onLongPress: talk,
+                child: Semantics(
                     button: true,
                     label: 'Talk to Friday',
                     child: Container(
-                      width: 168,
-                      height: 168,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const RadialGradient(
-                          colors: [Color(0xFFBBA0FF), Color(0xFF6750A4)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                const Color(0xFF9B7AE0).withValues(alpha: .25),
-                            blurRadius: 40,
-                            spreadRadius: 8,
+                      margin: const EdgeInsets.only(top: 8, bottom: 8),
+                      width: 104,
+                      height: 104,
+                      decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                              colors: [Color(0xFFBBA0FF), Color(0xFF6750A4)])),
+                      child: const Icon(Icons.graphic_eq,
+                          color: Colors.white, size: 48),
+                    )),
+              )),
+              const Expanded(child: HomeScreen(showHeader: false)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    ActionChip(
+                      label: const Text('Call'),
+                      avatar: const Icon(Icons.call, size: 18),
+                      onPressed: () =>
+                          command('Who should Friday call?', 'call'),
+                    ),
+                    ActionChip(
+                      label: const Text('Reminder'),
+                      avatar: const Icon(Icons.alarm, size: 18),
+                      onPressed: () => command(
+                          'Reminder, including the time', 'remind me to'),
+                    ),
+                    ActionChip(
+                      label: const Text('YouTube'),
+                      avatar: const Icon(Icons.play_circle_outline, size: 18),
+                      onPressed: () => c.send('open youtube'),
+                    ),
+                    ActionChip(
+                      label: const Text('Screen'),
+                      avatar: const Icon(Icons.visibility_outlined, size: 18),
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Screen tools'),
+                          content: const Text(
+                            'Screen reading and tapping are not available in this version. Friday will not pretend to inspect another app.',
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        s.isListening ? Icons.mic : Icons.graphic_eq,
-                        color: Colors.white,
-                        size: 64,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Center(child: Text(status, style: const TextStyle(fontSize: 17))),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  s.isListening ? 'Tap to stop' : 'Tap or hold to talk',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ),
-              if (c.partialHeard.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(c.partialHeard, textAlign: TextAlign.center),
-                ),
-              if (micError != null)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(micError!),
-                ),
-              const SizedBox(height: 24),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  ActionChip(
-                    label: const Text('Call'),
-                    avatar: const Icon(Icons.call, size: 18),
-                    onPressed: () => command('Who should Friday call?', 'call'),
-                  ),
-                  ActionChip(
-                    label: const Text('Reminder'),
-                    avatar: const Icon(Icons.alarm, size: 18),
-                    onPressed: () =>
-                        command('Reminder, including the time', 'remind me to'),
-                  ),
-                  ActionChip(
-                    label: const Text('YouTube'),
-                    avatar: const Icon(Icons.play_circle_outline, size: 18),
-                    onPressed: () => c.send('open youtube'),
-                  ),
-                  ActionChip(
-                    label: const Text('Screen'),
-                    avatar: const Icon(Icons.visibility_outlined, size: 18),
-                    onPressed: () => showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Screen tools'),
-                        content: const Text(
-                          'Screen reading and tapping are not available in this version. Friday will not pretend to inspect another app.',
+                          actions: [
+                            IconButton(
+                                tooltip: 'Agent Mode',
+                                onPressed: () => open(const AgentModeScreen()),
+                                icon: const Icon(Icons.smart_toy_outlined)),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Close'),
+                            ),
+                          ],
                         ),
-                        actions: [
-                          IconButton(
-                              tooltip: 'Agent Mode',
-                              onPressed: () => open(const AgentModeScreen()),
-                              icon: const Icon(Icons.smart_toy_outlined)),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Close'),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                  ActionChip(
-                    label: const Text('Connected apps'),
-                    avatar: const Icon(Icons.hub_outlined, size: 18),
-                    onPressed: () => open(const ConnectedAppsScreen()),
-                  ),
-                  ActionChip(
-                    label: const Text('Tasks'),
-                    avatar: const Icon(Icons.task_alt, size: 18),
-                    onPressed: () => open(const BackgroundTasksScreen()),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (lastCommand != null || lastResult != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Last command',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        if (lastCommand != null) Text(lastCommand.text),
-                        if (lastResult != null) ...[
-                          const SizedBox(height: 12),
-                          Text(lastResult.text),
-                        ],
-                      ],
+                    ActionChip(
+                      label: const Text('Connected apps'),
+                      avatar: const Icon(Icons.hub_outlined, size: 18),
+                      onPressed: () => open(const ConnectedAppsScreen()),
                     ),
-                  ),
+                    ActionChip(
+                      label: const Text('Tasks'),
+                      avatar: const Icon(Icons.task_alt, size: 18),
+                      onPressed: () => open(const BackgroundTasksScreen()),
+                    ),
+                  ],
                 ),
+              ),
             ],
           ),
           const HomeScreen(),

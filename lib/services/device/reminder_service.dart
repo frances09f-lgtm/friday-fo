@@ -39,8 +39,13 @@ class ReminderService {
       // otherwise scheduled reminders fire with nothing visible.
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      await android?.requestNotificationsPermission();
+      // A service-hosted overlay has no Activity for a permission dialog.
+      // Plugin initialization is valid regardless; don't discard it if the
+      // permission request throws. schedule checks the actual grant below.
       _initialized = true;
+      try {
+        await android?.requestNotificationsPermission();
+      } catch (_) {}
     } catch (_) {
       _initialized = false;
     }

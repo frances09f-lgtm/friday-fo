@@ -324,7 +324,7 @@ class IntentRouter {
       after: after,
     );
     if (!ok)
-      return 'I could not schedule the reminder. Open Notifications in Friday to check permission and test notifications.';
+      return 'I could not schedule the reminder. Allow Friday notifications in Android app settings, then try again.';
     final when = reminders.lastRegisteredAt ??
         DateTime.now().add(Duration(minutes: action.afterMinutes));
     return 'Reminder registered for ${when.day}/${when.month} ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}: ${action.title}. ${reminders.lastRegisteredId == null ? '' : 'ID ${reminders.lastRegisteredId}. '}Open Background tasks for gold checks; reminders appear in Android notifications.';

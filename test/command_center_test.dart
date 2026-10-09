@@ -71,7 +71,8 @@ void main() {
       ChangeNotifierProvider<FridayController>.value(value: c),
       Provider<SpeechService>.value(value: speech),
       ChangeNotifierProvider<SettingsStore>.value(value: settings),
-      ChangeNotifierProvider<LocalModelService>(create: (_) => LocalModelService()),
+      ChangeNotifierProvider<LocalModelService>(
+          create: (_) => LocalModelService()),
       ChangeNotifierProvider<DeviceLink>(create: (_) => DeviceLink()),
     ], child: RepaintBoundary(key: key, child: const FridayApp())));
     await t.pumpAndSettle();
@@ -80,7 +81,9 @@ void main() {
     expect(find.byTooltip('Pair devices'), findsNothing);
     expect(find.byTooltip('Assistant setup'), findsNothing);
     expect(find.byTooltip('Settings'), findsOneWidget);
-    expect(find.text('What do you want me to do?'), findsOneWidget);
+    expect(find.text('Ask Friday anything, or say what to do'), findsWidgets);
+    expect(t.getTopLeft(find.text('Call')).dy,
+        greaterThan(t.getTopLeft(find.byType(TextField).first).dy));
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
     expect(t.takeException(), isNull);
