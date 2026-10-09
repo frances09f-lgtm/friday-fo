@@ -31,7 +31,7 @@ object DeviceBridge {
         FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
-            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
+            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("playMusic","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
                 result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
             }
             when (call.method) {
@@ -39,6 +39,7 @@ object DeviceBridge {
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
+                "playMusic" -> MusicPlayback.resume(context, result)
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))
                 "readSms" -> result.success(
                     readSms(

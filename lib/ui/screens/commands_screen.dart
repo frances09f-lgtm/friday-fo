@@ -5,6 +5,10 @@ class CommandsScreen extends StatelessWidget {
   static const groups = <String, List<(String, String)>>{
     'Apps and search': [
       (
+        'Play music / resume music',
+        'Sends Play, not a pause toggle, to Android’s last media session without opening a random app. Needs a resumable queue; active audio is checked after the request.'
+      ),
+      (
         'Open YouTube / open Sona / open Lookout',
         'Request an installed app launch. Exact legacy Sona/Oro names map to Sona. Unknown/ambiguous apps fail, not a guessed launch.'
       ),

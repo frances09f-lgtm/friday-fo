@@ -32,6 +32,7 @@ class IntentRouter {
   /// volume/brightness) only exist on Android/iOS. On desktop, say so
   /// honestly instead of failing deep inside a missing plugin.
   static const _phoneOnly = {
+    FridayActionType.playMusic,
     FridayActionType.searchApp,
     FridayActionType.readMessages,
     FridayActionType.callContact,
@@ -82,6 +83,15 @@ class IntentRouter {
       return "That phone feature isn't available in the Windows version of Friday.";
     }
     switch (action.type) {
+      case FridayActionType.playMusic:
+        switch (await deviceHub.playMusic()) {
+          case 'playing':
+            return '';
+          case 'requested':
+            return 'Sent Play to your last media app, but playback has not started yet. Open that app and choose a track if it has no resumable queue.';
+          default:
+            return "I couldn't send the music playback request.";
+        }
       case FridayActionType.searchApp:
         return await deviceHub.searchApp(action.app, action.query)
             ? 'Requested ${action.app} search for "${action.query}". Check the opened search screen.'

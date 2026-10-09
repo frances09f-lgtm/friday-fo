@@ -25,6 +25,14 @@ class DeviceHub {
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
+  Future<String> playMusic() async {
+    try {
+      return await _channel.invokeMethod<String>('playMusic') ?? 'error';
+    } on Exception {
+      return 'error';
+    }
+  }
+
   Future<List<InstalledApp>> getInstalledApps() async {
     try {
       final raw = await _channel.invokeListMethod<dynamic>('getInstalledApps');

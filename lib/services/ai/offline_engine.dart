@@ -177,6 +177,16 @@ class OfflineEngine {
     final t =
         normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
+    if (RegExp(
+            r'^(?:ok\s+)?(?:friday[,\s]+)?(?:please\s+)?(?:play|resume|start)\s+(?:my\s+|the\s+)?(?:music|songs?|playback)(?:\s+(?:please|again))?[.!?]*$')
+        .hasMatch(t)) {
+      return const FridayResponse(
+        reply: 'Requesting music playback.',
+        action: FridayAction(type: FridayActionType.playMusic),
+        source: FridaySource.offline,
+      );
+    }
+
     final search = RegExp(
             r'^(?:please )?open (youtube|chrome|instagram) and search (?:for )?(.+?)[.!]?$',
             caseSensitive: false)
