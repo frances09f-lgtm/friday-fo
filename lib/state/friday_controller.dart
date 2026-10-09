@@ -140,7 +140,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       notifyListeners();
       await chatStore.save(messages);
-      if (settings.speakReplies) await speech.speak(spokenActionReply(reply));
+      if (settings.speakReplies) await speech.speak(privateScreen ? reply : spokenActionReply(reply));
       return;
     }
     final goldTask = GoldTaskRequest.parse(clean);
