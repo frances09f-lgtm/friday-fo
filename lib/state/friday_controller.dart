@@ -29,6 +29,22 @@ class FridayController extends ChangeNotifier {
   static String conciseReply(String text) =>
       text.startsWith('Reminder registered for ') ? 'Done' : text;
 
+  /// Action speech is separate from the full on-screen result. Unknown or
+  /// unverified outcomes must never sound like a completed action.
+  static String spokenActionReply(String text) {
+    final lines=text.split('\n').where((line)=>line.trim().isNotEmpty).toList();
+    if(lines.isEmpty || text.trim()=='Done.')return 'Done';
+    bool verified(String line) => line.startsWith('Media volume verified by two readbacks.') ||
+      line.startsWith('Spotify ') && line.contains(' verified from playback or track state.') ||
+      line.startsWith('Reminder registered for ') || line.trim()=='Done.';
+    if(lines.every(verified))return 'Done';
+    final lower=text.toLowerCase();
+    if(lower.contains('already at target') || lower.contains('already playing') || lower.contains('already paused') || lower.contains('already at its limit'))return 'No change needed';
+    if(lower.contains('no success claimed') || lower.contains('not verified') || lower.contains('could not') || lower.contains("couldn't") || lower.contains('refused') || lower.contains('timed out') || lower.contains('failed'))return "Couldn't do it";
+    if(lower.contains('cancelled') || lower.contains('closed before') || lower.contains('stopped'))return 'Stopped';
+    return 'Check the screen';
+  }
+
   FridayController({
     required this.brain,
     required this.router,
@@ -124,7 +140,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       notifyListeners();
       await chatStore.save(messages);
-      if (settings.speakReplies) await speech.speak(reply);
+      if (settings.speakReplies) await speech.speak(spokenActionReply(reply));
       return;
     }
     final goldTask = GoldTaskRequest.parse(clean);
@@ -246,7 +262,7 @@ class FridayController extends ChangeNotifier {
 
     await chatStore.save(messages);
     if (settings.speakReplies) {
-      await speech.speak(conciseReply(reply));
+      await speech.speak(!infoOnly && actions.isNotEmpty ? spokenActionReply(reply) : conciseReply(reply));
     }
   }
 
