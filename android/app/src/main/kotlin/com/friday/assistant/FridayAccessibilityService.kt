@@ -200,7 +200,7 @@ class FridayAccessibilityService : AccessibilityService() {
     try{
      if(!active||locked()){result.success(fail("Task stopped before screenshot returned"));return}
      val bitmap=Bitmap.wrapHardwareBuffer(buffer,r.colorSpace)?:run{result.success(fail("Screenshot bitmap unavailable"));return}
-     try{val output=ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.PNG,100,output);result.success(mapOf("success" to true,"bytes" to output.toByteArray()))}finally{bitmap.recycle()}
+     try{val copy=bitmap.copy(Bitmap.Config.ARGB_8888,false)?:run{result.success(fail("Screenshot copy unavailable"));return};try{val output=ByteArrayOutputStream();copy.compress(Bitmap.CompressFormat.PNG,100,output);result.success(mapOf("success" to true,"bytes" to output.toByteArray()))}finally{copy.recycle()}}finally{bitmap.recycle()}
     }finally{buffer.close()}
    }
    override fun onFailure(errorCode:Int){result.success(fail("Android refused screenshot ($errorCode). Protected screens are not bypassed",true))}

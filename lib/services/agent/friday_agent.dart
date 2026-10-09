@@ -235,7 +235,8 @@ class FridayAgent extends ChangeNotifier {
           break;
         }
         if (g.workflow == 'commands' && commandIndex >= g.commands.length) {
-          result = 'Done';
+          result =
+              'Requested controls executed with observed screen changes. Check the final screen.';
           break;
         }
         if (complete(g, observation)) {
