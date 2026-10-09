@@ -160,7 +160,7 @@ void main() {
       () async {
     final l = OutputLocal([
       '{"action":"open_app|tap"}',
-      '```json\n{"action":"OPEN_APP","confidence":0.9}\n```'
+      '```json\n{"action":"OPEN_APP","target":{"package":"com.google.android.youtube"},"confidence":0.9,"expect":{"package":"com.google.android.youtube"}}\n```'
     ]);
     final result = await LocalBrain(l)
         .decide(AgentGoal.parse('Open YouTube and search for GTA 6')!, {}, []);

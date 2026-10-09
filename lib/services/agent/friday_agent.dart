@@ -85,7 +85,35 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
                   ? ''
                   : '\nYour previous output was rejected: ${failure!.message}. Return exactly ONE valid JSON action, using a single allowed action name. No action has been taken.'));
       try {
-        return AgentAction.parse(raw);
+        final parsed = AgentAction.parse(raw);
+        final terminal = {'wait', 'read_screen', 'finish', 'ask_confirmation'}
+            .contains(parsed.action);
+        final fields = ['text', 'contentDescription', 'resourceId']
+            .where((k) => (parsed.target[k]?.toString() ?? '').isNotEmpty)
+            .toList();
+        final unique = parsed.action == 'open_app' ||
+            terminal ||
+            {'back', 'scroll', 'swipe'}.contains(parsed.action) ||
+            (fields.isNotEmpty &&
+                ((screen['elements'] as List?) ?? [])
+                        .where((e) => fields.every((k) =>
+                            e[k]?.toString().toLowerCase() ==
+                            parsed.target[k]?.toString().toLowerCase()))
+                        .length ==
+                    1);
+        final accepted = unique &&
+            parsed.confidence.isFinite &&
+            parsed.confidence >= .8 &&
+            parsed.confidence <= 1 &&
+            goal.permits(parsed) &&
+            (terminal || parsed.expect['package'] == goal.package);
+        if (!accepted) {
+          final fallback = WorkflowPlanner.next(goal, screen);
+          if (fallback != null) return fallback;
+          throw const FormatException(
+              'Decision lacks valid confidence, scope or verification target');
+        }
+        return parsed;
       } on FormatException catch (e) {
         failure = e;
         // Local view only. May contain private screen/query text; never log or
