@@ -114,6 +114,8 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
                         try {
                           await link.join(
                               _url.text.trim(), _key.text.trim(), _own ?? '');
+                        } on LinkFailure catch (e) {
+                          if (mounted) setState(() => _error = e.message);
                         } catch (_) {
                           if (mounted)
                             setState(() => _error =
