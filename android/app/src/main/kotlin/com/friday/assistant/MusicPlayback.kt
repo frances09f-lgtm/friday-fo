@@ -13,6 +13,16 @@ import io.flutter.plugin.common.MethodChannel
  * A dormant app must still have a resumable session/queue to honor Play.
  */
 object MusicPlayback {
+    fun control(context: Context, command: String, result: MethodChannel.Result) {
+        val code = when(command) { "next" -> KeyEvent.KEYCODE_MEDIA_NEXT; "previous" -> KeyEvent.KEYCODE_MEDIA_PREVIOUS; "stop" -> KeyEvent.KEYCODE_MEDIA_STOP; else -> {result.success("error");return} }
+        try {
+            val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val at = SystemClock.uptimeMillis()
+            audio.dispatchMediaKeyEvent(KeyEvent(at,at,KeyEvent.ACTION_DOWN,code,0))
+            audio.dispatchMediaKeyEvent(KeyEvent(at,at,KeyEvent.ACTION_UP,code,0))
+            result.success("requested")
+        } catch (_: Exception) { result.success("error") }
+    }
     fun resume(context: Context, result: MethodChannel.Result) {
         try {
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

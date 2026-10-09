@@ -177,6 +177,19 @@ class OfflineEngine {
     final t =
         normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
+    final media = RegExp(
+            r'^(?:friday[,\s]+)?(?:please )?(next|previous|stop|pause) (?:music|song|track|playback)[.!?]*$')
+        .firstMatch(t);
+    if (media != null)
+      return FridayResponse(
+          reply: 'Requesting media control.',
+          action: FridayAction(
+              type: switch (media[1]) {
+            'next' => FridayActionType.nextMusic,
+            'previous' => FridayActionType.previousMusic,
+            _ => FridayActionType.stopMusic,
+          }),
+          source: FridaySource.offline);
     if (GoldTaskRequest.isWatchLike(text) &&
         GoldTaskRequest.parse(text) == null) {
       return const FridayResponse(

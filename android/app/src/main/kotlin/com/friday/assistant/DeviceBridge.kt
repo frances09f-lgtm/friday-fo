@@ -31,7 +31,7 @@ object DeviceBridge {
         FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
-            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("playMusic","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
+            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("musicControl","playMusic","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
                 result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
             }
             when (call.method) {
@@ -39,6 +39,7 @@ object DeviceBridge {
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
+                "musicControl" -> MusicPlayback.control(context, call.argument<String>("command") ?: "", result)
                 "playMusic" -> MusicPlayback.resume(context, result)
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))
                 "readSms" -> result.success(
@@ -184,7 +185,7 @@ object DeviceBridge {
         val step = maxOf(1, Math.round(max * 5 / 100.0f))
         val next = if (up) minOf(max, cur + step) else maxOf(0, cur - step)
         am.setStreamVolume(AudioManager.STREAM_MUSIC, next, AudioManager.FLAG_SHOW_UI)
-        true
+        am.getStreamVolume(AudioManager.STREAM_MUSIC) == next && next != cur
     } catch (e: Exception) {
         false
     }
@@ -193,7 +194,7 @@ object DeviceBridge {
     /// as setBrightnessPercent.
     private fun stepBrightness(context: Context, activity: Activity?, up: Boolean): String {
         if (!Settings.System.canWrite(context)) {
-            if (activity != null) {
+            run {
                 try {
                     context.startActivity(
                         Intent(
@@ -219,7 +220,7 @@ object DeviceBridge {
             val next = if (up) minOf(255, cur + step) else maxOf(0, cur - step)
             Settings.System.putInt(
                 context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, next)
-            "ok"
+            if (Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) == next && next != cur) "ok" else "error"
         } catch (e: Exception) {
             "error"
         }
@@ -410,8 +411,9 @@ object DeviceBridge {
         return try {
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            audio.setStreamVolume(AudioManager.STREAM_MUSIC, Math.round(max * percent / 100.0f), 0)
-            true
+            val target = Math.round(max * percent / 100.0f)
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI)
+            audio.getStreamVolume(AudioManager.STREAM_MUSIC) == target
         } catch (e: Exception) {
             false
         }
@@ -420,7 +422,7 @@ object DeviceBridge {
     private fun setBrightnessPercent(context: Context, activity: Activity?, percent: Int): String {
         if (percent < 0 || percent > 100) return "error"
         if (!Settings.System.canWrite(context)) {
-            if (activity != null) {
+            run {
                 try {
                     context.startActivity(
                         Intent(
@@ -440,12 +442,9 @@ object DeviceBridge {
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
             )
-            Settings.System.putInt(
-                context.contentResolver,
-                Settings.System.SCREEN_BRIGHTNESS,
-                Math.round(255 * percent / 100.0f)
-            )
-            "ok"
+            val target = Math.round(255 * percent / 100.0f)
+            val wrote = Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, target)
+            if (wrote && Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) == target) "ok" else "error"
         } catch (e: Exception) {
             "error"
         }

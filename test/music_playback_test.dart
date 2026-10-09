@@ -7,7 +7,36 @@ import 'package:friday/services/ai/friday_parser.dart';
 import 'package:friday/services/device/device_hub.dart';
 
 void main() {
+  test('volume readback and overlay brightness permission are verified', () {
+    final native =
+        File('android/app/src/main/kotlin/com/friday/assistant/DeviceBridge.kt')
+            .readAsStringSync();
+    expect(native,
+        contains('getStreamVolume(AudioManager.STREAM_MUSIC) == target'));
+    expect(native, contains('== next && next != cur'));
+    final brightness = native.substring(
+        native.indexOf('private fun setBrightnessPercent'),
+        native.indexOf('private fun readSms'));
+    expect(brightness, isNot(contains('if (activity != null)')));
+    expect(brightness, contains('Settings.ACTION_MANAGE_WRITE_SETTINGS'));
+    expect(brightness, contains('wrote && Settings.System.getInt'));
+  });
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('next previous stop are local exact media actions', () {
+    for (final entry in {
+      'next music': FridayActionType.nextMusic,
+      'previous music': FridayActionType.previousMusic,
+      'stop music': FridayActionType.stopMusic
+    }.entries) {
+      expect(const OfflineEngine().handle(entry.key).action.type, entry.value);
+    }
+    final native = File(
+            'android/app/src/main/kotlin/com/friday/assistant/MusicPlayback.kt')
+        .readAsStringSync();
+    expect(native, contains('KEYCODE_MEDIA_NEXT'));
+    expect(native, contains('KEYCODE_MEDIA_PREVIOUS'));
+    expect(native, contains('KEYCODE_MEDIA_STOP'));
+  });
   test('play/resume routes locally to media playback, never generic app launch',
       () {
     for (final words in [

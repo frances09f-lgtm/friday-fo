@@ -2,6 +2,9 @@ enum FridayActionType {
   none,
   openApp,
   playMusic,
+  nextMusic,
+  previousMusic,
+  stopMusic,
   searchApp,
   readMessages,
   setReminder,
@@ -46,6 +49,12 @@ class FridayAction {
 
   static FridayActionType _typeFrom(String? raw) {
     switch (raw) {
+      case 'next_music':
+        return FridayActionType.nextMusic;
+      case 'previous_music':
+        return FridayActionType.previousMusic;
+      case 'stop_music':
+        return FridayActionType.stopMusic;
       case 'play_music':
         return FridayActionType.playMusic;
       case 'open_app':

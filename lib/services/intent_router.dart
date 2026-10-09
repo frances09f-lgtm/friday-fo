@@ -33,6 +33,9 @@ class IntentRouter {
   /// honestly instead of failing deep inside a missing plugin.
   static const _phoneOnly = {
     FridayActionType.playMusic,
+    FridayActionType.nextMusic,
+    FridayActionType.previousMusic,
+    FridayActionType.stopMusic,
     FridayActionType.searchApp,
     FridayActionType.readMessages,
     FridayActionType.callContact,
@@ -83,6 +86,18 @@ class IntentRouter {
       return "That phone feature isn't available in the Windows version of Friday.";
     }
     switch (action.type) {
+      case FridayActionType.nextMusic:
+      case FridayActionType.previousMusic:
+      case FridayActionType.stopMusic:
+        final command = action.type == FridayActionType.nextMusic
+            ? 'next'
+            : action.type == FridayActionType.previousMusic
+                ? 'previous'
+                : 'stop';
+        final outcome = await deviceHub.musicControl(command);
+        return outcome == 'error'
+            ? "I couldn't send that media command."
+            : 'Sent $command to the active/last media app. The app may ignore it if there is no queue.';
       case FridayActionType.playMusic:
         switch (await deviceHub.playMusic()) {
           case 'playing':
