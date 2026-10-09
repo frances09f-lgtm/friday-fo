@@ -31,7 +31,7 @@ object DeviceBridge {
         FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
-            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("musicControl","playMusic","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
+            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("musicControl","playMusic","volumeStepVerified","volumeSetVerified","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
                 result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
             }
             when (call.method) {
@@ -52,6 +52,7 @@ object DeviceBridge {
                 "hasSmsPermission" -> result.success(hasPermission(context, Manifest.permission.READ_SMS))
                 "setTorch" -> result.success(setTorch(context, call.argument<Boolean>("on") == true))
                 "volumeStepVerified" -> verifiedVolume(context, call.argument<Boolean>("up") == true, result)
+                "volumeSetVerified" -> verifiedVolumeSet(context,call.argument<Int>("percent")?:-1,result)
                 "volumeState" -> {val am=context.getSystemService(AudioManager::class.java);result.success(mapOf("index" to am.getStreamVolume(AudioManager.STREAM_MUSIC),"max" to am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),"fixed" to am.isVolumeFixed))}
                 "volumeUp" -> result.success(stepVolume(context, true))
                 "volumeDown" -> result.success(stepVolume(context, false))
@@ -180,6 +181,17 @@ object DeviceBridge {
     /// User request: "increase/decrease volume" steps exactly 5%. Stream
     /// volume is an integer index (often 0-15 or 0-25), so 5% rounds to the
     /// nearest index step - at least one, never a fake fractional move.
+    private fun verifiedVolumeSet(context:Context,percent:Int,result:MethodChannel.Result){
+        if(percent !in 0..100){result.success("Volume percent must be 0 to 100.");return}
+        try{
+            val am=context.getSystemService(AudioManager::class.java);val max=am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);val before=am.getStreamVolume(AudioManager.STREAM_MUSIC);val target=Math.round(max*percent/100.0f)
+            if(am.isVolumeFixed){result.success("This audio route has fixed volume. Use the device's own controls.");return}
+            if(before==target){result.success("Media volume is already $before/$max. No change made.");return}
+            am.setStreamVolume(AudioManager.STREAM_MUSIC,target,AudioManager.FLAG_SHOW_UI)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({try{val after=am.getStreamVolume(AudioManager.STREAM_MUSIC);result.success(if(after==target&&after!=before)"Media volume verified: $before/$max to $after/$max."else "Media volume did not reach the requested value. No success claimed.")}catch(_:Exception){result.success("Could not verify media volume.")}},350)
+        }catch(_:Exception){result.success("Android refused the media-volume change. No success claimed.")}
+    }
+
     private fun verifiedVolume(context:Context,up:Boolean,result:MethodChannel.Result){
         try{
             val am=context.getSystemService(AudioManager::class.java)

@@ -296,8 +296,7 @@ class IntentRouter {
   Future<String> _setVolume(FridayAction action) async {
     final n = int.tryParse(action.target);
     if (n == null) return 'Tell me the volume percent, like "set volume 30%".';
-    final ok = await deviceHub.setVolumePercent(n.clamp(0, 100));
-    return ok ? '' : "I couldn't set the volume.";
+    return deviceHub.verifiedVolumeSet(n.clamp(0, 100));
   }
 
   Future<String> _adjustBrightness({required bool up}) async {
