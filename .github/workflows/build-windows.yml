@@ -29,3 +29,7 @@ jobs:
         with:
           name: friday-windows
           path: friday-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-pairing-preview
+          path: windows-pairing-preview.png

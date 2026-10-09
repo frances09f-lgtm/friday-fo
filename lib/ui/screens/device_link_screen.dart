@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../../services/link/pairing_code.dart';
 import 'package:provider/provider.dart';
 import '../../services/link/device_link.dart';
 
@@ -13,6 +15,13 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
   String? _own;
   String? _error;
   bool _working = false;
+  PairingCode? _code;
+  String? _codeSessionKey;
+  void _refreshCode(DeviceLink link) {
+    if (_own == null || link.pairingKey == null) return;
+    _code = PairingCode.create(_own!, link.pairingKey!);
+    _codeSessionKey = link.pairingKey;
+  }
   @override
   void dispose() {
     _url.dispose();
@@ -23,6 +32,12 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
   @override
   Widget build(BuildContext context) {
     final link = context.watch<DeviceLink>();
+    final ownAddresses = link.addresses.where((a) => !a.contains('127.0.0.1')).toList();
+    if (!ownAddresses.contains(_own)) _own = ownAddresses.length == 1 ? ownAddresses.single : null;
+    if (link.running && !link.paired && _own != null &&
+        (_code == null || _code!.address != _own || _codeSessionKey != link.pairingKey)) {
+      _refreshCode(link);
+    }
     return Scaffold(
         appBar: AppBar(title: const Text('Connect devices')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
@@ -49,7 +64,7 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
             const SizedBox(height: 12),
             const Text('1. Enable the link on both devices.'),
             const Text(
-                '2. On ONE device, enter the address and pairing key shown on the other. Use the address for your shared Wi-Fi/hotspot.'),
+                '2. Select this laptop address on the shared network. On your phone, tap Scan laptop QR, review the filled address/key, select the phone address and tap Pair. Manual entry below is the fallback.'),
             const SizedBox(height: 12),
             const Text(
                 'This device addresses (if none appear, connect to Wi-Fi):'),
@@ -71,6 +86,8 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
                 decoration: const InputDecoration(
                     labelText: 'Other device pairing key')),
             DropdownButtonFormField<String>(
+                key: ValueKey(ownAddresses.join(',')),
+                isExpanded: true,
                 initialValue: _own,
                 items: [
                   for (final a
@@ -80,8 +97,17 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
                 onChanged: (v) => setState(() => _own = v),
                 decoration: const InputDecoration(
                     labelText: 'My address on the shared network')),
+            if (_code != null && _own != null) ...[
+              const SizedBox(height: 16),
+              const Text('Scan with Friday on your phone. Keep this QR private; it contains the session pairing key.'),
+              Center(child: Container(color: Colors.white, padding: const EdgeInsets.all(12),
+                child: QrImageView(data: _code!.encode(), size: 240))),
+              TextButton(onPressed: () => setState(() => _refreshCode(link)),
+                child: const Text('Refresh QR (valid 10 minutes)')),
+            ],
+            if (_own == null) const Text('Select My address on the shared network to show the QR.'),
             FilledButton(
-                onPressed: _working
+                onPressed: _working || _own == null
                     ? null
                     : () async {
                         setState(() => _working = true);
