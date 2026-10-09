@@ -67,6 +67,11 @@ void main() {
     });
     await t.binding.setSurfaceSize(const Size(412, 915));
     final key = GlobalKey();
+    c.messages.add(ChatMessage(
+        id: 'old-session',
+        role: MessageRole.friday,
+        text: 'Previous session private text',
+        at: DateTime(2026, 10, 8)));
     await t.pumpWidget(MultiProvider(providers: [
       ChangeNotifierProvider<FridayController>.value(value: c),
       Provider<SpeechService>.value(value: speech),
@@ -81,9 +86,9 @@ void main() {
     expect(find.byTooltip('Pair devices'), findsNothing);
     expect(find.byTooltip('Assistant setup'), findsNothing);
     expect(find.byTooltip('Settings'), findsOneWidget);
-    expect(find.text('Ask Friday anything, or say what to do'), findsWidgets);
-    expect(t.getTopLeft(find.text('Call')).dy,
-        greaterThan(t.getTopLeft(find.byType(TextField).first).dy));
+    expect(find.text('What do you want me to do?'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.text('Previous session private text'), findsNothing);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
     expect(t.takeException(), isNull);
@@ -110,24 +115,9 @@ void main() {
     });
     await t.pageBack();
     await t.pumpAndSettle();
-    await t.tap(find.text('Connected apps'));
-    await t.pumpAndSettle();
-    expect(find.text('Gold price'), findsOneWidget);
-    expect(find.text('Watch status'), findsOneWidget);
-    expect(find.textContaining('never places or closes'), findsOneWidget);
-    await t.runAsync(() async {
-      final im = await (key.currentContext!.findRenderObject()
-              as RenderRepaintBoundary)
-          .toImage();
-      final d = await im.toByteData(format: ui.ImageByteFormat.png);
-      await File('/tmp/friday-connected-apps.png')
-          .writeAsBytes(d!.buffer.asUint8List());
-    });
-    await t.pageBack();
-    await t.pumpAndSettle();
     await t.tap(find.text('Activity'));
     await t.pumpAndSettle();
-    expect(find.textContaining('No activity yet'), findsOneWidget);
+    expect(find.text('Previous session private text'), findsOneWidget);
     c.messages.addAll([
       ChatMessage(
           id: 'preview-user',
@@ -137,8 +127,7 @@ void main() {
       ChatMessage(
           id: 'preview-result',
           role: MessageRole.friday,
-          text:
-              'Reminder registered for 8/10 01:52: drink water. ID 123. Check the bell screen for pending reminders.',
+          text: 'Reminder registered for 9/10 10:44: drink water. ID 123.',
           at: DateTime(2026, 10, 8, 1, 50))
     ]);
     c.notifyListeners();
@@ -149,6 +138,16 @@ void main() {
           .toImage();
       final d = await im.toByteData(format: ui.ImageByteFormat.png);
       await File('/tmp/friday-activity-preview.png')
+          .writeAsBytes(d!.buffer.asUint8List());
+    });
+    await t.tap(find.text('Home'));
+    await t.pumpAndSettle();
+    await t.runAsync(() async {
+      final im = await (key.currentContext!.findRenderObject()
+              as RenderRepaintBoundary)
+          .toImage();
+      final d = await im.toByteData(format: ui.ImageByteFormat.png);
+      await File('/tmp/friday-session-home.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
     await t.tap(find.text('Chat'));
