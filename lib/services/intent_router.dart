@@ -108,11 +108,11 @@ class IntentRouter {
         return _adjustBrightness(up: false);
       case FridayActionType.wifiSettings:
         return await deviceHub.openSystemPanel('wifi')
-            ? ''
+            ? 'Wi-Fi settings launch requested; visibility is not verified.'
             : "I couldn't open Wi-Fi settings.";
       case FridayActionType.bluetoothSettings:
         return await deviceHub.openSystemPanel('bluetooth')
-            ? ''
+            ? 'Bluetooth settings launch requested; visibility is not verified.'
             : "I couldn't open Bluetooth settings.";
       case FridayActionType.callContact:
         return _callContact(action);

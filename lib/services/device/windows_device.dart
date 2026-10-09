@@ -94,19 +94,19 @@ using System;
 using System.Runtime.InteropServices;
 [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IAudioEndpointVolume {
-    int _0(); int _1(); int _2(); int _3();
-    int SetMasterVolumeLevelScalar(float level, Guid eventContext);
-    int _getMasterDb();
-    int GetMasterVolumeLevelScalar(out float level);
+    [PreserveSig] int _0(); [PreserveSig] int _1(); [PreserveSig] int _2(); [PreserveSig] int _3();
+    [PreserveSig] int SetMasterVolumeLevelScalar(float level, Guid eventContext);
+    [PreserveSig] int _getMasterDb();
+    [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
 }
 [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDevice {
-    int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
+    [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
 }
 [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDeviceEnumerator {
-    int _enumAudioEndpoints();
-    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
+    [PreserveSig] int _enumAudioEndpoints();
+    [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
 }
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
 public class FridayAudio {
@@ -132,7 +132,7 @@ public class FridayAudio {
             "if ([Math]::Abs([FridayAudio]::GetVolume()-\$new) -gt 0.015) { throw 'Volume readback mismatch' }; 'verified'";
   }
 
-  /// Absolute volume: bottom out with 50 downs, then climb (n / 2) ups.
+  /// Absolute volume through Core Audio, confirmed by scalar readback.
   static String setVolumeScript(int percent) {
     final target = percent.clamp(0, 100) / 100.0;
     return _coreAudioType +
