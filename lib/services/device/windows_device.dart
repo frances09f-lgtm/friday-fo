@@ -74,7 +74,8 @@ if ($procs.Count -eq 0) { 'none' } elseif ($n -gt 0) { 'requested' } else { 'err
       if (!RegExp(r'^[a-zA-Z0-9 ._:-]{1,60}$').hasMatch(target)) return false;
       final res = await Process.run(
         'powershell',
-        ['-NoProfile', '-Command', "\$ErrorActionPreference='Stop'; Start-Process '$target' -ErrorAction Stop"],
+        ['-NoProfile', '-Command', "\$ErrorActionPreference='Stop'; \$target='$target'; "
+         "if (-not \$target.EndsWith(':')) { foreach (\$root in @('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths','HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths')) { \$p=Join-Path \$root (\$target+'.exe'); if (Test-Path \$p) { \$registered=(Get-Item \$p).GetValue(''); if (\$registered -and (Test-Path \$registered)) { \$target=\$registered; break } } } }; Start-Process \$target -ErrorAction Stop"],
       );
       if (res.exitCode == 0) return true;
       return false;
