@@ -5,6 +5,30 @@ import 'package:friday/services/device/device_hub.dart';
 import 'package:friday/services/ai/offline_engine.dart';
 
 void main() {
+  test('owner Tiffe speech aliases bind package not unrelated food app', () {
+    const apps = [
+      InstalledApp(label: 'Tiffe', packageName: 'com.ambi.tiffe'),
+      InstalledApp(label: 'Tiffin Delivery', packageName: 'other.food')
+    ];
+    for (final word in ['tiffe', 'tiffie', 'tiffin'])
+      expect(DeviceHub.matchApp(word, apps)?.packageName, 'com.ambi.tiffe');
+    expect(DeviceHub.matchApp('tiffin', [apps.last]), isNull);
+  });
+  test('unique small typo accepted, ambiguous and short names refused', () {
+    const apps = [
+      InstalledApp(label: 'WhatsApp', packageName: 'whatsapp'),
+      InstalledApp(label: 'YouTube', packageName: 'youtube')
+    ];
+    expect(DeviceHub.matchApp('whatsap', apps)?.label, 'WhatsApp');
+    expect(DeviceHub.matchApp('youtub', apps)?.label, 'YouTube');
+    expect(
+        DeviceHub.matchApp('whatsap', [
+          ...apps,
+          const InstalledApp(label: 'WhatsApp2', packageName: 'second')
+        ]),
+        isNull);
+    expect(DeviceHub.matchApp('go', apps), isNull);
+  });
   const apps = [
     InstalledApp(label: 'Muse', packageName: 'com.community.oru'),
     InstalledApp(label: 'Community Aura', packageName: 'com.aura'),

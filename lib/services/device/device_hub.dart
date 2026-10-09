@@ -292,6 +292,18 @@ class DeviceHub {
     if (q.isEmpty) return null;
     // Alias is authoritative, including when the target is absent. Never fall
     // through to another installed app with a vaguely similar label/package.
+    final namedPackage = {
+      'tiffe': 'com.ambi.tiffe',
+      'tiffie': 'com.ambi.tiffe',
+      'tiffin': 'com.ambi.tiffe',
+      'look out': 'com.ambi.lookout',
+      'replier': 'com.ambi.replier',
+      'replyer': 'com.ambi.replier'
+    }[q];
+    if (namedPackage != null) {
+      final found = apps.where((a) => a.packageName == namedPackage).toList();
+      return found.length == 1 ? found.single : null;
+    }
     if (sonaAliases.contains(q)) {
       for (final app in apps) {
         if (app.packageName == sonaPackage) return app;
@@ -318,7 +330,37 @@ class DeviceHub {
       return words.every(labelWords.contains) &&
           words.length / labelWords.length >= 0.66;
     }).toList();
-    return candidates.length == 1 ? candidates.single : null;
+    if (candidates.length == 1) return candidates.single;
+    if (candidates.length > 1) return null;
+    final clean = q.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (clean.length < 5) return null;
+    final scored = <({InstalledApp app, int distance})>[];
+    for (final app in apps) {
+      final label =
+          app.label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      if (label.isEmpty) continue;
+      final d = editDistance(clean, label);
+      // Short words allow one edit only; larger names at most two.
+      if (d <= (clean.length >= 8 ? 2 : 1) && d / label.length <= 0.25)
+        scored.add((app: app, distance: d));
+    }
+    scored.sort((a, b) => a.distance.compareTo(b.distance));
+    // Any close rival is ambiguous, even if one is slightly better.
+    return scored.length == 1 ? scored.single.app : null;
+  }
+
+  static int editDistance(String a, String b) {
+    var prior = List<int>.generate(b.length + 1, (i) => i);
+    for (var i = 1; i <= a.length; i++) {
+      final row = List<int>.filled(b.length + 1, 0)..[0] = i;
+      for (var j = 1; j <= b.length; j++) {
+        final sub = prior[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
+        row[j] =
+            [prior[j] + 1, row[j - 1] + 1, sub].reduce((x, y) => x < y ? x : y);
+      }
+      prior = row;
+    }
+    return prior.last;
   }
 
   Future<bool> _launch(InstalledApp app) async {
