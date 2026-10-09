@@ -1,4 +1,6 @@
 import 'dart:io';
+import '../services/agent/agent_contract.dart';
+import '../services/agent/friday_agent.dart';
 
 import '../services/context/oro_context.dart';
 import '../services/tasks/gold_task.dart';
@@ -35,8 +37,10 @@ class FridayController extends ChangeNotifier {
     required this.settings,
     this.link,
     this.agentRunning,
+    this.screenAgent,
   });
 
+  final FridayAgent? screenAgent;
   final DeviceLink? link;
   final bool Function()? agentRunning;
   final AIBrain brain;
@@ -101,6 +105,28 @@ class FridayController extends ChangeNotifier {
     phase = 'Thinking';
     notifyListeners();
 
+    if (Platform.isAndroid &&
+        screenAgent != null &&
+        AgentGoal.parse(clean) != null) {
+      phase = 'Screen control';
+      notifyListeners();
+      await screenAgent!.start(clean);
+      final reply = screenAgent!.result;
+      final privateScreen = screenAgent!.goal?.workflow == 'read';
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}agent',
+          role: MessageRole.friday,
+          text: privateScreen
+              ? 'Screen read completed. Open Agent Mode to see the transient result.'
+              : reply,
+          at: DateTime.now(),
+          localOnly: true));
+      busy = false;
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(reply);
+      return;
+    }
     final goldTask = GoldTaskRequest.parse(clean);
     final cancelGold = RegExp(
       r'^(?:cancel|stop) (?:all |my )?gold (?:alerts|tasks|checks)[.!]?$',

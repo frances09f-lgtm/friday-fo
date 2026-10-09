@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+import '../../services/agent/agent_contract.dart';
 import 'package:provider/provider.dart';
 import '../../services/agent/friday_agent.dart';
 import '../../services/ai/local_model_service.dart';
@@ -18,6 +20,8 @@ class AgentModeScreen extends StatefulWidget {
 class _AgentModeState extends State<AgentModeScreen> {
   final input = TextEditingController();
   bool mic = false;
+  Uint8List? capture;
+  String captureStatus = "";
   String buildLabel = 'Reading installed build...';
   @override
   void initState() {
@@ -40,7 +44,10 @@ class _AgentModeState extends State<AgentModeScreen> {
   Future<void> run() async {
     final a = context.read<FridayAgent>();
     final local = context.read<LocalModelService>();
-    if (local.setupBusy || !await local.ensureReady()) {
+    final goal = AgentGoal.parse(input.text);
+    if (goal != null &&
+        !goal.noPlanner &&
+        (local.setupBusy || !await local.ensureReady())) {
       if (mounted)
         Navigator.push(context,
             MaterialPageRoute(builder: (_) => const LocalModelSetupScreen()));
@@ -79,11 +86,11 @@ class _AgentModeState extends State<AgentModeScreen> {
         body: ListView(padding: const EdgeInsets.all(20), children: [
           Text(buildLabel),
           const SizedBox(height: 8),
-          const Text('Core V1 · local model only',
+          const Text('Screen control · local planner',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const Text(
-              'Real Accessibility actions, one at a time. Search/navigation only. No messages, payments, permissions or settings changes. No screenshot analysis in this milestone.'),
+              'Observe, plan, act and verify one step at a time. YouTube playback, WhatsApp chat navigation, ChatGPT questions and Instagram search. No WhatsApp sends, payments, permission approvals or login bypass. Uses the existing local .task model, not GGUF. Screen reading uses accessible text; image-only content may be unreadable.'),
           const SizedBox(height: 12),
           OutlinedButton(
               onPressed: a.running
@@ -114,9 +121,34 @@ class _AgentModeState extends State<AgentModeScreen> {
           ]),
           const SizedBox(height: 12),
           Text(a.phase),
+          if (a.goal != null) Text('Task: ${a.goal!.task}'),
+          if (a.currentApp.isNotEmpty) Text('App: ${a.currentApp}'),
+          if (a.lastAction != null) Text('Action: ${a.lastAction!.action}'),
           if (a.running)
             Text(
                 'Step ${a.steps}/ ${a.maxSteps} · retry ${a.retries}/${a.maxRetries}'),
+          if (a.running)
+            OutlinedButton(
+                onPressed: () async {
+                  final r = await NativeAgentDevice()
+                      .call('screenshot')
+                      .timeout(const Duration(seconds: 5));
+                  if (mounted)
+                    setState(() {
+                      capture = r['bytes'] as Uint8List?;
+                      captureStatus = r['success'] == true
+                          ? 'Transient screenshot. Not stored or sent to a model.'
+                          : r['error']?.toString() ?? 'Screenshot unavailable';
+                    });
+                },
+                child: const Text('Preview screenshot · Android 11+')),
+          if (captureStatus.isNotEmpty) Text(captureStatus),
+          if (capture != null) ...[
+            Image.memory(capture!),
+            TextButton(
+                onPressed: () => setState(() => capture = null),
+                child: const Text('Clear screenshot'))
+          ],
           if (a.running)
             FilledButton(onPressed: a.stop, child: const Text('STOP')),
           if (a.result.isNotEmpty) Text(a.result),
@@ -170,7 +202,10 @@ class _AgentModeState extends State<AgentModeScreen> {
               'A Stop control remains over the target app. You can minimize Friday; if Android ends the process, restart manually. A Stop cancels further actions, not actions already done.'),
           const SizedBox(height: 12),
           for (final t in [
-            "Open YouTube and search for GTA 6",
+            "Open YouTube and play GTA 6",
+            "Open WhatsApp and open my chat with Rahul",
+            "Open ChatGPT and search for explain gravity",
+            "Tell me what is currently displayed on my screen",
             "Open Chrome and search for today's gold price",
             "Open Settings and open Bluetooth",
             "Open Instagram and search for Rahul"

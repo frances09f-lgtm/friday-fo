@@ -205,6 +205,20 @@ class LocalModelService extends ChangeNotifier {
   }
 
   InferenceModel? _model;
+  Future<void> Function()? _stopActive;
+  bool _inferenceLocked = false;
+  Future<void> cancelInference() async {
+    final stop = _stopActive;
+    if (stop == null) return;
+    try {
+      await stop().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      _inferenceLocked = true;
+      lastLoadError =
+          'Native cancellation did not settle. Restart Friday before another local task.';
+    }
+  }
+
   bool _loading = false;
   Future<void> _tail = Future.value();
 
@@ -231,6 +245,7 @@ class LocalModelService extends ChangeNotifier {
   }
 
   Future<bool> ensureReady() async {
+    if (_inferenceLocked) return false;
     if (_model != null) return true;
     if (_loading) return false;
     _loading = true;
@@ -287,6 +302,9 @@ class LocalModelService extends ChangeNotifier {
     if (setupBusy)
       return Future.error(
           FridayApiException('Local model setup is in progress'));
+    if (_inferenceLocked)
+      return Future.error(FridayApiException(
+          lastLoadError ?? 'Restart Friday before another local task'));
     final done = Completer<String>();
     _tail = _tail.then((_) async {
       try {
@@ -312,6 +330,7 @@ class LocalModelService extends ChangeNotifier {
       _stage('Inference test', 'Native model loaded. Testing inference...');
     final chat = await _model!.createChat(
         temperature: .1, topK: 1, modelType: _type, maxOutputTokens: 192);
+    _stopActive = chat.session.stopGeneration;
     try {
       for (final m in history) {
         await chat.addQueryChunk(
@@ -335,7 +354,12 @@ class LocalModelService extends ChangeNotifier {
       }
       return buffer.toString();
     } finally {
-      await chat.session.close();
+      try {
+        await chat.session.close().timeout(const Duration(seconds: 5));
+      } catch (_) {
+        _inferenceLocked = true;
+      }
+      _stopActive = null;
     }
   }
 

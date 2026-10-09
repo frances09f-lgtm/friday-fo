@@ -25,6 +25,7 @@ class AgentAction {
     'wait',
     'read_screen',
     'finish',
+    'submit',
     'ask_confirmation'
   };
   factory AgentAction.parse(String raw) {
@@ -79,29 +80,93 @@ class AgentAction {
 class AgentGoal {
   final String task, package, query;
   final bool settings;
-  const AgentGoal(this.task, this.package, this.query, {this.settings = false});
+  final String workflow;
+  final List<AgentAction> commands;
+  const AgentGoal(this.task, this.package, this.query,
+      {this.settings = false,
+      this.workflow = 'search',
+      this.commands = const []});
   static AgentGoal? parse(String task) {
     final s = task.trim();
     final settings = RegExp(r'^open settings and open bluetooth[.!]?$',
         caseSensitive: false);
     if (settings.hasMatch(s))
       return AgentGoal(s, 'com.android.settings', 'Bluetooth', settings: true);
+    if (RegExp(
+            r'^(?:tell me )?what is (?:currently )?(?:displayed )?on my screen[.!?]?$',
+            caseSensitive: false)
+        .hasMatch(s)) {
+      return AgentGoal(s, '', '', workflow: 'read');
+    }
+    final pieces = s
+        .replaceFirst(RegExp(r'^go ', caseSensitive: false), '')
+        .split(RegExp(r',?\s+and\s+|,\s*', caseSensitive: false));
+    final commands = <AgentAction>[];
+    for (final piece in pieces) {
+      final part = piece.trim().replaceFirst(RegExp(r'[.!]$'), '');
+      if (part.toLowerCase() == 'back') {
+        commands.add(AgentAction(action: 'back', confidence: 1));
+      } else if (RegExp(r'^(?:scroll|swipe) (?:up|down)$', caseSensitive: false)
+          .hasMatch(part)) {
+        commands.add(AgentAction(
+            action: part.split(' ').first.toLowerCase(),
+            text: part.split(' ').last.toLowerCase(),
+            confidence: 1));
+      } else {
+        final t =
+            RegExp(r'^(tap|type) (.+)$', caseSensitive: false).firstMatch(part);
+        if (t == null || t[2]!.length > 250) {
+          commands.clear();
+          break;
+        }
+        final value = t[2]!.replaceAll(RegExp(r'^"|"$'), '');
+        commands.add(AgentAction(
+            action: t[1]!.toLowerCase(),
+            target: t[1]!.toLowerCase() == 'tap' ? {'text': value} : {},
+            text: t[1]!.toLowerCase() == 'type' ? value : '',
+            confidence: 1));
+      }
+    }
+    if (commands.isNotEmpty && commands.length <= 8)
+      return AgentGoal(s, '', '', workflow: 'commands', commands: commands);
+    final wa = RegExp(r'^open whatsapp and open (?:my )?chat with (.+?)[.!]?$',
+            caseSensitive: false)
+        .firstMatch(s);
+    if (wa != null && wa[1]!.trim().length <= 120)
+      return AgentGoal(s, 'com.whatsapp', wa[1]!.trim(), workflow: 'contact');
     final m = RegExp(
-            r'^open (youtube|chrome|instagram) and search (?:for )?(.+?)[.!]?$',
+            r'^open (youtube|chrome|instagram|chatgpt) and (search(?: for)?|play|ask) (.+?)[.!]?$',
             caseSensitive: false)
         .firstMatch(s);
     if (m == null) return null;
-    final query = m[2]!.trim();
-    if (query.length > 120 || query.contains('\n')) return null;
+    final query = m[3]!.trim();
+    if (query.isEmpty || query.length > 250 || query.contains('\n'))
+      return null;
+    final app = m[1]!.toLowerCase();
+    if (m[2]!.toLowerCase() == 'play' && app != 'youtube') return null;
     return AgentGoal(
         s,
         {
           'youtube': 'com.google.android.youtube',
           'chrome': 'com.android.chrome',
-          'instagram': 'com.instagram.android'
-        }[m[1]!.toLowerCase()]!,
-        query);
+          'instagram': 'com.instagram.android',
+          'chatgpt': 'com.openai.chatgpt'
+        }[app]!,
+        query,
+        workflow: app == 'chatgpt'
+            ? 'question'
+            : m[2]!.toLowerCase() == 'play'
+                ? 'play'
+                : 'search');
   }
+
+  AgentGoal withPackage(String pkg) => AgentGoal(task, pkg, query,
+      settings: settings, workflow: workflow, commands: commands);
+  bool get noPlanner => workflow == 'read' || workflow == 'commands';
+  static bool unsafeLabel(String value) => RegExp(
+          r'\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\b',
+          caseSensitive: false)
+      .hasMatch(value);
 
   bool permits(AgentAction a) {
     if (a.action == 'ask_confirmation' ||
@@ -110,7 +175,16 @@ class AgentGoal {
         a.action == 'finish') return true;
     if (a.action == 'open_app') return a.target['package'] == package;
     if (a.action == 'home' || a.action == 'back') return true;
-    if (a.action == 'type') return !settings && a.text == query;
+    if (a.action == 'type')
+      return !settings &&
+          (workflow == 'commands'
+              ? commands.any((c) => c.action == 'type' && c.text == a.text)
+              : a.text == query);
+    if (a.action == 'submit')
+      return workflow == 'question' ||
+          workflow == 'search' ||
+          workflow == 'play' ||
+          workflow == 'contact';
     if (a.action == 'long_press') return false;
     if (a.action == 'scroll' || a.action == 'swipe') return !settings;
     if (a.action == 'tap') {
@@ -119,6 +193,17 @@ class AgentGoal {
               .trim()
               .toLowerCase();
       if (settings) return value == 'bluetooth';
+      if (unsafeLabel(value)) return false;
+      if (workflow == 'commands')
+        return commands.any(
+            (c) => c.action == 'tap' && c.target['text'] == a.target['text']);
+      if (workflow == 'contact' &&
+          a.target['text']?.toString().toLowerCase() == query.toLowerCase())
+        return true;
+      if (workflow == 'question')
+        return RegExp(r'message|prompt|composer|ask|edittext').hasMatch(value);
+      if (workflow == 'play' && value.contains(query.toLowerCase()))
+        return true;
       return value.isNotEmpty &&
           RegExp(r'search|검색|search_box|search_edit|url_bar|address|omnibox')
               .hasMatch(value) &&

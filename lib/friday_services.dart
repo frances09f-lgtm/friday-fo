@@ -73,6 +73,7 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
   final link = DeviceLink();
   final controller = FridayController(
     link: link,
+    screenAgent: agent,
     agentRunning: () => agent.running || local.setupBusy,
     brain: brain,
     router: IntentRouter(deviceHub: DeviceHub(), reminders: reminders),

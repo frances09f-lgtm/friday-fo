@@ -1,0 +1,9 @@
+Friday v44 - screen-control test candidate
+
+Extends the existing accessibility loop and Qwen0.5B .task planner. No GGUF, model conversion, new download or inference-engine replacement. Supports typed/voice tasks for YouTube play/search, WhatsApp exact contact chat navigation, ChatGPT question submission, Instagram/Chrome search, transient screen text reading and bounded back/scroll/tap/type commands.
+
+Native safety checks run independently of the local planner: fresh foreground snapshot, unlocked phone, exact unique target, scoped text, protected/security/permission controls, step/retry/time limits, visible status and floating STOP. WhatsApp message composer and send remain blocked. Malformed planner output may recover through unique observed-control rules. Accessibility nodes and screenshot buffers released; screenshot preview is transient, Android11+, not model vision. Image-only content remains unreadable to the current text-only model.
+
+Results are verified from accessible UI after each action. Playback requires relevant title + Pause control + active Android audio, a conservative observable proxy, not proof of video frames; question requires sent text + response/loading evidence; contact requires exact conversation header + composer. Missing apps, locked/security screens and ambiguity stop honestly.
+
+201 automated Flutter tests initially pass; final count updated after regression. Actual phone app versions/layouts and workflows are NOT yet verified. This APK is for device testing, not completed real-device validation. Enable Friday Accessibility manually, keep phone unlocked, install target apps/login yourself, load existing model. Test successful and absent queries, duplicate contact names, slow screens, missing apps, service interruption and STOP. No automatic restart or resume.
