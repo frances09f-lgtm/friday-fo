@@ -5,3 +5,5 @@ Fixes v44 phone-test failure on "open YouTube and search for GTA 6": syntactical
 Existing Qwen0.5B .task model/runtime/path/hash unchanged. No GGUF, conversion or extra model download. Preserves v44 guarded screen workflows and measured bar controls. Phone retest remains required; next/previous ignored media keys remain unresolved without media-app/queue/direct-session access choice. No full-spec completion or real-device success claim.
 
 209 Flutter tests pass and analyze has no errors (existing lint warnings). CI native APK and task-unit tests required before release.
+
+Additional phone intent fixes: "ask chatgpt how are you" targets the ChatGPT app with query "how are you"; "search new ai on chatgpt" targets ChatGPT with query "new ai". Supports spaced Chat GPT and on/in/using forms. These commands enter the shared screen-control engine before Friday's own chat response path. 210 tests expected after additional parser regression.

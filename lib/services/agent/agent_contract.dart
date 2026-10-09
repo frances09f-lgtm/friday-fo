@@ -87,7 +87,22 @@ class AgentGoal {
       this.workflow = 'search',
       this.commands = const []});
   static AgentGoal? parse(String task) {
-    final s = task.trim();
+    var s = task.trim();
+    final ask =
+        RegExp(r'^(?:please )?ask chat\s*gpt (.+?)[.!]?$', caseSensitive: false)
+            .firstMatch(s);
+    final on = RegExp(
+            r'^(?:please )?search (?:for )?(.+?) (?:on|in|using) chat\s*gpt[.!]?$',
+            caseSensitive: false)
+        .firstMatch(s);
+    if (ask != null || on != null) {
+      final query = (ask?[1] ?? on![1]!).trim();
+      if (query.isEmpty || query.length > 250 || query.contains('\n'))
+        return null;
+      return AgentGoal(task.trim(), 'com.openai.chatgpt', query,
+          workflow: 'question');
+    }
+    s = s.replaceAll(RegExp(r'chat\s+gpt', caseSensitive: false), 'ChatGPT');
     final settings = RegExp(r'^open settings and open bluetooth[.!]?$',
         caseSensitive: false);
     if (settings.hasMatch(s))

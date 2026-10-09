@@ -16,6 +16,20 @@ class Output extends LocalModelService {
 }
 
 void main() {
+  test('phone ChatGPT commands separate app target from query', () {
+    for (final entry in {
+      'ask chatgpt how are you': 'how are you',
+      'search new ai on chatgpt': 'new ai',
+      'search for new ai in chat gpt': 'new ai',
+      'ask Chat GPT explain gravity': 'explain gravity'
+    }.entries) {
+      final goal = AgentGoal.parse(entry.key)!;
+      expect(goal.package, 'com.openai.chatgpt');
+      expect(goal.workflow, 'question');
+      expect(goal.query, entry.value);
+    }
+    expect(AgentGoal.parse('how are you'), isNull);
+  });
   for (final raw in [
     '{"action":"tap","target":{"contentDescription":"Search"}}',
     '{"action":"tap","confidence":0}',
