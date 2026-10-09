@@ -35,34 +35,34 @@ class VolumeControlActivity:Activity() {
   }
  }
  private var started=false
- private val id:String get()=intent.getStringExtra("request")?:""
+ private val requestId:String get()=intent.getStringExtra("request")?:""
  override fun onCreate(state:Bundle?){
   super.onCreate(state)
   val p=pending
-  if(p==null||p.id!=id){finish();return}
+  if(p==null||p.id!=requestId){finish();return}
   title="Friday volume control"
   window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
   val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(32,28,32,24)}
   box.addView(TextView(this).apply{text="Changing phone media volume ${p.percent?.let{"to $it%"}?:if(p.up==true)"up"else "down"}.\n\nFriday shows this window because some phones reject volume changes from an overlay. The result is read back twice and will remain in the bar.";textSize=17f})
-  box.addView(Button(this).apply{text="Cancel";setOnClickListener{complete(id,"Volume control cancelled. A started write may already have happened; check current volume.");finish()}})
+  box.addView(Button(this).apply{text="Cancel";setOnClickListener{complete(requestId,"Volume control cancelled. A started write may already have happened; check current volume.");finish()}})
   setContentView(box)
  }
  override fun onWindowFocusChanged(focus:Boolean){
   super.onWindowFocusChanged(focus)
   if(!focus||started)return
-  val p=pending?:return;if(p.id!=id)return
+  val p=pending?:return;if(p.id!=requestId)return
   started=true
   // Execute only once the real Activity is visible and has window focus.
   DeviceBridge.measuredVolume(this,p.percent,p.up,object:MethodChannel.Result{
-   override fun success(value:Any?){complete(id,(value as? String?:"Volume readback missing. No success claimed.")+" Foreground volume window used.");finish()}
-   override fun error(code:String,message:String?,details:Any?){complete(id,"Foreground volume error. No success claimed.");finish()}
-   override fun notImplemented(){complete(id,"Foreground volume unavailable. No success claimed.");finish()}
+   override fun success(value:Any?){complete(requestId,(value as? String?:"Volume readback missing. No success claimed.")+" Foreground volume window used.");finish()}
+   override fun error(code:String,message:String?,details:Any?){complete(requestId,"Foreground volume error. No success claimed.");finish()}
+   override fun notImplemented(){complete(requestId,"Foreground volume unavailable. No success claimed.");finish()}
   })
  }
  @Deprecated("Deprecated in Java")
- override fun onBackPressed(){complete(id,"Volume control closed. Check current volume before retrying.");super.onBackPressed()}
+ override fun onBackPressed(){complete(requestId,"Volume control closed. Check current volume before retrying.");super.onBackPressed()}
  override fun onDestroy(){
-  if(isFinishing)complete(id,"Volume window closed before verification. No success claimed.")
+  if(isFinishing)complete(requestId,"Volume window closed before verification. No success claimed.")
   super.onDestroy()
  }
 }
