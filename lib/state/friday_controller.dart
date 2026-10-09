@@ -63,7 +63,7 @@ class FridayController extends ChangeNotifier {
     notifyListeners();
 
     final remote = RegExp(
-            r'\s+(?:on|to)\s+(?:my|the)\s+(phone|mobile|laptop|windows|computer)[.!?]*$',
+            r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
             caseSensitive: false)
         .firstMatch(clean);
     if (remote != null && link != null) {
