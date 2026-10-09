@@ -33,7 +33,7 @@ class FridayController extends ChangeNotifier {
   /// unverified outcomes must never sound like a completed action.
   static String spokenActionReply(String text) {
     final lines=text.split('\n').where((line)=>line.trim().isNotEmpty).toList();
-    if(lines.isEmpty || text.trim()=='Done.')return 'Done';
+    if(lines.isEmpty || (text.trim()=='Done.' || text.trim()=='Done'))return 'Done';
     bool verified(String line) => line.startsWith('Media volume verified by two readbacks.') ||
       line.startsWith('Spotify ') && line.contains(' verified from playback or track state.') ||
       line.startsWith('Reminder registered for ') || line.trim()=='Done.';

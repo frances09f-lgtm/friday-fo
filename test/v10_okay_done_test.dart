@@ -126,7 +126,7 @@ void main() {
         speech,
         speak: true);
     await c.send('set volume 40');
-    expect(speech.spoken, ['Volume set to 40%']);
+    expect(speech.spoken, ['Check the screen']);
   });
   test('unexpected execution error clears busy without false Done', () async {
     final router = _ThrowRouter();
