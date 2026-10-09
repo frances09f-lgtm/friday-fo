@@ -41,6 +41,8 @@
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
 
+        <activity android:name=".VolumeControlActivity" android:exported="false"
+            android:theme="@android:style/Theme.Material.Dialog.Alert" android:excludeFromRecents="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

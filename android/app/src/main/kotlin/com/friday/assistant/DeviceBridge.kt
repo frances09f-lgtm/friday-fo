@@ -53,8 +53,8 @@ object DeviceBridge {
                 )
                 "hasSmsPermission" -> result.success(hasPermission(context, Manifest.permission.READ_SMS))
                 "setTorch" -> result.success(setTorch(context, call.argument<Boolean>("on") == true))
-                "volumeStepVerified" -> verifiedVolume(context, call.argument<Boolean>("up") == true, result)
-                "volumeSetVerified" -> verifiedVolumeSet(context,call.argument<Int>("percent")?:-1,result)
+                "volumeStepVerified" -> if(activity!=null)verifiedVolume(context,call.argument<Boolean>("up")==true,result)else VolumeControlActivity.request(context,null,call.argument<Boolean>("up")==true,result)
+                "volumeSetVerified" -> if(activity!=null)verifiedVolumeSet(context,call.argument<Int>("percent")?:-1,result)else VolumeControlActivity.request(context,call.argument<Int>("percent")?:-1,null,result)
                 "volumeState" -> {val am=context.getSystemService(AudioManager::class.java);result.success(mapOf("index" to am.getStreamVolume(AudioManager.STREAM_MUSIC),"max" to am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),"fixed" to am.isVolumeFixed))}
                 "volumeUp" -> result.success(stepVolume(context, true))
                 "volumeDown" -> result.success(stepVolume(context, false))
@@ -194,7 +194,7 @@ object DeviceBridge {
         measuredVolume(context,percent,null,result)
     }
     private fun verifiedVolume(context:Context,up:Boolean,result:MethodChannel.Result){measuredVolume(context,null,up,result)}
-    private fun measuredVolume(context:Context,percent:Int?,up:Boolean?,result:MethodChannel.Result){
+    fun measuredVolume(context:Context,percent:Int?,up:Boolean?,result:MethodChannel.Result){
         val build=volumeBuild(context)
         try{
             val am=context.getSystemService(AudioManager::class.java)

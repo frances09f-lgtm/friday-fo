@@ -36,6 +36,17 @@ class AssistantOverlayService : Service() {
         private const val NOTIF_CHANNEL = "friday_assistant"
         private const val NOTIF_ID = 71
         var active=false
+        var instance:AssistantOverlayService?=null
+        fun volumeWindow(show:Boolean){
+            val service=instance?:return
+            service.view?.let { v ->
+                val params=v.layoutParams as? WindowManager.LayoutParams?:return@let
+                if(show)params.flags=params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                else params.flags=params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                v.visibility=if(show)android.view.View.INVISIBLE else android.view.View.VISIBLE
+                try{service.windowManager?.updateViewLayout(v,params)}catch(_:Exception){}
+            }
+        }
         const val MODE_BUBBLE="bubble"
         private const val ACTION_STOP="com.friday.assistant.STOP_BUBBLE"
 
@@ -57,6 +68,7 @@ class AssistantOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance=this
         AssistantInvocation.record(this,"Overlay service created")
         startForeground(NOTIF_ID, buildNotification())
 
@@ -158,5 +170,6 @@ class AssistantOverlayService : Service() {
             .build()
     }
 
-    override fun onDestroy(){active=false;clearBubble();clearPanel();super.onDestroy()}
+    override fun onDestroy(){
+        instance=null;active=false;clearBubble();clearPanel();super.onDestroy()}
 }
