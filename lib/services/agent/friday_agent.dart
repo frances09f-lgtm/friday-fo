@@ -187,6 +187,7 @@ class FridayAgent extends ChangeNotifier {
     }
     var g = goal!;
     commandIndex = 0;
+    var questionSubmitted = false;
     final epoch = ++_epoch;
     steps = 0;
     retries = 0;
@@ -239,7 +240,8 @@ class FridayAgent extends ChangeNotifier {
               'Requested controls executed with observed screen changes. Check the final screen.';
           break;
         }
-        if (complete(g, observation)) {
+        if (complete(g, observation) &&
+            (g.workflow != 'question' || questionSubmitted)) {
           result = 'Done';
           break;
         }
@@ -281,7 +283,8 @@ class FridayAgent extends ChangeNotifier {
           break;
         }
         if (a.action == 'finish') {
-          if (complete(g, observation)) {
+          if (complete(g, observation) &&
+              (g.workflow != 'question' || questionSubmitted)) {
             result = 'Done';
           } else {
             result = 'Completion could not be verified. Check the screen.';
@@ -299,6 +302,9 @@ class FridayAgent extends ChangeNotifier {
           'token': observation['token']
         }).timeout(const Duration(seconds: 10));
         if (!running || epoch != _epoch) break;
+        if (g.workflow == 'question' &&
+            a.action == 'submit' &&
+            lastResult['success'] == true) questionSubmitted = true;
         await Future<void>.delayed(const Duration(milliseconds: 900));
         _status('Verifying ${a.action}');
         var after = await _observe(epoch);
