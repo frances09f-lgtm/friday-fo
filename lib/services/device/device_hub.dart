@@ -25,6 +25,20 @@ class DeviceHub {
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
+  Future<String> verifiedVolumeStep(bool up) async {
+    if (_isWindows)
+      return await adjustVolume(up: up)
+          ? 'Requested volume change on Windows.'
+          : 'Could not change volume.';
+    try {
+      return await _channel
+              .invokeMethod<String>('volumeStepVerified', {'up': up}) ??
+          'Volume verification unavailable.';
+    } catch (_) {
+      return 'Volume verification unavailable. No success claimed.';
+    }
+  }
+
   Future<String> musicControl(String command) async {
     try {
       return await _channel

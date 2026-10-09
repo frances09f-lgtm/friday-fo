@@ -51,6 +51,8 @@ object DeviceBridge {
                 )
                 "hasSmsPermission" -> result.success(hasPermission(context, Manifest.permission.READ_SMS))
                 "setTorch" -> result.success(setTorch(context, call.argument<Boolean>("on") == true))
+                "volumeStepVerified" -> verifiedVolume(context, call.argument<Boolean>("up") == true, result)
+                "volumeState" -> {val am=context.getSystemService(AudioManager::class.java);result.success(mapOf("index" to am.getStreamVolume(AudioManager.STREAM_MUSIC),"max" to am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),"fixed" to am.isVolumeFixed))}
                 "volumeUp" -> result.success(stepVolume(context, true))
                 "volumeDown" -> result.success(stepVolume(context, false))
                 "brightnessUp" -> result.success(stepBrightness(context, activity, true))
@@ -178,6 +180,21 @@ object DeviceBridge {
     /// User request: "increase/decrease volume" steps exactly 5%. Stream
     /// volume is an integer index (often 0-15 or 0-25), so 5% rounds to the
     /// nearest index step - at least one, never a fake fractional move.
+    private fun verifiedVolume(context:Context,up:Boolean,result:MethodChannel.Result){
+        try{
+            val am=context.getSystemService(AudioManager::class.java)
+            val before=am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val max=am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if(am.isVolumeFixed){result.success("This audio route has fixed volume. Use the speaker or Bluetooth device's controls.");return}
+            if((up&&before>=max)||(!up&&before<=0)){result.success("Media volume is already at its limit ($before/$max). No change made.");return}
+            am.adjustStreamVolume(AudioManager.STREAM_MUSIC,if(up)AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,AudioManager.FLAG_SHOW_UI)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try{val after=am.getStreamVolume(AudioManager.STREAM_MUSIC);result.success(if((up&&after>before)||(!up&&after<before))"Media volume verified: $before/$max to $after/$max." else "Media volume did not change ($before/$max). Check Bluetooth/cast/fixed-volume device controls.")}
+                catch(_:Exception){result.success("Could not verify media volume. No success claimed.")}
+            },350)
+        }catch(_:Exception){result.success("Android refused the media-volume change. No success claimed.")}
+    }
+
     private fun stepVolume(context: Context, up: Boolean): Boolean = try {
         val am = context.getSystemService(AudioManager::class.java)
         val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)

@@ -17,16 +17,18 @@ object MusicPlayback {
         val code = when(command) { "next" -> KeyEvent.KEYCODE_MEDIA_NEXT; "previous" -> KeyEvent.KEYCODE_MEDIA_PREVIOUS; "stop" -> KeyEvent.KEYCODE_MEDIA_STOP; else -> {result.success("error");return} }
         try {
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val before=audio.isMusicActive
+            if(command=="stop"&&!before){result.success("inactive");return}
             val at = SystemClock.uptimeMillis()
             audio.dispatchMediaKeyEvent(KeyEvent(at,at,KeyEvent.ACTION_DOWN,code,0))
             audio.dispatchMediaKeyEvent(KeyEvent(at,at,KeyEvent.ACTION_UP,code,0))
-            result.success("requested")
+            Handler(Looper.getMainLooper()).postDelayed({try{result.success(if(command=="stop"&&before&&!audio.isMusicActive)"stopped"else "requested")}catch(_:Exception){result.success("requested")}},1000)
         } catch (_: Exception) { result.success("error") }
     }
     fun resume(context: Context, result: MethodChannel.Result) {
         try {
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            if (audio.isMusicActive) { result.success("playing"); return }
+            if (audio.isMusicActive) { result.success("already_active"); return }
             val at = SystemClock.uptimeMillis()
             audio.dispatchMediaKeyEvent(KeyEvent(at, at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
             audio.dispatchMediaKeyEvent(KeyEvent(at, at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY, 0))

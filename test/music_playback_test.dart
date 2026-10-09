@@ -7,6 +7,33 @@ import 'package:friday/services/ai/friday_parser.dart';
 import 'package:friday/services/device/device_hub.dart';
 
 void main() {
+  test('audio writes have required permission and no preexisting audio Done',
+      () {
+    final manifest =
+        File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    expect(manifest, contains('android.permission.MODIFY_AUDIO_SETTINGS'));
+    final music = File(
+            'android/app/src/main/kotlin/com/friday/assistant/MusicPlayback.kt')
+        .readAsStringSync();
+    expect(music, contains('already_active'));
+    expect(music, contains('before&&!audio.isMusicActive'));
+    final router = File('lib/services/intent_router.dart').readAsStringSync();
+    expect(router, contains('No new playback change verified'));
+    expect(router, contains('verifiedVolumeStep'));
+  });
+  test('verified volume channel returns measured state, not empty Done',
+      () async {
+    const c = MethodChannel('friday/device');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(c, (call) async {
+      expect(call.method, 'volumeStepVerified');
+      return 'Media volume did not change (5/15).';
+    });
+    expect(
+        await DeviceHub().verifiedVolumeStep(true), contains('did not change'));
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(c, null);
+  });
   test('volume readback and overlay brightness permission are verified', () {
     final native =
         File('android/app/src/main/kotlin/com/friday/assistant/DeviceBridge.kt')

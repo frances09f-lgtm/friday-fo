@@ -95,15 +95,21 @@ class IntentRouter {
                 ? 'previous'
                 : 'stop';
         final outcome = await deviceHub.musicControl(command);
+        if (outcome == 'stopped')
+          return 'Audio changed from active to inactive after Stop. Track/session state is not available.';
+        if (outcome == 'inactive')
+          return 'No active audio to stop. No change made.';
         return outcome == 'error'
             ? "I couldn't send that media command."
-            : 'Sent $command to the active/last media app. The app may ignore it if there is no queue.';
+            : 'Requested $command, but the player or track change could not be verified. No completion claimed.';
       case FridayActionType.playMusic:
         switch (await deviceHub.playMusic()) {
+          case 'already_active':
+            return 'Audio was already active. No new playback change verified.';
           case 'playing':
-            return '';
+            return 'Audio changed from inactive to active after Play. Track/session identity is not available.';
           case 'requested':
-            return 'Sent Play to your last media app, but playback has not started yet. Open that app and choose a track if it has no resumable queue.';
+            return 'Requested Play, but audio did not start. Open your media app and choose a track or queue.';
           default:
             return "I couldn't send the music playback request.";
         }
@@ -129,13 +135,9 @@ class IntentRouter {
             ? ''
             : "I couldn't control the flashlight on this device.";
       case FridayActionType.volumeUp:
-        return await deviceHub.adjustVolume(up: true)
-            ? ''
-            : "I couldn't change the volume.";
+        return deviceHub.verifiedVolumeStep(true);
       case FridayActionType.volumeDown:
-        return await deviceHub.adjustVolume(up: false)
-            ? ''
-            : "I couldn't change the volume.";
+        return deviceHub.verifiedVolumeStep(false);
       case FridayActionType.brightnessUp:
         return _adjustBrightness(up: true);
       case FridayActionType.brightnessDown:
