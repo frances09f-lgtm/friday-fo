@@ -32,7 +32,10 @@ void main() {
             'android/app/src/main/kotlin/com/friday/assistant/SpotifySessionControl.kt')
         .readAsStringSync();
     expect(native, contains('it.packageName==SPOTIFY'));
-    expect(native, contains('SpotifyObservation.trackChanged(beforeTrack,track(controller.metadata))'));
+    expect(
+        native,
+        contains(
+            'SpotifyObservation.trackChanged(beforeTrack,track(controller.metadata))'));
     expect(native, contains('unsupported_spotify_action'));
     expect(native, contains('ambiguous_spotify_session'));
     expect(native, isNot(contains('sbn.notification')));
@@ -51,7 +54,7 @@ void main() {
           .load();
       await (FontLoader('MaterialIcons')
             ..addFont(Future.value(ByteData.sublistView(await File(
-                    '/home/sandbox/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf')
+                    '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf')
                 .readAsBytes()))))
           .load();
     });
