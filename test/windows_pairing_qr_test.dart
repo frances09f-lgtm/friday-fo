@@ -37,7 +37,7 @@ void main() {
       child: MaterialApp(home: RepaintBoundary(key: key, child: const DeviceLinkScreen()))));
     await t.pumpAndSettle();
     final qr = t.widget<QrImageView>(find.byType(QrImageView));
-    final data = qr.data!;
+    final data = (qr.key as ValueKey<String>).value;
     final code = PairingCode.decode(data);
     expect(code.address, link.addresses.single);
     expect(code.key, link.pairingKey);

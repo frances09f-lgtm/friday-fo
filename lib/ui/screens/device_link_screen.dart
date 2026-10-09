@@ -101,7 +101,7 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
               const SizedBox(height: 16),
               const Text('Scan with Friday on your phone. Keep this QR private; it contains the session pairing key.'),
               Center(child: Container(color: Colors.white, padding: const EdgeInsets.all(12),
-                child: QrImageView(data: _code!.encode(), size: 240))),
+                child: QrImageView(key: ValueKey(_code!.encode()), data: _code!.encode(), size: 240))),
               TextButton(onPressed: () => setState(() => _refreshCode(link)),
                 child: const Text('Refresh QR (valid 10 minutes)')),
             ],
