@@ -14,6 +14,7 @@ assert data['type']=='service_account','Invalid credential type'
 assert data['project_id']==os.environ['FIREBASE_PROJECT_ID'],'Wrong project'
 assert data['client_email']=='github-app-distribution@app-testing-2cdba.iam.gserviceaccount.com','Wrong upload account'
 PY
+printf '%s\n' 'Checking previous Firebase version (read only)'
 node scripts/firebase_state.cjs before
 if ! distribution/tooling/node_modules/.bin/firebase appdistribution:distribute "$APK_PATH" --non-interactive \
  --app "$FIREBASE_APP_ID" --testers frances09f@gmail.com --release-notes-file "$RELEASE_NOTES_PATH" > "$log" 2>&1; then
@@ -21,4 +22,5 @@ if ! distribution/tooling/node_modules/.bin/firebase appdistribution:distribute 
  exit 1
 fi
 python3 scripts/firebase_result.py "$log"
+printf '%s\n' 'Upload accepted, checking resulting Firebase metadata (read only)'
 node scripts/firebase_state.cjs after
