@@ -42,7 +42,7 @@ void main() {
             key: key, child: BackgroundTasksScreen(service: PreviewTasks()))));
     await t.pumpAndSettle();
     expect(find.text('Battery saver'), findsOneWidget);
-    expect(find.textContaining('active | every 5 min'), findsOneWidget);
+    expect(find.text('active'), findsOneWidget);
     expect(find.textContaining('5 minutes old cannot trigger'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.runAsync(() async {

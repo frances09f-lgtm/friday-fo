@@ -1,3 +1,5 @@
+import '../stitch_style.dart';
+import 'local_model_setup_screen.dart';
 import '../../services/agent/friday_agent.dart';
 import 'commands_screen.dart';
 import 'spotify_controls_screen.dart';
@@ -89,10 +91,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Friday settings')),
+      appBar: const StitchHeader(title: 'Overview', back: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Row(children: [
+            const Icon(Icons.memory, color: Stitch.cyan, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text('AI ENGINE & ON-DEVICE INFERENCE',
+                    style: Stitch.mono(11))),
+            const StitchBadge('CPU')
+          ]),
+          const SizedBox(height: 14),
+          StitchCard(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('Qwen 2.5 · 0.5B', style: Stitch.title(23)),
+                const SizedBox(height: 8),
+                const Text('Existing .task model · MediaPipe CPU inference',
+                    style: TextStyle(color: Stitch.muted)),
+                const SizedBox(height: 16),
+                ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.radio_button_checked,
+                        color: Stitch.cyan),
+                    title: const Text('Qwen local model'),
+                    subtitle: Text(context.watch<LocalModelService>().isReady
+                        ? 'Loaded on this device'
+                        : 'Load and test to check readiness'),
+                    trailing:
+                        const Icon(Icons.verified_outlined, color: Stitch.cyan),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LocalModelSetupScreen()))),
+                SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('On-device fallback'),
+                    subtitle: const Text(
+                        'Used when cloud keys fail or are unavailable'),
+                    value: _localFallback,
+                    onChanged: (v) => setState(() => _localFallback = v)),
+                const SizedBox(height: 8),
+                StitchCard(
+                    color: Color(0xFF0B0E15),
+                    padding: EdgeInsets.all(12),
+                    child: Text('Saved Qwen file retained · No GGUF conversion',
+                        style: Stitch.mono(10, Stitch.green))),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LocalModelSetupScreen())),
+                    icon: const Icon(Icons.memory),
+                    label: const Text('Manage existing .task model'))
+              ])),
+          const SizedBox(height: 22),
+          Row(children: [
+            const Icon(Icons.shield_outlined, color: Stitch.cyan, size: 18),
+            const SizedBox(width: 8),
+            Text('SYSTEM PRIVILEGES & SETUP', style: Stitch.mono(11))
+          ]),
+          const SizedBox(height: 12),
           if (!kIsWeb && Platform.isAndroid)
             ListTile(
                 title: const Text('Spotify controls'),
@@ -102,75 +165,97 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     MaterialPageRoute(
                         builder: (_) => const SpotifyControlsScreen()))),
-          ListTile(
-              title: const Text('Assistant setup'),
-              subtitle: const Text('Floating bar, microphone and power button'),
-              leading: const Icon(Icons.assistant),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const AssistantSetupScreen()))),
-          ListTile(
-            leading: const Icon(Icons.devices),
-            title: const Text('Connected devices'),
-            subtitle:
-                const Text('Pair this phone with Friday on another device'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const DeviceLinkScreen())),
-          ),
-          Card(
-              child: ListTile(
-                  leading: const Icon(Icons.terminal),
-                  title: const Text('Commands'),
-                  subtitle:
-                      const Text('All supported patterns and what they do'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const CommandsScreen())))),
-          Text('Cloud brains (free tiers)',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          const Text(
-              'Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
-          const SizedBox(height: 12),
-          _KeyField(
-              controller: _gemini,
-              label: 'Gemini API key',
-              hint: 'aistudio.google.com/apikey'),
-          _KeyField(
-              controller: _groq,
-              label: 'Groq API key',
-              hint: 'console.groq.com/keys'),
-          _KeyField(
-              controller: _openRouter,
-              label: 'OpenRouter API key',
-              hint: 'openrouter.ai/keys'),
-          TextField(
-            controller: _groqModel,
-            decoration: const InputDecoration(
-              labelText: 'Groq model',
-              border: OutlineInputBorder(),
+          StitchCard(
+              child: Column(children: [
+            ListTile(
+                title: const Text('Assistant setup'),
+                subtitle:
+                    const Text('Floating bar, microphone and power button'),
+                leading: const Icon(Icons.assistant),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AssistantSetupScreen()))),
+            ListTile(
+              leading: const Icon(Icons.devices),
+              title: const Text('Connected devices'),
+              subtitle:
+                  const Text('Pair this phone with Friday on another device'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DeviceLinkScreen())),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _openRouterModel,
-            decoration: const InputDecoration(
-              labelText: 'OpenRouter model',
-              border: OutlineInputBorder(),
-            ),
-          ),
+            Card(
+                child: ListTile(
+                    leading: const Icon(Icons.terminal),
+                    title: const Text('Commands'),
+                    subtitle:
+                        const Text('All supported patterns and what they do'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const CommandsScreen())))),
+          ])),
           const SizedBox(height: 24),
-          Text('Voice', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Speak replies out loud'),
-            subtitle: const Text('Turn off to mute Friday'),
-            value: _speakReplies,
-            onChanged: (v) => setState(() => _speakReplies = v),
-          ),
+          StitchCard(
+              child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('Cloud fallback keys'),
+                  subtitle: const Text('Gemini, Groq and OpenRouter'),
+                  children: [
+                Text('Cloud fallback keys',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                const Text(
+                    'Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
+                const SizedBox(height: 12),
+                _KeyField(
+                    controller: _gemini,
+                    label: 'Gemini API key',
+                    hint: 'aistudio.google.com/apikey'),
+                _KeyField(
+                    controller: _groq,
+                    label: 'Groq API key',
+                    hint: 'console.groq.com/keys'),
+                _KeyField(
+                    controller: _openRouter,
+                    label: 'OpenRouter API key',
+                    hint: 'openrouter.ai/keys'),
+                TextField(
+                  controller: _groqModel,
+                  decoration: const InputDecoration(
+                    labelText: 'Groq model',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _openRouterModel,
+                  decoration: const InputDecoration(
+                    labelText: 'OpenRouter model',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ])),
+          const SizedBox(height: 24),
+          Row(children: [
+            const Icon(Icons.record_voice_over_outlined,
+                color: Stitch.blue, size: 18),
+            const SizedBox(width: 8),
+            Text('VOICE & AUDIO', style: Stitch.mono(11))
+          ]),
+          const SizedBox(height: 12),
+          StitchCard(
+              child: Column(children: [
+            Text('Voice', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Speak replies out loud'),
+              subtitle: const Text('Turn off to mute Friday'),
+              value: _speakReplies,
+              onChanged: (v) => setState(() => _speakReplies = v),
+            ),
+          ])),
           if (!kIsWeb && Platform.isWindows) ...[
             const Text(
               'Voice input: tap the mic to start talking, tap again to stop '
@@ -181,39 +266,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
           const SizedBox(height: 16),
-          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
-            Text('On-device backup',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Use on-device model when keys fail'),
-              value: _localFallback,
-              onChanged: (v) => setState(() => _localFallback = v),
-            ),
-            TextField(
-              controller: _modelUrl,
-              decoration: const InputDecoration(
-                labelText: 'Gemma model URL (.task weights)',
-                hintText:
-                    'https://huggingface.co/.../gemma-3n-E2B-it-int4.task',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.download),
-                  label: const Text('Install model'),
-                  onPressed: _loadLocalModel,
-                ),
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+            ExpansionTile(
+                title: const Text('Advanced legacy .task installer'),
+                subtitle: const Text(
+                    'Does not run unless you explicitly choose Install'),
+                children: [
+                  Text('On-device backup',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Use on-device model when keys fail'),
+                    value: _localFallback,
+                    onChanged: (v) => setState(() => _localFallback = v),
+                  ),
+                  TextField(
+                    controller: _modelUrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Advanced legacy model URL (.task)',
+                      hintText: 'Optional existing .task source',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.download),
+                        label: const Text('Install specified .task'),
+                        onPressed: _loadLocalModel,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(_modelStatus)),
+                    ],
+                  ),
+                ]),
+          const SizedBox(height: 24),
+          StitchCard(
+              color: Color(0xFF0B0E15),
+              child: Row(children: [
+                const Icon(Icons.fingerprint, color: Stitch.cyan),
                 const SizedBox(width: 12),
-                Expanded(child: Text(_modelStatus)),
-              ],
-            ),
-          ],
-          SizedBox(height: 24),
+                Expanded(
+                    child: Text(
+                        'Provider keys stay in secure storage. Screen actions keep their existing safety checks.',
+                        style: Stitch.mono(10)))
+              ])),
+          const SizedBox(height: 24),
           FilledButton.icon(
             icon: const Icon(Icons.save),
             label: const Text('Save'),

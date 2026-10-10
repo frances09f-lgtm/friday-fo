@@ -85,8 +85,8 @@ void main() {
     expect(find.byTooltip('Notifications'), findsNothing);
     expect(find.byTooltip('Pair devices'), findsNothing);
     expect(find.byTooltip('Assistant setup'), findsNothing);
-    expect(find.byTooltip('Settings'), findsOneWidget);
-    expect(find.text('What do you want me to do?'), findsOneWidget);
+    expect(find.byTooltip('Settings'), findsWidgets);
+    expect(find.text("I'm Friday."), findsOneWidget);
     expect(find.byType(ActionChip), findsNothing);
     expect(find.text('Previous session private text'), findsNothing);
     expect(find.text('Home'), findsOneWidget);
@@ -100,7 +100,7 @@ void main() {
       await File('/tmp/friday-command-center.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
-    await t.tap(find.byTooltip('Settings'));
+    await t.tap(find.byTooltip('Settings').first);
     await t.pumpAndSettle();
     expect(find.text('Assistant setup'), findsOneWidget);
     expect(find.text('Connected devices'), findsOneWidget);
