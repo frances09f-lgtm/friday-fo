@@ -58,6 +58,8 @@ class FridayAccessibilityService : AccessibilityService() {
  private var allowed=""
  private var query=""
  private var settings=false
+ private var youtubeImeAttempted=false
+ private var youtubeKeyboardAttempted=false
  private var workflow="search"
  private var commands=emptyList<Map<String,Any>>()
  private var overlay:LinearLayout?=null
@@ -77,7 +79,7 @@ class FridayAccessibilityService : AccessibilityService() {
  fun start(pkg:String,q:String,setting:Boolean,flow:String="search",steps:List<Map<String,Any>> = emptyList()):Map<String,Any>{
   if(active)return fail("Agent already running")
   if(locked())return fail("Unlock your phone before screen control",true)
-  workflow=flow;commands=steps
+  workflow=flow;commands=steps;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
   var target=pkg
   if(target.isEmpty()&&flow in setOf("read","commands")){
    val root=rootInActiveWindow?:return fail("No readable foreground app")
@@ -157,13 +159,21 @@ class FridayAccessibilityService : AccessibilityService() {
    val exact=if(workflow=="commands")commands.any{it["action"]=="type"&&it["text"]==text}else text==query
    val fieldSafe=when(workflow){"commands"-> !protected(labels);"question"->allowed=="com.openai.chatgpt";else->search(labels)}
    if(settings||!exact||!node.isEditable||!fieldSafe||(allowed=="com.whatsapp"&&!search(labels))){result.success(fail("Typing allowed only in the requested safe field; WhatsApp message composer is blocked",true));return}
+   youtubeImeAttempted=false;youtubeKeyboardAttempted=false
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)}));return
   }
   if(action=="submit"||(action=="tap"&&node.isEditable&&node.text?.toString()==query)){
    if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable||!search(labels)||node.text?.toString()!=query){result.success(fail("Submit limited to the exact requested search",true));return}
-   if(android.os.Build.VERSION.SDK_INT<30){result.success(fail("Submitting search requires Android 11+ IME action; use visible search button manually",true));return}
+   val youtube=allowed=="com.google.android.youtube" && workflow in setOf("search","play")
+   if(youtube){
+    if(!YouTubeSubmitPolicy.permits(observedPackage,workflow,query,nodes.count{it.isEditable&&it.text?.toString()==query},node.isFocused)){result.success(fail("YouTube submit requires the unique focused exact-query field",true));return}
+    // Only after a prior IME attempt was observed not to produce results.
+    if(youtubeImeAttempted){keyboardSearch(result);return}
+    youtubeImeAttempted=true
+   }
+   if(android.os.Build.VERSION.SDK_INT<30){result.success(fail("Field IME action unavailable; re-observe before keyboard Search fallback",!youtube));return}
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id));return
   }
   if(action=="tap"){
@@ -193,6 +203,30 @@ class FridayAccessibilityService : AccessibilityService() {
   if(action=="scroll"&&!settings){resultAnswer(result,node.performAction(if(text=="up")AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD));return}
   if(action=="swipe"&&!settings&&node.isScrollable){val b=Rect();node.getBoundsInScreen(b);if(overlapsOverlay(b)){result.success(fail("Swipe intersects Friday Stop control. Use semantic scroll",true));return};val path=Path();val up=text=="up";path.moveTo(b.centerX().toFloat(),(if(up)b.top+b.height()/4 else b.bottom-b.height()/4).toFloat());path.lineTo(b.centerX().toFloat(),(if(up)b.bottom-b.height()/4 else b.top+b.height()/4).toFloat());gesture(path,300,result);return}
   result.success(fail("Unsupported screen action"))
+ }
+ @Suppress("DEPRECATION") private fun keyboardSearch(result:MethodChannel.Result){
+  if(youtubeKeyboardAttempted){result.success(fail("Keyboard Search already attempted; finish manually",true));return}
+  if(!active||locked()||observedPackage!="com.google.android.youtube"){result.success(fail("Keyboard fallback requires the unlocked YouTube task",true));return}
+  val ws=windows
+  val roots=ws.filter{it.type==AccessibilityWindowInfo.TYPE_INPUT_METHOD}.mapNotNull{it.root}
+  ws.forEach{it.recycle()}
+  val keys=mutableListOf<AccessibilityNodeInfo>();var visited=0
+  fun walk(n:AccessibilityNodeInfo,depth:Int){
+   try{
+    if(visited++>=400||depth>20)return
+    if(YouTubeSubmitPolicy.searchKey(n.text?.toString()?:"",n.contentDescription?.toString()?:"",n.isEnabled,n.isVisibleToUser,n.isPassword,n.isEditable))keys.add(AccessibilityNodeInfo.obtain(n))
+    for(i in 0 until n.childCount)n.getChild(i)?.let{walk(it,depth+1)}
+   }finally{n.recycle()}
+  }
+  roots.forEach{walk(it,0)}
+  try{
+   if(visited>=400||keys.size!=1){result.success(fail("Keyboard Search key missing or ambiguous; finish manually",true));return}
+   // Invoke only the key itself. No clickable ancestor, gesture or key injection.
+   val key=keys.single()
+   if(!key.isClickable){result.success(fail("Keyboard Search key has no accessible click action",true));return}
+   youtubeKeyboardAttempted=true
+   resultAnswer(result,key.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+  }finally{keys.forEach{it.recycle()}}
  }
  private fun overlapsOverlay(bounds:Rect):Boolean {
   val v=overlay?:return false

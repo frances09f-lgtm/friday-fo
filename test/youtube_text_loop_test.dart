@@ -64,7 +64,8 @@ class ReplayDevice implements AgentDevice {
   bool results = false;
   int writes = 0, submits = 0, clearTaps = 0;
   final bool eraseAfterWrite;
-  ReplayDevice({this.eraseAfterWrite = false});
+  final bool firstSubmitNoop;
+  ReplayDevice({this.eraseAfterWrite = false, this.firstSubmitNoop = false});
   @override
   Future<Map<String, dynamic>> call(String method,
       [Map<String, dynamic> args = const {}]) async {
@@ -79,7 +80,7 @@ class ReplayDevice implements AgentDevice {
         submits++;
         if (eraseAfterWrite) {
           text = '';
-        } else {
+        } else if (!firstSubmitNoop || submits > 1) {
           results = true;
         }
       }
@@ -148,6 +149,26 @@ void main() {
     expect(d.writes, 1);
     expect(d.submits, 1);
     expect(d.clearTaps, 0);
+  });
+  test('field IME no-op reobserves then retries submit without rewriting',
+      () async {
+    final d = ReplayDevice(firstSubmitNoop: true);
+    final a = FridayAgent(brain: RecipeBrain(), device: d);
+    await a.start(g.task);
+    expect(a.result, 'Done');
+    expect(d.writes, 1);
+    expect(d.submits, 2);
+    expect(d.clearTaps, 0);
+  });
+  test('keyboard fallback stays native scoped and never injects enter', () {
+    final native = File(
+            'android/app/src/main/kotlin/com/friday/assistant/FridayAccessibilityService.kt')
+        .readAsStringSync();
+    expect(native, contains('TYPE_INPUT_METHOD'));
+    expect(native, contains('youtubeImeAttempted'));
+    expect(native, contains('youtubeKeyboardAttempted'));
+    expect(native, contains('YouTubeSubmitPolicy.permits'));
+    expect(native, isNot(contains('KEYCODE_ENTER')));
   });
   test('query disappears after submit replay stops without blind retype',
       () async {
