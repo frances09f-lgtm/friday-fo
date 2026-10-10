@@ -113,6 +113,9 @@ class _ImmersiveVoiceState extends State<ImmersiveVoiceScreen> {
           const SizedBox(height: 24),
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
             IconButton.filledTonal(
+                style: IconButton.styleFrom(
+                    backgroundColor: Stitch.high,
+                    foregroundColor: Stitch.muted),
                 tooltip: 'Stop listening',
                 onPressed: () async {
                   await s.stopListening();
@@ -128,6 +131,9 @@ class _ImmersiveVoiceState extends State<ImmersiveVoiceScreen> {
                 onPressed: toggle,
                 child: Icon(s.isListening ? Icons.stop : Icons.mic, size: 36)),
             IconButton.filledTonal(
+                style: IconButton.styleFrom(
+                    backgroundColor: Stitch.high,
+                    foregroundColor: Stitch.muted),
                 tooltip: 'Spoken responses',
                 onPressed: () =>
                     settings.setSpeakReplies(!settings.speakReplies),

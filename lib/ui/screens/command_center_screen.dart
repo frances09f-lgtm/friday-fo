@@ -106,16 +106,14 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
             ? '${c.phase}...'
             : 'Ready when you are.';
     return Scaffold(
-        appBar: tab == 1
-            ? null
-            : StitchHeader(
-                title: tab == 0
-                    ? 'Overview'
-                    : tab == 2
-                        ? 'Activity'
-                        : 'Task Matrix',
-                onVoice: () => open(const ImmersiveVoiceScreen()),
-                onSettings: () => Navigator.pushNamed(context, '/settings')),
+        appBar: StitchHeader(
+            title: tab == 0
+                ? 'Overview'
+                : tab == 2
+                    ? 'Activity'
+                    : 'Task Matrix',
+            onVoice: () => open(const ImmersiveVoiceScreen()),
+            onSettings: () => Navigator.pushNamed(context, '/settings')),
         body: IndexedStack(index: tab, children: [
           ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -275,8 +273,12 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                           'Chat with Friday',
                           Icons.psychology_alt,
                           Stitch.blue,
-                          () => setState(() => tab = 1)))
+                          () => open(const HomeScreen())))
                 ]),
+                TextButton.icon(
+                    onPressed: () => open(const HomeScreen()),
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Chat')),
                 const SizedBox(height: 24),
                 StitchCard(
                     color: const Color(0xFF0B0E15),
@@ -300,21 +302,20 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                   const SizedBox(height: 8),
                   StitchCard(child: Text(c.messages.last.text)),
                   TextButton(
-                      onPressed: () => setState(() => tab = 1),
+                      onPressed: () => open(const HomeScreen()),
                       child: const Text('Open conversation'))
                 ]
               ]),
-          const HomeScreen(),
-          _activity(c),
           BackgroundTasksScreen(
-              embedded: true, onCreate: () => setState(() => tab = 1))
+              embedded: true, onCreate: () => open(const HomeScreen())),
+          _activity(c)
         ]),
         bottomNavigationBar: NavigationBar(
             backgroundColor: const Color(0xFF0B0E15),
             indicatorColor: Stitch.low,
             selectedIndex: tab,
             onDestinationSelected: (v) {
-              if (v == 4) {
+              if (v == 3) {
                 Navigator.pushNamed(context, '/settings');
               } else {
                 setState(() => tab = v);
@@ -324,11 +325,9 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
               NavigationDestination(
                   icon: Icon(Icons.auto_awesome), label: 'Home'),
               NavigationDestination(
-                  icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+                  icon: Icon(Icons.checklist), label: 'Tasks'),
               NavigationDestination(
                   icon: Icon(Icons.stacked_line_chart), label: 'Activity'),
-              NavigationDestination(
-                  icon: Icon(Icons.checklist), label: 'Tasks'),
               NavigationDestination(icon: Icon(Icons.tune), label: 'Settings')
             ]));
   }

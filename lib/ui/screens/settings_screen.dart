@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: const StitchHeader(title: 'Overview', back: true),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           Row(children: [
             const Icon(Icons.memory, color: Stitch.cyan, size: 18),
@@ -121,8 +121,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: Text(context.watch<LocalModelService>().isReady
                         ? 'Loaded on this device'
                         : 'Load and test to check readiness'),
-                    trailing:
-                        const Icon(Icons.verified_outlined, color: Stitch.cyan),
+                    trailing: Icon(
+                        context.watch<LocalModelService>().isReady
+                            ? Icons.check_circle_outline
+                            : Icons.settings_outlined,
+                        color: Stitch.cyan),
                     onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

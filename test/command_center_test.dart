@@ -150,6 +150,8 @@ void main() {
       await File('/tmp/friday-session-home.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
+    await t.scrollUntilVisible(find.text('Chat'), 300,
+        scrollable: find.byType(Scrollable).first);
     await t.tap(find.text('Chat'));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsWidgets);

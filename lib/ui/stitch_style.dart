@@ -131,7 +131,15 @@ class OrbPainter extends CustomPainter {
       p.style = PaintingStyle.stroke;
       p.strokeWidth = 2;
       p.color = const Color(0xFF23304D).withValues(alpha: .5);
-      c.drawCircle(center + Offset(-r * .22, 0), r * .19, p);
+      final focus = center + Offset(-r * .22, 0);
+      c.drawCircle(focus, r * .19, p);
+      p.strokeWidth = 1.2;
+      for (int i = 0; i < 22; i++) {
+        c.drawArc(Rect.fromCircle(center: focus, radius: r * .30),
+            i * math.pi / 11, .045, false, p);
+        c.drawArc(Rect.fromCircle(center: focus, radius: r * .38),
+            i * math.pi / 11, .055, false, p);
+      }
       p.style = PaintingStyle.fill;
     } else {
       p.style = PaintingStyle.stroke;

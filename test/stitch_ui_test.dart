@@ -162,14 +162,14 @@ void main() {
     await capture('voice-pass2');
     speech.active = false;
     controller.setPartialHeard('');
-    await t.binding.setSurfaceSize(const Size(390, 1507));
+    await t.binding.setSurfaceSize(const Size(390, 1250));
     await t.pumpWidget(root(MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: Stitch.theme(),
         home: BackgroundTasksScreen(service: FixtureTasks()))));
     await capture('tasks-pass2');
     expect(find.textContaining('HTTP 200'), findsNothing);
-    await t.binding.setSurfaceSize(const Size(390, 2073));
+    await t.binding.setSurfaceSize(const Size(390, 1280));
     await t.pumpWidget(root(MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: Stitch.theme(),
