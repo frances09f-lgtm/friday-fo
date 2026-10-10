@@ -1,4 +1,6 @@
 import '../stitch_style.dart';
+import 'package:flutter/services.dart';
+import 'agent_mode_screen.dart';
 import 'local_model_setup_screen.dart';
 import '../../services/agent/friday_agent.dart';
 import 'commands_screen.dart';
@@ -29,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _groqModel = TextEditingController();
   final _openRouterModel = TextEditingController();
   final _modelUrl = TextEditingController();
+  Map<String, dynamic>? _permissions;
   bool _localFallback = true;
   bool _speakReplies = true;
 
@@ -38,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _readPermissions();
     final s = context.read<SettingsStore>();
     _gemini.text = s.geminiKey;
     _groq.text = s.groqKey;
@@ -47,6 +51,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _modelUrl.text = s.localModelUrl;
     _localFallback = s.localFallbackEnabled;
     _speakReplies = s.speakReplies;
+  }
+
+  Future<void> _readPermissions() async {
+    try {
+      final state = await const MethodChannel('friday/device')
+          .invokeMapMethod<String, dynamic>('assistantState');
+      if (mounted) setState(() => _permissions = state);
+    } catch (_) {}
   }
 
   @override
@@ -170,6 +182,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         builder: (_) => const SpotifyControlsScreen()))),
           StitchCard(
               child: Column(children: [
+            ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading:
+                    const Icon(Icons.accessibility_new, color: Stitch.cyan),
+                title: const Text('Accessibility Service'),
+                subtitle:
+                    const Text('Accessible screen text and checked actions'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AgentModeScreen()))),
+            ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.mic_none, color: Stitch.cyan),
+                title: const Text('Microphone'),
+                subtitle: Text(_permissions == null
+                    ? 'Permission not checked'
+                    : _permissions!['microphone'] == true
+                        ? 'Allowed by Android'
+                        : 'Permission needed'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AssistantSetupScreen()))
+                    .then((_) => _readPermissions())),
+            ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.picture_in_picture_alt,
+                    color: Stitch.cyan),
+                title: const Text('Floating assistant'),
+                subtitle: Text(_permissions == null
+                    ? 'Permission not checked'
+                    : _permissions!['overlay'] == true
+                        ? 'Display over other apps allowed'
+                        : 'Display-over-apps permission needed'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AssistantSetupScreen()))
+                    .then((_) => _readPermissions())),
             ListTile(
                 title: const Text('Assistant setup'),
                 subtitle:

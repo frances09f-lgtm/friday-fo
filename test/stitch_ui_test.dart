@@ -169,7 +169,7 @@ void main() {
         home: BackgroundTasksScreen(service: FixtureTasks()))));
     await capture('tasks-pass2');
     expect(find.textContaining('HTTP 200'), findsNothing);
-    await t.binding.setSurfaceSize(const Size(390, 1280));
+    await t.binding.setSurfaceSize(const Size(390, 1850));
     await t.pumpWidget(root(MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: Stitch.theme(),
@@ -177,6 +177,17 @@ void main() {
     await capture('settings-pass2');
     expect(find.textContaining('Gemini Nano'), findsNothing);
     expect(find.textContaining('GGUF / ONNX'), findsNothing);
+    expect(find.text('Microphone'), findsOneWidget);
+    expect(find.text('Floating assistant'), findsOneWidget);
+    expect(find.text('Cloud fallback keys'), findsOneWidget);
+    await t.tap(find.text('Cloud fallback keys'));
+    await t.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Gemini API key'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Groq API key'), findsOneWidget);
+    expect(
+        find.widgetWithText(TextField, 'OpenRouter API key'), findsOneWidget);
+    await t.tap(find.text('Cloud fallback keys').first);
+    await t.pumpAndSettle();
     await t.binding.setSurfaceSize(const Size(320, 640));
     for (final page in [
       const FridayApp(),

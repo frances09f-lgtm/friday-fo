@@ -35,18 +35,22 @@ class Stitch {
           onSurfaceVariant: muted,
           surfaceContainerLow: low,
           surfaceContainerHigh: high),
+      switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((s) =>
+              s.contains(WidgetState.selected) ? Stitch.cyan : Stitch.muted),
+          trackColor: WidgetStateProperty.resolveWith((s) =>
+              s.contains(WidgetState.selected) ? Stitch.high : Stitch.low)),
+      navigationBarTheme: const NavigationBarThemeData(
+          labelTextStyle: WidgetStatePropertyAll(
+              TextStyle(fontFamily: 'JetBrainsMono', fontSize: 11))),
       appBarTheme: const AppBarTheme(backgroundColor: bg, foregroundColor: ink),
       cardTheme: CardThemeData(
           color: low,
           margin: EdgeInsets.zero,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-      inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: low,
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none)));
+      inputDecorationTheme:
+          InputDecorationTheme(filled: true, fillColor: low, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)));
 }
 
 class StitchCard extends StatelessWidget {
