@@ -21,6 +21,3 @@ key.properties
 # Misc
 *.log
 .DS_Store
-
-# Inject Firebase client config privately in CI. No service-account files.
-android/app/google-services.json

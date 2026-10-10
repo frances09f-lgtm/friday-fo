@@ -1,20 +1,11 @@
-Friday update feature prepared for a future release, not v55.
+Friday key-free update feature prepared for a future release, not v55.
 
-- Pinned Firebase App Distribution Android SDK16.0.0-beta21 from Google's Maven metadata.
-- Native foreground update check. Real SDK checkForNewRelease and updateApp.
-- One-time tester sign-in, custom New version available / Update / Later.
-- Checks at most once per hour per Activity; Later suppresses that release for24h. Newer version is not suppressed. Consent dismissed waits24h.
-- No polling background service, no URL/token logs, no service-account access.
-- Firebase app/project identity validated before starting. No config means inert, offline Friday still works.
+SDK approach superseded. No Firebase SDK, google-services.json, credential or service account.
 
-Required before real update build:
-1. Inject console google-services.json for com.friday.assistant. File ignored. Use CI secret FRIDAY_GOOGLE_SERVICES_JSON and require FRIDAY_FIREBASE_UPDATES_REQUIRED=true.
-2. Firebase App Testers API enabled on app-testing-2cdba.
-3. CI full native build/tests, actual phone sign-in, and later higher-build update test.
-4. Same persistent signer. Keep existing Qwen0.5B .task engine untouched.
+GitHub /releases/latest checks final numeric tags against actual installed Android build via native channel. Custom New version available / Update / Later. Update opens the Friday Firebase tester page, not an embedded SDK download. Android still asks to install.
 
-Source refs: https://firebase.google.com/codelabs/appdistribution-android
-https://firebase.google.com/docs/reference/android/com/google/firebase/appdistribution/FirebaseAppDistribution
-https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-appdistribution/maven-metadata.xml
+Foreground startup check,6h persisted check spacing,12h Later snooze. Errors leave Friday usable. HTTP timeouts,256KiB cap, no redirects; draft/prerelease/non-version tags rejected. No background polling or URL/token logs.
 
-NOT yet verified: native compile, runtime dialog pixels, tester sign-in, actual later-build detection/download/install. Don't publish from this feature branch.
+Future publications must verify Firebase distribution BEFORE marking GitHub latest.
+
+Focused4 tests pass; analyze clean; real-font320/390 dialog pixels inspected. Full suite interrupted by timeout during existing chat_scroll_test; no full-suite pass claimed. Native build/phone handoff still pending. Qwen .task engine unchanged.

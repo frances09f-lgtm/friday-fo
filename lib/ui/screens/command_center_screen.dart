@@ -1,4 +1,5 @@
 import 'agent_mode_screen.dart';
+import '../../services/update_check.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../state/friday_controller.dart';
@@ -24,6 +25,9 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FridayUpdateCheck.run(context);
+    });
     context.read<SpeechService>().initSpeech().then((ok) {
       if (mounted) setState(() => ready = ok);
     });

@@ -35,6 +35,11 @@ object DeviceBridge {
                 result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
             }
             when (call.method) {
+                "installedBuildNumber" -> {
+                    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+                    val code = if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                    result.success(code)
+                }
                 "modelStorage" -> {val mem=android.app.ActivityManager.MemoryInfo();(context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem);result.success(mapOf("freeBytes" to android.os.StatFs(context.filesDir.absolutePath).availableBytes,"totalRam" to mem.totalMem))}
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
                 "getInstalledApps" -> result.success(installedApps(context))
