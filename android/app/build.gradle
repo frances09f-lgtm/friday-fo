@@ -4,6 +4,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// CI injects the console client config. Never embed a service account.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+if (providers.gradleProperty("FRIDAY_FIREBASE_UPDATES_REQUIRED").orNull == "true"
+        && !file("google-services.json").exists()) {
+    throw new GradleException("Firebase update build requires its client configuration")
+}
+
 // Auto-generate a debug keystore on first build so `flutter build apk
 // --release` works everywhere with zero setup. Replace with a real release
 // keystore before publishing to a store.
@@ -84,6 +93,7 @@ flutter {
 
 dependencies {
     testImplementation "junit:junit:4.13.2"
+    implementation "com.google.firebase:firebase-appdistribution:16.0.0-beta21"
     implementation "androidx.work:work-runtime-ktx:2.10.1"
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
