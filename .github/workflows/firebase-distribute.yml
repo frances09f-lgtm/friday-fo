@@ -34,7 +34,7 @@ jobs:
       - name: Install locked tooling before credentials are present
         run: |
           npm ci --prefix distribution/tooling --ignore-scripts --no-audit --no-fund
-          sdkmanager 'build-tools;35.0.0'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
       - name: Regression gates
         run: |
           python3 -m unittest discover -s distribution/tests -p '*_test.py'
