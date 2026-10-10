@@ -1,0 +1,58 @@
+name: Distribute approved Android release
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Reviewed release tag (vNN)
+        required: true
+        type: string
+      expected_sha256:
+        description: Reviewed APK SHA256 (must match trusted audit)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: firebase-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  distribute:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Install locked tooling before credentials are present
+        run: |
+          npm ci --prefix distribution/tooling --ignore-scripts --no-audit --no-fund
+          sdkmanager 'build-tools;35.0.0'
+      - name: Regression gates
+        run: |
+          python3 -m unittest discover -s distribution/tests -p '*_test.py'
+          node distribution/tests/firebase_state_test.cjs
+      - name: Verify reviewed APK without credentials
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/firebase_verify.py
+      - name: Upload approved APK and verify live Firebase metadata
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          APK_PATH: ${{ steps.verify.outputs.apk }}
+          RELEASE_NOTES_PATH: ${{ steps.verify.outputs.notes }}
+          AUDIT_PATH: ${{ steps.verify.outputs.audit }}
+        run: bash scripts/firebase_upload.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: firebase-${{ inputs.release_tag }}-result
+          path: ${{ runner.temp }}/firebase-result.json
+          if-no-files-found: error

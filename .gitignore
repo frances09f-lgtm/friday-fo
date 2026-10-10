@@ -21,3 +21,7 @@ key.properties
 # Misc
 *.log
 .DS_Store
+
+# Firebase tooling is installed from locked dependencies in CI.
+distribution/tooling/node_modules/
+**/__pycache__/

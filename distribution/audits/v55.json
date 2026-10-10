@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "signature_v2_verified": true,
+  "internet_permission": true,
+  "zip_crc_ok": true,
+  "common_secret_scan_clean": true,
+  "feature_markers_verified": true,
+  "repository": "frances09f-lgtm/friday-fo",
+  "tag": "v55",
+  "commit": "c4d209285735972786eb3dda9da92f997490ebfb",
+  "ci_run_id": 38028188819,
+  "release_id": 408702200,
+  "asset_id": 627138316,
+  "asset_name": "Friday.apk",
+  "asset_bytes": 159768056,
+  "sha256": "c9d21897aa12e8a585c9a14878c1616f5ef7769bb5cdc503f17f97993af28842",
+  "package_name": "com.friday.assistant",
+  "version_name": "1.0.55",
+  "version_code": 55,
+  "min_sdk": 26,
+  "target_sdk": 34,
+  "signer_cert_sha256": "9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc"
+}
