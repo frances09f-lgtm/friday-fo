@@ -1,7 +1,10 @@
 const assert=require('assert');const {verifyPrevious,verifyAfter}=require('../../scripts/firebase_state.cjs');
 verifyPrevious([],23);verifyPrevious([{buildVersion:'22'}],23);
 for(const items of [[{buildVersion:'23'}],[{buildVersion:'24'}],[{buildVersion:'bad'}]])assert.throws(()=>verifyPrevious(items,23));
-const p='projects/509368336413/apps/a',m={version_code:23,version_name:'1.0.23',sha256:'hash'},r={name:p+'/releases/r',buildVersion:'23',displayVersion:'1.0.23',testingUri:'https://appdistribution.firebase.google.com/r',releaseNotes:{text:'AUDIT-SHA256:hash'}};
+const p='projects/509368336413/apps/a',m={version_code:23,version_name:'1.0.23',sha256:'hash'},r={name:p+'/releases/r',buildVersion:'23',displayVersion:'1.0.23',testingUri:'https://appdistribution.firebase.google.com/testerapps/a/releases/r',releaseNotes:{text:'AUDIT-SHA256:hash'}};
 verifyAfter([r],m,p,r.testingUri);
 for(const change of [{buildVersion:'24'},{name:'projects/wrong'},{testingUri:'wrong'},{releaseNotes:{text:'none'}}])assert.throws(()=>verifyAfter([{...r,...change}],m,p,r.testingUri));
-assert.throws(()=>verifyAfter([r,r],m,p,r.testingUri));console.log('Firebase metadata regression gates passed');
+assert.throws(()=>verifyAfter([r,r],m,p,r.testingUri));verifyAfter([r],m,p,r.testingUri+'?utm_source=firebase-cli');
+assert.throws(()=>verifyAfter([r],m,p,r.testingUri+'?token=secret'));
+assert.throws(()=>verifyAfter([r],m,p,r.testingUri.replace('/releases/r','/releases/wrong')));
+console.log('Firebase metadata regression gates passed');

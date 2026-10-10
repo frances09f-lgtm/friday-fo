@@ -13,11 +13,23 @@ async function list(client,parent){
 function verifyPrevious(items,code){
  for(const item of items){assert(/^\d+$/.test(item.buildVersion),'Existing release version unreadable');assert(Number(item.buildVersion)<code,'Equal/newer Firebase build already exists. Do not retry without reconciliation.');}
 }
+function sameTesterRelease(a,b,parent){
+ const app=parent.split('/apps/')[1];
+ const valid=(value)=>{
+  const u=new URL(value);
+  assert(u.protocol==='https:'&&u.hostname==='appdistribution.firebase.google.com'&&!u.username&&!u.password,'Unsafe tester URI');
+  assert(![...u.searchParams.keys()].some(k=>/token|signature|credential/i.test(k)),'Credential-bearing tester URI');
+  const path=decodeURIComponent(u.pathname).replace(/\/$/,'');
+  assert(path.startsWith('/testerapps/'+app+'/releases/')&&path.split('/').length===5,'Unexpected tester app/release path');
+  return path;
+ };
+ return valid(a)===valid(b);
+}
 function verifyAfter(items,m,parent,testingUri){
  const matching=items.filter(r=>r.buildVersion===String(m.version_code)&&r.displayVersion===m.version_name);
  assert(matching.length===1,'New Firebase release missing or ambiguous');
  const r=matching[0];assert(r.name.startsWith(parent+'/releases/'),'Wrong Firebase app');
- assert(r.testingUri===testingUri,'CLI URL does not match live release');
+ assert(sameTesterRelease(r.testingUri,testingUri,parent),'CLI URL does not match live release');
  assert((r.releaseNotes?.text||'').includes(`AUDIT-SHA256:${m.sha256}`),'Uploaded release audit marker missing');
  return {release_name:r.name,build_version:r.buildVersion,display_version:r.displayVersion,testing_uri:r.testingUri,firebase_console_uri:r.firebaseConsoleUri};
 }
@@ -41,5 +53,5 @@ async function main(){
   result.metadata_verified=true;fs.writeFileSync(file,JSON.stringify(result,null,2));
  }else throw Error('Unknown metadata check mode');
 }
-if(require.main===module)main().catch(()=>{console.error('Firebase metadata verification failed. No automatic retry. Check app access, existing versions and the release in Firebase console.');process.exit(1)});
-module.exports={verifyPrevious,verifyAfter};
+if(require.main===module)main().catch(error=>{const known=['New Firebase release missing or ambiguous','Wrong Firebase app','CLI URL does not match live release','Uploaded release audit marker missing','Unsafe tester URI','Unexpected tester app/release path','Credential-bearing tester URI'];const reason=known.includes(error.message)?error.message:'API/access or existing-version check';console.error('Firebase metadata verification failed: '+reason+'. No upload retry.');process.exit(1)});
+module.exports={verifyPrevious,verifyAfter,sameTesterRelease};
