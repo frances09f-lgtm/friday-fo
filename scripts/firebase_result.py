@@ -18,8 +18,14 @@ for key, label, host in [
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != 'https' or parsed.hostname != host:
         raise ValueError('Unexpected Firebase URL')
-    if parsed.query or parsed.fragment or parsed.username or parsed.password:
+    if parsed.username or parsed.password:
         raise ValueError('Unexpected Firebase URL parameters')
+    if key == 'testing_uri' and not parsed.path.startswith('/testerapps/'):
+        raise ValueError('Unexpected tester URL path')
+    if key == 'firebase_console_uri' and not parsed.path.startswith('/project/'):
+        raise ValueError('Unexpected console URL path')
+    if any(x in parsed.query.lower() for x in ['token=', 'signature=', 'credential=']):
+        raise ValueError('Signed credential URL rejected')
     result[key] = url
 result.update(tag=os.environ['RELEASE_TAG'], sha256=os.environ['EXPECTED_SHA256'],
               app_id=os.environ['FIREBASE_APP_ID'], repository=os.environ['GITHUB_REPOSITORY'])

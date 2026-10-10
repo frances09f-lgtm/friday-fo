@@ -1,0 +1,40 @@
+name: Read-only Firebase release reconciliation
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - run: npm ci --prefix distribution/tooling --ignore-scripts --no-audit --no-fund
+      - name: Inspect only; no upload or tester invitation
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$TAG" =~ ^v[0-9]+$ ]]
+          export AUDIT_PATH="distribution/audits/$TAG.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-read.json"
+          trap 'rm -f "$GOOGLE_APPLICATION_CREDENTIALS"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          unset FIREBASE_SERVICE_ACCOUNT_JSON
+          node scripts/firebase_state.cjs reconcile
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: firebase-reconciled
+          path: ${{ runner.temp }}/firebase-result.json

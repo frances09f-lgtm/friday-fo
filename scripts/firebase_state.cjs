@@ -29,9 +29,11 @@ async function main(){
  const auth=new GoogleAuth({scopes:['https://www.googleapis.com/auth/cloud-platform']});
  const client=await auth.getClient();const items=await list(client,parent);
  if(mode==='before')verifyPrevious(items,m.version_code);
- else if(mode==='after'){
+ else if(mode==='after'||mode==='reconcile'){
   const file=process.env.RUNNER_TEMP+'/firebase-result.json';
-  const result=JSON.parse(fs.readFileSync(file));Object.assign(result,verifyAfter(items,m,parent,result.testing_uri));
+  const result=mode==='after'?JSON.parse(fs.readFileSync(file)):{tag:m.tag,sha256:m.sha256,app_id:p.firebase_app_id,repository:p.repository};
+  if(mode==='reconcile'){const matching=items.filter(r=>r.buildVersion===String(m.version_code)&&r.displayVersion===m.version_name);assert(matching.length===1,'Release missing or ambiguous');result.testing_uri=matching[0].testingUri;}
+  Object.assign(result,verifyAfter(items,m,parent,result.testing_uri));
   result.metadata_verified=true;fs.writeFileSync(file,JSON.stringify(result,null,2));
  }else throw Error('Unknown metadata check mode');
 }
