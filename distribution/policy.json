@@ -1,0 +1,17 @@
+{
+  "repository": "frances09f-lgtm/friday-fo",
+  "asset_name": "Friday.apk",
+  "package_name": "com.friday.assistant",
+  "signer_sha256": "9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc",
+  "minimum_version_code": 55,
+  "firebase_project_id": "app-testing-2cdba",
+  "firebase_project_number": "509368336413",
+  "firebase_app_id": "1:509368336413:android:bdf178861eee975f0a46f4",
+  "required_native_markers": [
+    "Keyboard Search already attempted; finish manually"
+  ],
+  "required_binary_markers": [
+    "Qwen",
+    ".task"
+  ]
+}
