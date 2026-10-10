@@ -3,6 +3,37 @@ import 'agent_contract.dart';
 /// Deterministic recovery for known workflows. Only unique observed controls are
 /// proposed. No hardcoded coordinates, no send-message fallback, no fuzzy contacts.
 class WorkflowPlanner {
+  static bool clearControl(String label) =>
+      RegExp(r'clear|dismiss|close|reset', caseSensitive: false)
+          .hasMatch(label);
+
+  static bool searchResults(AgentGoal g, Map<String, dynamic> screen) {
+    if (screen['package'] != g.package || screen['success'] == false)
+      return false;
+    final es = (screen['elements'] as List?) ?? [];
+    // YouTube autocomplete remains a focused editable search screen.
+    if (g.package == 'com.google.android.youtube' &&
+        es.any((e) => e['editable'] == true && e['focused'] == true))
+      return false;
+    final content = es
+        .where((e) =>
+            e['editable'] != true &&
+            !RegExp(r'suggest|autocomplete|prediction', caseSensitive: false)
+                .hasMatch('${e['resourceId'] ?? ''} ${e['class'] ?? ''}'))
+        .toList();
+    final queryVisible = content.any((e) =>
+        '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'
+            .toLowerCase()
+            .contains(g.query.toLowerCase()));
+    final markers = content
+        .map((e) => '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}')
+        .join(' ')
+        .toLowerCase();
+    return queryVisible &&
+        RegExp(r'\b(filter|results|videos|all|accounts|reels)\b')
+            .hasMatch(markers);
+  }
+
   static AgentAction? next(AgentGoal g, Map<String, dynamic> screen,
       [List<String> history = const []]) {
     final es = ((screen['elements'] as List?) ?? [])
@@ -37,6 +68,7 @@ class WorkflowPlanner {
     String label(Map<String, dynamic> e) =>
         '${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['resourceId'] ?? ''}';
     bool search(Map<String, dynamic> e) =>
+        !clearControl(label(e)) &&
         RegExp(r'search|url_bar|omnibox', caseSensitive: false)
             .hasMatch(label(e));
     if (screen['package'] == null) return null;
@@ -93,12 +125,19 @@ class WorkflowPlanner {
     }
     final fields = es.where((e) => e['editable'] == true && search(e)).toList();
     if (fields.length == 1) {
-      if (fields.single['text'] != g.query)
+      if (fields.single['text'] != g.query) {
+        if (g.package == 'com.google.android.youtube' &&
+            history.any((h) => RegExp(r'type: verified$').hasMatch(h))) {
+          return AgentAction(
+              action: 'ask_confirmation',
+              confidence: 1,
+              reason:
+                  'Previously verified search text disappeared. Stop instead of retyping in a loop.');
+        }
         return choose('type', fields, text: g.query);
-      final result = es.any((e) =>
-          e['editable'] != true &&
-          '${e['text'] ?? ''}'.toLowerCase().contains(g.query.toLowerCase()));
-      if (!result) {
+      }
+      // Autocomplete text is not search results. Submit the exact field first.
+      if (!searchResults(g, screen)) {
         if (history.any((h) => h.contains('submit: not verified'))) {
           final buttons = es
               .where((e) =>

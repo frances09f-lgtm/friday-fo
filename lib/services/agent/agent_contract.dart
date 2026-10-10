@@ -211,6 +211,9 @@ class AgentGoal {
               .toLowerCase();
       if (settings) return value == 'bluetooth';
       if (unsafeLabel(value)) return false;
+      if (workflow != 'commands' &&
+          RegExp(r'clear|dismiss|close|reset', caseSensitive: false)
+              .hasMatch(value)) return false;
       if (workflow == 'commands')
         return commands.any(
             (c) => c.action == 'tap' && c.target['text'] == a.target['text']);

@@ -150,6 +150,7 @@ class FridayAccessibilityService : AccessibilityService() {
   if(action in setOf("scroll","swipe")&&fields.isEmpty())matches=nodes.filter{it.isScrollable}
   if(matches.size!=1){result.success(fail("Target missing or ambiguous; choose a visible exact label",true));return}
   val node=matches.single();val labels=label(node)
+  if(action=="tap"&&workflow!="commands"&&Regex("clear|dismiss|close|reset",RegexOption.IGNORE_CASE).containsMatchIn(labels)){result.success(fail("Clear or dismiss is not a search-opening action",true));return}
   if(node.isPassword||!node.isEnabled){result.success(fail("Protected or disabled target",true));return}
   if(protected(labels)&&!(workflow=="question"&&action=="submit"&&allowed=="com.openai.chatgpt"&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim()))){result.success(fail("Action needs review or is outside task scope",true));return}
   if(action=="type"){

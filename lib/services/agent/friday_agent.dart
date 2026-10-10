@@ -221,6 +221,7 @@ class FridayAgent extends ChangeNotifier {
     var g = goal!;
     commandIndex = 0;
     var questionSubmitted = false;
+    var youtubeTextVerified = false;
     final epoch = ++_epoch;
     steps = 0;
     retries = 0;
@@ -329,6 +330,13 @@ class FridayAgent extends ChangeNotifier {
           result = 'No valid verification target. No action taken.';
           break;
         }
+        if (g.package == 'com.google.android.youtube' &&
+            a.action == 'type' &&
+            youtubeTextVerified) {
+          result =
+              'Search text was already verified and then changed. Stopped instead of retyping. Check the search field.';
+          break;
+        }
         _status('Running ${a.action}');
         lastResult = await device.call('act', {
           'action': a.json(),
@@ -364,6 +372,8 @@ class FridayAgent extends ChangeNotifier {
           }
         } else {
           retries = 0;
+          if (g.package == 'com.google.android.youtube' && a.action == 'type')
+            youtubeTextVerified = true;
           if (g.workflow == 'commands') commandIndex++;
         }
         if (lastResult['blocked'] == true) {
@@ -435,6 +445,10 @@ class FridayAgent extends ChangeNotifier {
       return screen['token'] != null;
     if (a.action == 'submit' && a.expect['package'] == 'com.android.chrome')
       return chromeSearchResult(a.text, screen);
+    if (a.action == 'submit' &&
+        a.expect['package'] == 'com.google.android.youtube')
+      return WorkflowPlanner.searchResults(
+          AgentGoal('', 'com.google.android.youtube', a.text), screen);
     if (a.action == 'submit')
       return ((screen['elements'] as List?) ?? [])
           .any((e) => e['editable'] != true && e['text'] == a.text);
@@ -529,12 +543,6 @@ class FridayAgent extends ChangeNotifier {
           (labels.contains('pair') ||
               labels.contains('available devices') ||
               labels.contains('connected devices'));
-    final queryVisible = es.any((e) =>
-        e['editable'] != true &&
-        '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'
-            .toLowerCase()
-            .contains(g.query.toLowerCase()));
-    return queryVisible &&
-        RegExp(r'filter|results|videos|all|accounts|reels').hasMatch(labels);
+    return WorkflowPlanner.searchResults(g, screen);
   }
 }
