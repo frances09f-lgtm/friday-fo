@@ -62,7 +62,10 @@ def main():
         subprocess.run(['gh', 'api', '-H', 'Accept: application/octet-stream',
                         f'repos/{repository}/releases/assets/{asset["id"]}'], stdout=out, check=True)
     with apk.open('rb') as binary:
-        require(hashlib.file_digest(binary, 'sha256').hexdigest() == expected, 'APK hash mismatch')
+        digest = hashlib.sha256()
+        for block in iter(lambda: binary.read(1024 * 1024), b''):
+            digest.update(block)
+        require(digest.hexdigest() == expected, 'APK hash mismatch')
     require(apk.stat().st_size == manifest['asset_bytes'], 'Downloaded APK size mismatch')
     tools = pathlib.Path(os.environ['AUDIT_ANDROID_TOOLS']) if os.environ.get('AUDIT_ANDROID_TOOLS') else pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools' / '35.0.0'
     badging = cmd(str(tools / 'aapt'), 'dump', 'badging', str(apk))
@@ -81,6 +84,9 @@ def main():
     with zipfile.ZipFile(apk) as z:
         require(z.testzip() is None, 'Bad ZIP CRC')
         binary=z.read('lib/arm64-v8a/libapp.so')
+        native=b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
+        for marker in policy.get('required_native_markers', []):
+            require(marker.encode() in native, 'Missing native feature marker')
         for marker in policy.get('required_binary_markers', []):
             require(marker.encode() in binary, 'Missing feature marker')
     notes = directory / 'release-notes.txt'
