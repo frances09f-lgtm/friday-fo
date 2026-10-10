@@ -36,7 +36,7 @@ jobs:
           GP
       - run: flutter pub get
       - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 -v --build-number=$GITHUB_RUN_NUMBER --build-name=1.0.$GITHUB_RUN_NUMBER
+      - run: flutter build apk --release --target-platform android-arm64 -v --build-number=53 --build-name=1.0.53
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
