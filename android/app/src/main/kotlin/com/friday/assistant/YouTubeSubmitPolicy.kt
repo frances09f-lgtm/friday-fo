@@ -9,4 +9,6 @@ object YouTubeSubmitPolicy {
    listOf(text.trim(),description.trim()).filter{it.isNotEmpty()}.let { labels ->
     labels.isNotEmpty() && labels.all{it.equals("Search",ignoreCase=true)}
    }
+ fun editorSearch(editorPackage:String,action:Int,started:Boolean,editorText:String,offset:Int,password:Boolean,query:String):Boolean =
+  editorPackage=="com.google.android.youtube" && action==3 && started && !password && query.isNotBlank() && query.length<=250 && offset==0 && editorText==query
 }

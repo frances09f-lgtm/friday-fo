@@ -170,6 +170,16 @@ void main() {
     expect(native, contains('YouTubeSubmitPolicy.permits'));
     expect(native, isNot(contains('KEYCODE_ENTER')));
   });
+  test('Android13 editor bridge requests only Search and observes completion', () {
+    final native=File('android/app/src/main/kotlin/com/friday/assistant/FridayAccessibilityService.kt').readAsStringSync();
+    expect(native,contains('FLAG_INPUT_METHOD_EDITOR'));
+    expect(native,contains('currentInputEditorInfo'));
+    expect(native,contains('getSurroundingText(251,251,0)'));
+    expect(native,contains('performEditorAction(EditorInfo.IME_ACTION_SEARCH)'));
+    expect(native,isNot(contains('sendKeyEvent(')));
+    expect(native,isNot(contains('KEYCODE_ENTER')));
+    expect(native,contains('YouTubeSubmitPolicy.editorSearch'));
+  });
   test('query disappears after submit replay stops without blind retype',
       () async {
     final d = ReplayDevice(eraseAfterWrite: true);

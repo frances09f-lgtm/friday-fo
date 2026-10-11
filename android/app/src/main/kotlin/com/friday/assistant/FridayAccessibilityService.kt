@@ -14,6 +14,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.inputmethod.EditorInfo
+import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -58,6 +60,7 @@ class FridayAccessibilityService : AccessibilityService() {
  private var allowed=""
  private var query=""
  private var settings=false
+ private var youtubeEditorAttempted=false
  private var youtubeImeAttempted=false
  private var youtubeKeyboardAttempted=false
  private var workflow="search"
@@ -72,14 +75,14 @@ class FridayAccessibilityService : AccessibilityService() {
  private fun fail(s:String,blocked:Boolean=false)=mapOf("success" to false,"error" to s,"blocked" to blocked)
  private fun ok()=mapOf("success" to true)
  @Suppress("DEPRECATION") private fun releaseNodes(){nodes.forEach{try{it.recycle()}catch(_:Exception){}};nodes.clear();token=""}
- override fun onServiceConnected(){current=this;serviceInfo=serviceInfo.apply{flags=flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED}}
+ override fun onServiceConnected(){current=this;serviceInfo=serviceInfo.apply{if(android.os.Build.VERSION.SDK_INT>=33)flags=flags or AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR;flags=flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED}}
  override fun onAccessibilityEvent(e:AccessibilityEvent?){}
  override fun onInterrupt(){stop("Android interrupted the accessibility service")}
  override fun onDestroy(){stop("Accessibility service was destroyed");current=null;super.onDestroy()}
  fun start(pkg:String,q:String,setting:Boolean,flow:String="search",steps:List<Map<String,Any>> = emptyList()):Map<String,Any>{
   if(active)return fail("Agent already running")
   if(locked())return fail("Unlock your phone before screen control",true)
-  workflow=flow;commands=steps;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
+  workflow=flow;commands=steps;youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
   var target=pkg
   if(target.isEmpty()&&flow in setOf("read","commands")){
    val root=rootInActiveWindow?:return fail("No readable foreground app")
@@ -159,7 +162,7 @@ class FridayAccessibilityService : AccessibilityService() {
    val exact=if(workflow=="commands")commands.any{it["action"]=="type"&&it["text"]==text}else text==query
    val fieldSafe=when(workflow){"commands"-> !protected(labels);"question"->allowed=="com.openai.chatgpt";else->search(labels)}
    if(settings||!exact||!node.isEditable||!fieldSafe||(allowed=="com.whatsapp"&&!search(labels))){result.success(fail("Typing allowed only in the requested safe field; WhatsApp message composer is blocked",true));return}
-   youtubeImeAttempted=false;youtubeKeyboardAttempted=false
+   youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)}));return
   }
   if(action=="submit"||(action=="tap"&&node.isEditable&&node.text?.toString()==query)){
@@ -169,7 +172,12 @@ class FridayAccessibilityService : AccessibilityService() {
    val youtube=allowed=="com.google.android.youtube" && workflow in setOf("search","play")
    if(youtube){
     if(!YouTubeSubmitPolicy.permits(observedPackage,workflow,query,nodes.count{it.isEditable&&it.text?.toString()==query},node.isFocused)){result.success(fail("YouTube submit requires the unique focused exact-query field",true));return}
-    // Only after a prior IME attempt was observed not to produce results.
+    // Android 13+ has a direct editor Search action. It does not depend
+    // on an IME exposing its Search key as a clickable accessibility node.
+    if(android.os.Build.VERSION.SDK_INT>=33 && !youtubeEditorAttempted){
+     if(editorSearch(result))return
+    }
+    // Only after a prior attempt was observed not to produce results.
     if(youtubeImeAttempted){keyboardSearch(result);return}
     youtubeImeAttempted=true
    }
@@ -203,6 +211,22 @@ class FridayAccessibilityService : AccessibilityService() {
   if(action=="scroll"&&!settings){resultAnswer(result,node.performAction(if(text=="up")AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD));return}
   if(action=="swipe"&&!settings&&node.isScrollable){val b=Rect();node.getBoundsInScreen(b);if(overlapsOverlay(b)){result.success(fail("Swipe intersects Friday Stop control. Use semantic scroll",true));return};val path=Path();val up=text=="up";path.moveTo(b.centerX().toFloat(),(if(up)b.top+b.height()/4 else b.bottom-b.height()/4).toFloat());path.lineTo(b.centerX().toFloat(),(if(up)b.bottom-b.height()/4 else b.top+b.height()/4).toFloat());gesture(path,300,result);return}
   result.success(fail("Unsupported screen action"))
+ }
+ @android.annotation.TargetApi(33)
+ private fun editorSearch(result:MethodChannel.Result):Boolean {
+  // The caller already re-observed and checked foreground, exact focused
+  // query, uniqueness, lock, enabled state and safe YouTube task scope.
+  val im=inputMethod?:return false
+  val info=im.currentInputEditorInfo?:return false
+  val connection=im.currentInputConnection?:return false
+  val surrounding=connection.getSurroundingText(251,251,0)?:return false
+  val password=(info.inputType and InputType.TYPE_MASK_VARIATION) in setOf(InputType.TYPE_TEXT_VARIATION_PASSWORD,InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+  if(!YouTubeSubmitPolicy.editorSearch(info.packageName?:"",info.imeOptions and EditorInfo.IME_MASK_ACTION,im.currentInputStarted,surrounding.text.toString(),surrounding.offset,password,query))return false
+  youtubeEditorAttempted=true
+  connection.performEditorAction(EditorInfo.IME_ACTION_SEARCH)
+  // Dispatch is not completion. Dart must re-observe actual search results.
+  result.success(mapOf("success" to true,"submitMethod" to "editor_search"))
+  return true
  }
  @Suppress("DEPRECATION") private fun keyboardSearch(result:MethodChannel.Result){
   if(youtubeKeyboardAttempted){result.success(fail("Keyboard Search already attempted; finish manually",true));return}

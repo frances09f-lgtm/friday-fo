@@ -21,4 +21,13 @@ class YouTubeSubmitPolicyTest {
   assertFalse(YouTubeSubmitPolicy.searchKey("","Search",true,true,true,false))
   assertFalse(YouTubeSubmitPolicy.searchKey("","Search",true,true,false,true))
  }
+ @Test fun directEditorSearchRequiresBoundExactYouTubeSearchEditor() {
+  assertTrue(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",3,true,"GTA 6",0,false,"GTA 6"))
+  assertFalse(YouTubeSubmitPolicy.editorSearch("com.whatsapp",3,true,"GTA 6",0,false,"GTA 6"))
+  for(action in listOf(0,1,2,4,5,6))assertFalse(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",action,true,"GTA 6",0,false,"GTA 6"))
+  assertFalse(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",3,false,"GTA 6",0,false,"GTA 6"))
+  assertFalse(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",3,true,"GTA 6",0,true,"GTA 6"))
+  assertFalse(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",3,true,"other",0,false,"GTA 6"))
+  assertFalse(YouTubeSubmitPolicy.editorSearch("com.google.android.youtube",3,true,"GTA 6",1,false,"GTA 6"))
+ }
 }
