@@ -34,7 +34,10 @@ class ChatStore {
         : messages;
     await _prefs.setString(
       _storeKey,
-      jsonEncode([for (final m in trimmed) m.toJson()]),
+      jsonEncode([
+        for (final m in trimmed)
+          if (!m.transient) m.toJson()
+      ]),
     );
   }
 

@@ -10,11 +10,13 @@ class ChatMessage {
     required this.at,
     this.source,
     this.localOnly = false,
+    this.transient = false,
   });
 
   final String id;
   final MessageRole role;
   final bool localOnly;
+  final bool transient;
   final String text;
   final DateTime at;
 

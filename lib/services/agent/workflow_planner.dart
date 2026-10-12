@@ -180,6 +180,49 @@ class WorkflowPlanner {
       if (contacts.isNotEmpty)
         return choose('tap', contacts, expected: g.query);
     }
+    if (g.workflow == 'play' && g.firstVideo && searchResults(g, screen)) {
+      final cards = es
+          .where((e) =>
+              e['editable'] != true &&
+              e['clickable'] == true &&
+              RegExp(r'video_title|video_renderer|video_card|video_item',
+                      caseSensitive: false)
+                  .hasMatch('${e['resourceId'] ?? ''}') &&
+              !AgentGoal.unsafeLabel(label(e)) &&
+              !RegExp(r'\b(ad|ads|sponsored|shorts)\b', caseSensitive: false)
+                  .hasMatch(label(e)))
+          .toList();
+      if (cards.isEmpty)
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason:
+                'The first regular video is not identifiable from this screen. Select it manually.');
+      // First means topmost on this observed screen, not model preference.
+      if (cards.any(
+          (e) => e['bounds'] is! List || (e['bounds'] as List).length != 4))
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason:
+                'Video order is unavailable. Select the first video manually.');
+      cards.sort(
+          (a, b) => (a['bounds'][1] as num).compareTo(b['bounds'][1] as num));
+      if (cards.length > 1 && cards[0]['bounds'][1] == cards[1]['bounds'][1])
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason: 'The first video is ambiguous. Select it manually.');
+      final first = cards.first;
+      if (!label(first).toLowerCase().contains(g.query.toLowerCase()))
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason:
+                'The first video does not identify the requested query. Select it manually.');
+      final a = choose('tap', [first], expected: g.query);
+      if (a != null) return a;
+    }
     if (g.workflow == 'play') {
       final videos = es
           .where((e) =>

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../ai/local_model_service.dart';
 import 'agent_contract.dart';
 import 'workflow_planner.dart';
+import 'screen_summary.dart';
 
 abstract class AgentBrain {
   Future<AgentAction> decide(
@@ -256,18 +257,7 @@ class FridayAgent extends ChangeNotifier {
               observation['error']?.toString() ?? 'Screen unavailable');
         currentApp = observation['package']?.toString() ?? g.package;
         if (g.workflow == 'read') {
-          result = 'Visible screen: ' +
-              ((observation['elements'] as List?) ?? [])
-                  .map((e) =>
-                      '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'
-                          .trim())
-                  .where((x) => x.isNotEmpty)
-                  .toSet()
-                  .take(25)
-                  .join(' · ');
-          if (result == 'Visible screen: ')
-            result =
-                'No readable screen text. No screenshot understanding claimed.';
+          result = ScreenSummary.describe(observation);
           break;
         }
         if (g.workflow == 'commands' && commandIndex >= g.commands.length) {

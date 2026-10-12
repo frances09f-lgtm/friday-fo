@@ -81,10 +81,12 @@ class AgentAction {
 class AgentGoal {
   final String task, package, query;
   final bool settings;
+  final bool firstVideo;
   final String workflow;
   final List<AgentAction> commands;
   const AgentGoal(this.task, this.package, this.query,
       {this.settings = false,
+      this.firstVideo = false,
       this.workflow = 'search',
       this.commands = const []});
   static AgentGoal? parse(String task) {
@@ -150,6 +152,17 @@ class AgentGoal {
         .firstMatch(s);
     if (wa != null && wa[1]!.trim().length <= 120)
       return AgentGoal(s, 'com.whatsapp', wa[1]!.trim(), workflow: 'contact');
+    final compound = RegExp(
+            r'^(?:please )?open youtube(?: and)? search(?: for)? (.+?) and play (?:the )?first video[.!?]?$',
+            caseSensitive: false)
+        .firstMatch(s);
+    if (compound != null) {
+      final query = compound[1]!.trim();
+      if (query.isEmpty || query.length > 200 || query.contains('\n'))
+        return null;
+      return AgentGoal(s, 'com.google.android.youtube', query,
+          workflow: 'play', firstVideo: true);
+    }
     final m = RegExp(
             r'^open (youtube|chrome|instagram|chatgpt) and (search(?: for)?|play|ask) (.+?)[.!]?$',
             caseSensitive: false)
@@ -177,7 +190,10 @@ class AgentGoal {
   }
 
   AgentGoal withPackage(String pkg) => AgentGoal(task, pkg, query,
-      settings: settings, workflow: workflow, commands: commands);
+      settings: settings,
+      workflow: workflow,
+      commands: commands,
+      firstVideo: firstVideo);
   bool get noPlanner => workflow == 'read' || workflow == 'commands';
   static bool unsafeLabel(String value) => RegExp(
           r'\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\b',

@@ -1,5 +1,6 @@
 import 'dart:io';
 import '../services/agent/agent_contract.dart';
+import '../services/agent/compound_command.dart';
 import '../services/agent/friday_agent.dart';
 
 import '../services/context/oro_context.dart';
@@ -173,17 +174,28 @@ class FridayController extends ChangeNotifier {
       messages.add(ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}agent',
           role: MessageRole.friday,
-          text: privateScreen
-              ? (reply.startsWith('Visible screen:')
-                  ? 'Screen read completed. Open Agent Mode to see the transient result.'
-                  : 'Screen read did not complete. $reply')
-              : reply,
+          text: reply,
           at: DateTime.now(),
-          localOnly: true));
+          localOnly: true,
+          transient: privateScreen));
       busy = false;
       notifyListeners();
       await chatStore.save(messages);
       if (settings.speakReplies) await speech.speak(privateScreen ? reply : spokenActionReply(reply));
+      return;
+    }
+    final compound = CompoundCommand.parse(localText);
+    if (compound != null && AgentGoal.parse(localText) == null) {
+      // Do not pass the entire compound string to app-name matching, or let
+      // a chat model invent unsupported execution of the remaining action.
+      final opened = await router.execute(FridayAction(
+          type:FridayActionType.openApp, app:compound.app));
+      final reply = '$opened The requested action "${compound.action}" is not supported for this app yet. No such action was run.';
+      messages.add(ChatMessage(id:'${DateTime.now().microsecondsSinceEpoch}compound',
+          role:MessageRole.friday,text:reply,at:DateTime.now(),localOnly:true));
+      busy=false;phase='Ready';notifyListeners();
+      await chatStore.save(messages);
+      if(settings.speakReplies) await speech.speak('That action is not supported yet. Check the app launch result.');
       return;
     }
     final goldTask = GoldTaskRequest.parse(clean);
