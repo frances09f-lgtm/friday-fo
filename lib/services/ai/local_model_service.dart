@@ -12,6 +12,7 @@ import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import '../../models/chat_message.dart';
 import 'cloud_provider.dart';
 import 'model_download.dart';
+import 'model_output.dart';
 
 /// The on-device backup brain. Runs a small Gemma model locally with
 /// flutter_gemma (Google AI Edge / MediaPipe), so Friday still answers and
@@ -352,7 +353,12 @@ class LocalModelService extends ChangeNotifier {
             break;
         }
       }
-      return buffer.toString();
+      final output = buffer.toString();
+      if (!hasModelContent(output)) {
+        throw FridayApiException(
+            'Local model returned no readable response. No action was taken.');
+      }
+      return output;
     } finally {
       try {
         await chat.session.close().timeout(const Duration(seconds: 5));

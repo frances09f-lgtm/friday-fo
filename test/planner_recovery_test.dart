@@ -115,7 +115,12 @@ void main() {
         await LocalBrain(Output('{"action":"type","confidence":0}')).decide(g, {
       'package': g.package,
       'elements': [
-        {'resourceId': 'search_edit', 'editable': true, 'text': ''}
+        {
+          'resourceId': 'search_edit',
+          'editable': true,
+          'focused': true,
+          'text': ''
+        }
       ]
     }, []);
     expect(a.action, 'type');

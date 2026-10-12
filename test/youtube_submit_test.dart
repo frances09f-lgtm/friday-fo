@@ -10,7 +10,12 @@ void main() {
     final screen = {
       'package': g.package,
       'elements': [
-        {'resourceId': 'search_edit_text', 'text': 'GTA 6', 'editable': true},
+        {
+          'resourceId': 'search_edit_text',
+          'text': 'GTA 6',
+          'editable': true,
+          'focused': true
+        },
         {'contentDescription': 'Search', 'clickable': true, 'editable': false}
       ]
     };
@@ -30,7 +35,12 @@ void main() {
     final screen = {
       'package': g.package,
       'elements': [
-        {'resourceId': 'search_edit_text', 'text': 'GTA 6', 'editable': true},
+        {
+          'resourceId': 'search_edit_text',
+          'text': 'GTA 6',
+          'editable': true,
+          'focused': true
+        },
         {'contentDescription': 'Search', 'clickable': true},
         {'contentDescription': 'Search', 'clickable': true}
       ]

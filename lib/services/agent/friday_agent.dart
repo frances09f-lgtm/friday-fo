@@ -457,6 +457,14 @@ class FridayAgent extends ChangeNotifier {
       return a.expect['textEquals'] == a.text &&
           ((screen['elements'] as List?) ?? [])
               .any((e) => e['editable'] == true && e['text'] == a.text);
+    if (a.expect['searchFieldFocused'] == true) {
+      final fields = ((screen['elements'] as List?) ?? []).where((e) =>
+          e['editable'] == true &&
+          e['focused'] == true &&
+          RegExp(r'search', caseSensitive: false).hasMatch(
+              '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''} ${e['text'] ?? ''}'));
+      return fields.length == 1;
+    }
     if (a.expect['editable'] == true) {
       final keys = a.target.keys.where(
           (k) => {'resourceId', 'contentDescription', 'text'}.contains(k));

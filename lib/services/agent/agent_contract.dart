@@ -108,7 +108,7 @@ class AgentGoal {
     if (settings.hasMatch(s))
       return AgentGoal(s, 'com.android.settings', 'Bluetooth', settings: true);
     if (RegExp(
-            r'^(?:tell me )?what is (?:currently )?(?:displayed )?on my screen[.!?]?$',
+            r'^(?:(?:tell me )?what is (?:currently )?(?:displayed )?on my screen|(?:please )?(?:read|describe) (?:my |the )?screen|(?:can you )?(?:please )?(?:read|describe) (?:my |the )?screen)[.!?]?$',
             caseSensitive: false)
         .hasMatch(s)) {
       return AgentGoal(s, '', '', workflow: 'read');

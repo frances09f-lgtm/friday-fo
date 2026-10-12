@@ -125,6 +125,19 @@ class WorkflowPlanner {
     }
     final fields = es.where((e) => e['editable'] == true && search(e)).toList();
     if (fields.length == 1) {
+      // YouTube may retain an editable but unfocused field after a previous
+      // search. Restore focus before typing or submitting, then re-observe.
+      if (g.package == 'com.google.android.youtube' &&
+          fields.single['focused'] != true) {
+        final a = choose('tap', fields);
+        if (a == null) return null;
+        return AgentAction(
+            action: a.action,
+            target: a.target,
+            confidence: 1,
+            reason: 'Focus the unique observed YouTube search field',
+            expect: {'package': g.package, 'editable': true, 'focused': true});
+      }
       if (fields.single['text'] != g.query) {
         if (g.package == 'com.google.android.youtube' &&
             history.any((h) => RegExp(r'type: verified$').hasMatch(h))) {
@@ -176,6 +189,27 @@ class WorkflowPlanner {
           .toList();
       // Several relevant results require the local planner or user selection.
       if (videos.isNotEmpty) return choose('tap', videos, expected: g.query);
+    }
+    if (g.package == 'com.google.android.youtube') {
+      // Results pages contain many search-labelled containers. Prefer the
+      // unique actual Search button, never a clear button or suggestion.
+      final openers = es
+          .where((e) =>
+              e['editable'] != true &&
+              e['clickable'] == true &&
+              !AgentGoal.unsafeLabel(label(e)) &&
+              !clearControl(label(e)) &&
+              [e['contentDescription'], e['text']]
+                  .any((v) => v?.toString().trim().toLowerCase() == 'search'))
+          .toList();
+      final a = choose('tap', openers);
+      if (a != null)
+        return AgentAction(
+            action: a.action,
+            target: a.target,
+            confidence: 1,
+            reason: 'Open the unique observed YouTube Search control',
+            expect: {'package': g.package, 'searchFieldFocused': true});
     }
     return choose(
         'tap',

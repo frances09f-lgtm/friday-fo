@@ -11,6 +11,19 @@ Map<String, dynamic> view(String pkg, List<Map<String, dynamic>> es) => {
       'audioActive': true
     };
 void main() {
+  test('visible read-screen shortcut routes without chat model', () {
+    for (final text in [
+      'read my screen',
+      'Read my screen',
+      'can you read my screen?',
+      'please describe the screen',
+      'what is on my screen'
+    ]) {
+      expect(AgentGoal.parse(text)?.workflow, 'read', reason: text);
+    }
+    expect(AgentGoal.parse('read my screen and send it to someone'), null);
+  });
+
   test('all requested app workflows parse without engine change', () {
     for (final spec in [
       ('Open YouTube and play GTA 6', 'play'),

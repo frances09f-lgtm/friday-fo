@@ -174,7 +174,9 @@ class FridayController extends ChangeNotifier {
           id: '${DateTime.now().microsecondsSinceEpoch}agent',
           role: MessageRole.friday,
           text: privateScreen
-              ? 'Screen read completed. Open Agent Mode to see the transient result.'
+              ? (reply.startsWith('Visible screen:')
+                  ? 'Screen read completed. Open Agent Mode to see the transient result.'
+                  : 'Screen read did not complete. $reply')
               : reply,
           at: DateTime.now(),
           localOnly: true));

@@ -54,7 +54,7 @@ class GoldTaskService : Service() {
             val open = PendingIntent.getActivity(c, 82, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
             nm.notify(id, 82, Notification.Builder(c, "friday_gold_alerts").setSmallIcon(android.R.drawable.ic_menu_info_details)
                 .setContentTitle(title).setContentText(body).setStyle(Notification.BigTextStyle().bigText(body))
-                .setContentIntent(open).setAutoCancel(true).build())
+                .setContentIntent(open).setOnlyAlertOnce(true).setAutoCancel(true).build())
         }
     }
 }

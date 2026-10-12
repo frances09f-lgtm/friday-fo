@@ -26,6 +26,8 @@ object GoldTasks {
         val ts = tasks(c)
         return mapOf("mode" to if (saver(c)) "battery_saver" else "foreground",
             "runtime" to prefs(c).getString("runtime", "Not running")!!,
+            "engine" to "watch_compare_notify_v1",
+            "source" to "Oro saved quote", "modelPolicy" to "Not needed for numeric thresholds",
             "tasks" to (0 until ts.length()).map { i ->
                 val j = ts.getJSONObject(i)
                 j.keys().asSequence().associateWith { j.get(it) }
@@ -43,6 +45,7 @@ object GoldTasks {
         val id = java.util.UUID.randomUUID().toString()
         ts.put(JSONObject().put("id", id).put("direction", direction).put("threshold", threshold)
             .put("intervalMinutes", interval).put("status", "active").put("createdAt", now)
+            .put("source", "oro_saved_quote").put("lastFingerprint", "").put("changedChecks", 0)
             .put("nextCheckAt", now).put("lastCheckAt", 0).put("lastQuoteAt", 0).put("lastOutcome", "Waiting for first check"))
         save(c, ts)
         try { ensure(c) } catch (_: Exception) {
@@ -89,7 +92,13 @@ object GoldTasks {
         if (!hasActive(c)) return
         if (saver(c) || fromBoot) {
             // Do not start a forbidden foreground service at boot. A worker restores checks.
-            val request = PeriodicWorkRequestBuilder<GoldTaskWorker>(15, TimeUnit.MINUTES).build()
+            val saved = tasks(c)
+            val interval = (0 until saved.length()).map { saved.getJSONObject(it) }
+                .filter { it.optString("status") == "active" }
+                .minOfOrNull { WatchEngine.workerInterval(it.optInt("intervalMinutes", 15)) } ?: 15L
+            val request = PeriodicWorkRequestBuilder<GoldTaskWorker>(interval, TimeUnit.MINUTES)
+                .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES).build()
             WorkManager.getInstance(c).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
             runtime(c, if (fromBoot && !saver(c)) "After reboot: slower worker until Friday is reopened" else "Battery saver worker scheduled")
         } else {
@@ -110,30 +119,40 @@ object GoldTasks {
             val task = ts.getJSONObject(i)
             if (task.optString("status") != "active" || now < task.optLong("nextCheckAt")) continue
             val interval = task.optInt("intervalMinutes", 15).coerceIn(5, 1440)
-            task.put("lastCheckAt", now).put("nextCheckAt", now + interval * 60000L)
+            task.put("lastCheckAt", now).put("nextCheckAt", now + (if (saver(c)) WatchEngine.workerInterval(interval) else interval.toLong()) * 60000L)
             if (!NotificationHealth.channelAllowed(c, "friday_gold_alerts")) { task.put("lastOutcome", "Gold alert notifications disabled; no alert sent"); continue }
             if (snapshot == null) { task.put("lastOutcome", "No Oro snapshot. Open Oro and let it update."); continue }
             val quoteAt = snapshot.optLong("quoteAt", 0)
-            val outcome = GoldTaskRule.evaluate(task.optString("direction"), task.optDouble("threshold"),
-                snapshot.optDouble("bid", Double.NaN), snapshot.optDouble("ask", Double.NaN),
-                quoteAt, task.optLong("lastQuoteAt"), now, 300000L)
+            val bid = snapshot.optDouble("bid", Double.NaN)
+            val ask = snapshot.optDouble("ask", Double.NaN)
+            val sample = if (bid.isFinite() && ask.isFinite() && bid > 0 && ask >= bid)
+                WatchSample("oro_saved_quote", (bid + ask) / 2, quoteAt, "$bid:$ask") else null
+            val pipeline = WatchPipeline(object : WatchSource { override fun fetch() = sample })
+            val decision = pipeline.run(task.optString("lastFingerprint"), now,
+                300000L, task.optString("direction"), task.optDouble("threshold"), task.optLong("lastQuoteAt"))
+            val outcome = decision.outcome
+            if (decision.changed) task.put("changedChecks", task.optInt("changedChecks") + 1)
             task.put("lastOutcome", when(outcome) {
-                "stale_quote" -> "Oro quote is old or has no valid timestamp; waiting for Oro to update"
-                "same_quote" -> "Oro has no newer quote; waiting"
+                "stale_sample" -> "Oro quote is old or has no valid timestamp; waiting for Oro to update"
+                "unchanged" -> "Quote value unchanged; skipped further processing"
+                "out_of_order" -> "Older source quote ignored; waiting for a newer update"
                 "not_met" -> "Checked Oro's saved quote; condition not met"
                 "triggered" -> "Condition met in Oro's saved quote"
                 else -> "Invalid Oro quote; no alert sent"
             })
-            if (outcome in listOf("not_met", "triggered")) task.put("lastQuoteAt", quoteAt)
+            if (outcome == "unchanged") task.put("lastQuoteAt", quoteAt)
+            if (outcome == "not_met") task.put("lastQuoteAt", quoteAt).put("lastFingerprint", decision.fingerprint)
             if (outcome == "triggered") {
-                // Persist completion before notification so a process restart cannot duplicate it.
-                task.put("status", "completed")
+                // Stable notification ID makes crash retries replace, not duplicate, the alert.
+                // Complete only after dispatch succeeds; never silently lose a failed alert.
+                task.put("status", "active").put("lastOutcome", "Condition met; notification pending")
                 save(c, ts)
                 try {
                     val mid = (snapshot.getDouble("bid") + snapshot.getDouble("ask")) / 2
                     GoldTaskService.alert(c, task.optString("id"), "Gold ${task.optString("direction")} ${task.optDouble("threshold")}",
                         "Oro saved quote: %.2f, %d seconds old. No trade was placed.".format(mid, (now-quoteAt)/1000))
-                } catch (_: Exception) { task.put("status", "blocked").put("lastOutcome", "Condition met, but notification could not be shown") }
+                    task.put("status", "completed").put("lastQuoteAt", quoteAt).put("lastFingerprint", decision.fingerprint)
+                } catch (_: Exception) { task.put("lastOutcome", "Condition met, but notification failed; retry on next check") }
             }
         }
         save(c, ts)

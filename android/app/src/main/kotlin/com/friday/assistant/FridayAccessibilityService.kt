@@ -165,7 +165,7 @@ class FridayAccessibilityService : AccessibilityService() {
    youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)}));return
   }
-  if(action=="submit"||(action=="tap"&&node.isEditable&&node.text?.toString()==query)){
+  if(action=="submit"||(action=="tap"&&node.isEditable&&node.isFocused&&node.text?.toString()==query)){
    if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable||!search(labels)||node.text?.toString()!=query){result.success(fail("Submit limited to the exact requested search",true));return}
