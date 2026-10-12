@@ -44,7 +44,11 @@ object DeviceBridge {
                         result.success(mapOf("success" to false,"status" to "PERMISSION_REQUIRED","errorMessage" to "Open Friday and grant video access, then repeat the gallery command. No video opened."))
                     }else if((context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager).isKeyguardLocked){
                         result.success(mapOf("success" to false,"errorMessage" to "Unlock your phone first. No video opened."))
-                    }else result.success(GalleryPlayer(context).playVideoAt(call.argument<Int>("index")))
+                    }else {
+                        val selected=GalleryPlayer(context).selectVideoAt(call.argument<Int>("index"))
+                        if(selected["success"]==true) GalleryVideoActivity.request(context,Uri.parse(selected["uri"] as String),result)
+                        else result.success(selected)
+                    }
                 }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}

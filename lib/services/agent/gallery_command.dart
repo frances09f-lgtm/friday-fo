@@ -15,9 +15,9 @@ class GalleryCommand {
   };
   static int? parse(String text) {
     final m = RegExp(
-            r'^(?:open (?:my )?gallery and |in (?:my )?gallery )?play (?:the )?([a-z]+|\d{1,2}(?:st|nd|rd|th)?) video(?: in (?:my )?gallery)?[.!?]?$',
+            r'^(?:open (?:my )?gallery and |in (?:my )?gallery )?play (?:the )?([a-z]+|\d{1,2}(?:st|nd|rd|th)?) video(?: (?:in|from) (?:my |the )?gallery)?[.!?]?$',
             caseSensitive: false)
-        .firstMatch(text.trim());
+        .firstMatch(text.trim().replaceAll(RegExp(r'\s+'), ' '));
     if (m == null || !text.toLowerCase().contains('gallery')) return null;
     final value = m[1]!.toLowerCase();
     final n = words[value] ??

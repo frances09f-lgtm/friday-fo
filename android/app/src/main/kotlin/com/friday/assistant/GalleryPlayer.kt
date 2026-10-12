@@ -3,7 +3,6 @@ package com.friday.assistant
 
 import android.content.ContentUris
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import android.provider.MediaStore
 
@@ -16,7 +15,7 @@ class GalleryPlayer(private val context: Context) {
      * an ACTION_VIEW intent for the video at [index]. Returns a result map
      * for the MethodChannel.
      */
-    fun playVideoAt(index: Int?): Map<String, Any?> {
+    fun selectVideoAt(index: Int?): Map<String, Any?> {
         if(index==null || index !in 1..50) return errorMap("INVALID_REQUEST", "Video number must be 1 to 50.")
         val safeIndex = index
 
@@ -43,16 +42,16 @@ class GalleryPlayer(private val context: Context) {
 
             cursor.use {
                 val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                val nameColumn = it.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                
 
                 var position = 0
                 var targetId: Long? = null
-                var targetName: String? = null
+                
                 while (it.moveToNext()) {
                     position++
                     if (position == safeIndex) {
                         targetId = it.getLong(idColumn)
-                        targetName = if (nameColumn != -1) it.getString(nameColumn) else null
+                        
                         break
                     }
                 }
@@ -66,22 +65,7 @@ class GalleryPlayer(private val context: Context) {
                 }
 
                 val contentUri = ContentUris.withAppendedId(collection, targetId)
-                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(contentUri, "video/*")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-
-                return try {
-                    context.startActivity(viewIntent)
-                    mapOf(
-                        "success" to true,
-                        "status" to "DISPATCHED",
-                        "videoName" to targetName
-                    )
-                } catch (e: Exception) {
-                    errorMap("LAUNCH_FAILED", e.localizedMessage ?: "Could not play gallery video.")
-                }
+                return mapOf("success" to true,"status" to "SELECTED","uri" to contentUri.toString())
             }
         } catch (e: SecurityException) {
             return errorMap(

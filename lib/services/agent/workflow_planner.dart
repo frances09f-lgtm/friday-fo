@@ -1,4 +1,5 @@
 import 'agent_contract.dart';
+import 'element_order.dart';
 
 /// Deterministic recovery for known workflows. Only unique observed controls are
 /// proposed. No hardcoded coordinates, no send-message fallback, no fuzzy contacts.
@@ -216,8 +217,7 @@ class WorkflowPlanner {
             confidence: 1,
             reason:
                 'Video order is unavailable. Select the first video manually.');
-      cards.sort(
-          (a, b) => (a['bounds'][1] as num).compareTo(b['bounds'][1] as num));
+      cards.sort(ElementOrder.compare);
       if (cards.length > 1 && cards[0]['bounds'][1] == cards[1]['bounds'][1])
         return AgentAction(
             action: 'ask_confirmation',

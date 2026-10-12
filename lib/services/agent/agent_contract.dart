@@ -90,7 +90,7 @@ class AgentGoal {
       this.workflow = 'search',
       this.commands = const []});
   static AgentGoal? parse(String task) {
-    var s = task.trim();
+    var s = task.trim().replaceAll(RegExp(r'\s+'), ' ');
     final ask =
         RegExp(r'^(?:please )?ask chat\s*gpt (.+?)[.!]?$', caseSensitive: false)
             .firstMatch(s);

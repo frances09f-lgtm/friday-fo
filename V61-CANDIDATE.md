@@ -1,0 +1,9 @@
+# Friday v61 device-test candidate
+
+- Recognizes "play first video from my gallery" and "from the gallery", plus existing explicit Gallery phrases. Ordinals1..50 and newest-added ordering retained. Unrecognized video actions should not be treated as proof of any phone action.
+- Uses local Android VideoView player for the selected local MediaStore URI, instead of assuming external ACTION_VIEW means playback. Success reply requires preparation and observed isPlaying after start. Decoder failure/start timeout gives a failure reply. Media permission still requires user grant and repeating the command. No media uploaded or network URL accepted.
+- Explicit "open WhatsApp and search for NAME" route and whitespace normalization precede generic compound handling. v61-labelled reply makes the selected release/route visible. Search only, no contact opening or messaging.
+- Small element-order helper adapted from MIT-licensed droidrun/mobilerun tools/helpers/element_search.py at1935ada390f4e82c93daa97bd2c58f4794fc1699. MIT copyright/license included in third_party/mobilerun-MIT-LICENSE.txt. Top then left ordering uses observed bounds only; no blind coordinate fallback. Operator MediaStore selection attribution retained.
+- Reviewed DeVA, Sanna, Android_AI_Assistant, Mobilerun and Android samples. Did not copy restricted/unlicensed code or replace Qwen .task. README unchanged and provider secrets remain runtime-only.
+
+Physical/visual Android behavior unverified. The exact v60 WhatsApp phrase parses under v60 source and compiled markers are present; the reported unsupported reply's installed/session/history cause remains unresolved. This release adds an explicit route and diagnostic rather than claiming that cause was proven. If "You app" feedback meant YouTube, not Gallery, that distinction remains unresolved; no guarantee of YouTube playback on missing/unlabeled result cards. Screen summary/overlay improvements from v60 retained.

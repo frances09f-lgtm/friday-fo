@@ -129,7 +129,7 @@ class FridayController extends ChangeNotifier {
   }
 
   Future<void> _send(String text) async {
-    final original = text.trim();
+    final original = text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (original.isEmpty || busy) return;
     final clean = oroContext.resolve(original, DateTime.now()) ?? original;
 
@@ -184,6 +184,31 @@ class FridayController extends ChangeNotifier {
       }
     }
     final localText = remote == null ? clean : clean.substring(0, remote.start);
+    final whatsappSearch = RegExp(
+            r'^(?:please )?open whats\s*app(?: and)? search(?: for)? (.+?)[.!?]?$',
+            caseSensitive: false)
+        .firstMatch(localText);
+    if (Platform.isAndroid && whatsappSearch != null) {
+      final query = whatsappSearch[1]!.trim();
+      String reply =
+          'Friday v61: WhatsApp search needs screen-control access. No search run.';
+      if (screenAgent != null && query.isNotEmpty && query.length <= 250) {
+        await screenAgent!.start('open whatsapp and search for $query');
+        reply = 'Friday v61 WhatsApp search: ${screenAgent!.result}';
+      }
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}wasearch',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now(),
+          localOnly: true));
+      busy = false;
+      phase = 'Ready';
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(reply);
+      return;
+    }
     if (Platform.isAndroid &&
         screenAgent != null &&
         RegExp(r'^play (?:the )?first video[.!?]?$', caseSensitive: false)

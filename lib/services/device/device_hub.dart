@@ -27,8 +27,8 @@ class DeviceHub {
       final r =
           await _channel.invokeMapMethod('galleryVideo', {'index': index}) ??
               {};
-      if (r['success'] == true && r['status'] == 'DISPATCHED')
-        return 'Requested opening gallery video #$index, ordered newest-added first, in your video player. Playback is not verified.';
+      if (r['success'] == true && r['status'] == 'PLAYING')
+        return 'Friday v61: local player started gallery video #$index, ordered newest-added first.';
       return r['errorMessage']?.toString() ??
           'Could not open gallery video. No playback claimed.';
     } catch (_) {

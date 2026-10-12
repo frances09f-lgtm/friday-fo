@@ -10,6 +10,8 @@ void main() {
     expect(GalleryCommand.parse('open gallery and play 50th video'), 50);
     expect(GalleryCommand.parse('open gallery and play 51st video'), null);
     expect(GalleryCommand.parse('play first video'), null);
+    expect(GalleryCommand.parse('play first video from my gallery'), 1);
+    expect(GalleryCommand.parse('play first video from the gallery'), 1);
     expect(GalleryCommand.parse('open gallery and play second video'), 2);
   });
   test('WhatsApp search exact field and observed results, no chat opening', () {
