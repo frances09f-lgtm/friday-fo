@@ -31,12 +31,21 @@ object DeviceBridge {
         FridayAccessibilityService.register(messenger, context)
         try { GoldTasks.ensure(context) } catch (_: Exception) { }
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
-            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("musicControl","playMusic","volumeStepVerified","volumeSetVerified","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
+            if(FridayAccessibilityService.current?.isRunning==true && call.method in listOf("galleryVideo","musicControl","playMusic","volumeStepVerified","volumeSetVerified","openApp","searchApp","setTorch","volumeUp","volumeDown","brightnessUp","brightnessDown","openPanel","callContact","sendWhatsApp","sendText","setVolume","setBrightness","assistantPreview")){
                 result.error("agent_running","Stop Agent Mode before another phone action",null);return@setMethodCallHandler
             }
             when (call.method) {
                 "modelStorage" -> {val mem=android.app.ActivityManager.MemoryInfo();(context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem);result.success(mapOf("freeBytes" to android.os.StatFs(context.filesDir.absolutePath).availableBytes,"totalRam" to mem.totalMem))}
                 "setGroqKey" -> { RuntimeSecrets.write(context, call.argument<String>("key") ?: ""); result.success(true) }
+                "galleryVideo" -> {
+                    val permission=if(android.os.Build.VERSION.SDK_INT>=33) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
+                    if(!hasPermission(context,permission)){
+                        if(activity!=null) requestPermissions(activity,arrayOf(permission))
+                        result.success(mapOf("success" to false,"status" to "PERMISSION_REQUIRED","errorMessage" to "Open Friday and grant video access, then repeat the gallery command. No video opened."))
+                    }else if((context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager).isKeyguardLocked){
+                        result.success(mapOf("success" to false,"errorMessage" to "Unlock your phone first. No video opened."))
+                    }else result.success(GalleryPlayer(context).playVideoAt(call.argument<Int>("index")))
+                }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
                 "spotifyState" -> result.success(SpotifySessionControl.state(context))

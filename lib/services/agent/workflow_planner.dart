@@ -51,6 +51,7 @@ class WorkflowPlanner {
         }
       }
       if (target.isEmpty) return null;
+      if (e['bounds'] is List && (e['bounds'] as List).length == 4) target['bounds'] = e['bounds'];
       final proposed = AgentAction(
           action: action,
           target: target,
@@ -122,6 +123,15 @@ class WorkflowPlanner {
             text: g.query);
       }
       return choose('type', fields, text: g.query);
+    }
+    if(g.package=='com.whatsapp' && g.workflow=='search') {
+      final fields=es.where((e)=>e['editable']==true && search(e)).toList();
+      if(fields.length==1) {
+        if(fields.single['focused']!=true) return choose('tap',fields);
+        if(fields.single['text']!=g.query) return choose('type',fields,text:g.query);
+        return AgentAction(action:'wait',confidence:1,reason:'Wait for WhatsApp live-filtered search results');
+      }
+      return choose('tap',es.where((e)=>e['clickable']==true && search(e)).toList());
     }
     final fields = es.where((e) => e['editable'] == true && search(e)).toList();
     if (fields.length == 1) {

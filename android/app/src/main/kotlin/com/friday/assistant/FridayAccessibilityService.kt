@@ -86,7 +86,7 @@ class FridayAccessibilityService : AccessibilityService() {
   workflow=flow;commands=steps;searchIntentAttempted=false;youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
   var target=pkg
   if(target.isEmpty()&&flow in setOf("read","commands")){
-   val root=rootInActiveWindow?:return fail("No readable foreground app")
+   val root=applicationRoot(flow=="read")?:return fail("No readable underlying application. Open the app to read first.")
    target=root.packageName?.toString()?:"";@Suppress("DEPRECATION") root.recycle()
   }
   if(target.isBlank()||target=="com.android.systemui"||target.contains("permissioncontroller"))return fail("Security or permission screen requires you",true)
@@ -106,14 +106,21 @@ class FridayAccessibilityService : AccessibilityService() {
   if(active)stopReason=reason;timer.removeCallbacks(expire);active=false
   overlay?.let{try{(getSystemService(WINDOW_SERVICE)as WindowManager).removeView(it)}catch(_:Exception){}};overlay=null;indicator=null;releaseNodes();commands=emptyList();query=""
  }
+ @Suppress("DEPRECATION") private fun applicationRoot(readUnderlying:Boolean=false):AccessibilityNodeInfo? {
+  val ws=windows
+  // Never use an accessibility overlay/IME root as application content.
+  // Security application windows remain eligible and will be refused below.
+  val apps=ws.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION}.sortedByDescending{it.layer}
+  val roots=apps.mapNotNull{it.root}
+  ws.forEach{it.recycle()}
+  val root=roots.firstOrNull{!readUnderlying || it.packageName?.toString()!=packageName}
+  roots.filter{it!==root}.forEach{it.recycle()}
+  return root
+ }
  @Suppress("DEPRECATION") fun observe():Map<String,Any>{
   if(!active)return fail(stopReason.ifEmpty{"No active accessibility task"})
   if(locked()){stop("Phone locked; unlock and restart manually");return fail(stopReason,true)}
-  val ws=windows
-  val apps=ws.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION&&(it.isActive||it.isFocused)}.sortedByDescending{it.isFocused}
-  val roots=apps.mapNotNull{it.root}.toMutableList()
-  val root=roots.firstOrNull()?:rootInActiveWindow
-  roots.filter{it!==root}.forEach{it.recycle()};ws.forEach{it.recycle()}
+  val root=applicationRoot(workflow=="read")
   if(root==null)return mapOf("success" to false,"error" to "No readable active window","transient" to true,"windowDiagnostic" to "Connected; no app root")
   timer.removeCallbacks(expire);timer.postDelayed(expire,60000);releaseNodes()
   observedPackage=root.packageName?.toString()?:""
@@ -131,7 +138,7 @@ class FridayAccessibilityService : AccessibilityService() {
   val rootClass=root.className?.toString()?:""
   if(observedPackage==allowed)walk(root,0)else root.recycle()
   token=(observedPackage+elements.toString()).hashCode().toString()
-  if(observedPackage.contains("permissioncontroller")||observedPackage=="com.android.systemui")return fail("Permission or security screen requires you",true)
+  if(observedPackage.contains("permissioncontroller")||observedPackage=="com.android.systemui")return fail("Permission or security application requires you: $observedPackage (workflow $workflow). No action on it was run",true)
   val audioActive=(getSystemService(AUDIO_SERVICE)as android.media.AudioManager).isMusicActive
   return mapOf("audioActive" to audioActive,"success" to true,"package" to observedPackage,"screen" to rootClass,"elements" to elements,"token" to token,"truncated" to (visits>=600||elements.size>=100))
  }
@@ -159,7 +166,9 @@ class FridayAccessibilityService : AccessibilityService() {
   val fields=listOf("text","contentDescription","resourceId").filter{(target[it]?.toString()?:"").isNotBlank()}
   var matches=nodes.filter{n->fields.isNotEmpty()&&fields.all{f->val actual=when(f){"text"->n.text?.toString();"contentDescription"->n.contentDescription?.toString();else->n.viewIdResourceName};actual.equals(target[f]?.toString(),true)}}
   if(action in setOf("scroll","swipe")&&fields.isEmpty())matches=nodes.filter{it.isScrollable}
-  if(matches.size!=1){result.success(fail("Target missing or ambiguous; choose a visible exact label",true));return}
+  val wantedBounds=target["bounds"] as? List<*>
+  if(wantedBounds!=null && wantedBounds.size==4){matches=matches.filter{n->val b=Rect();n.getBoundsInScreen(b);wantedBounds==listOf(b.left,b.top,b.right,b.bottom)}}
+  if(matches.size!=1){result.success(fail("Target missing or ambiguous for $action in $observedPackage ($workflow); ${matches.size} exact matches. Choose a visible exact label",true));return}
   val node=matches.single();val labels=label(node)
   if(action=="tap"&&workflow!="commands"&&Regex("clear|dismiss|close|reset",RegexOption.IGNORE_CASE).containsMatchIn(labels)){result.success(fail("Clear or dismiss is not a search-opening action",true));return}
   if(node.isPassword||!node.isEnabled){result.success(fail("Protected or disabled target",true));return}

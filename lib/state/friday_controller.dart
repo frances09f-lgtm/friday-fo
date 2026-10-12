@@ -1,6 +1,8 @@
 import 'dart:io';
 import '../services/agent/agent_contract.dart';
 import '../services/agent/compound_command.dart';
+import '../services/agent/gallery_command.dart';
+import '../services/agent/workflow_planner.dart';
 import '../services/agent/friday_agent.dart';
 
 import '../services/context/oro_context.dart';
@@ -25,7 +27,8 @@ class FridayController extends ChangeNotifier {
   // Nonempty execution results include failures and pending prompts.
   // Never prepend success to them.
   static bool targetIsOtherDevice(String target, {required bool isAndroid}) =>
-      (target.toLowerCase() == 'phone' || target.toLowerCase() == 'mobile') != isAndroid;
+      (target.toLowerCase() == 'phone' || target.toLowerCase() == 'mobile') !=
+      isAndroid;
 
   static String actionResultReply(String outcome) =>
       outcome.isEmpty ? 'Done.' : outcome;
@@ -36,16 +39,32 @@ class FridayController extends ChangeNotifier {
   /// Action speech is separate from the full on-screen result. Unknown or
   /// unverified outcomes must never sound like a completed action.
   static String spokenActionReply(String text) {
-    final lines=text.split('\n').where((line)=>line.trim().isNotEmpty).toList();
-    if(lines.isEmpty || (text.trim()=='Done.' || text.trim()=='Done'))return 'Done';
-    bool verified(String line) => line.startsWith('Media volume verified by two readbacks.') ||
-      line.startsWith('Spotify ') && line.contains(' verified from playback or track state.') ||
-      line.startsWith('Reminder registered for ') || line.trim()=='Done.';
-    if(lines.every(verified))return 'Done';
-    final lower=text.toLowerCase();
-    if(lower.contains('already at target') || lower.contains('already playing') || lower.contains('already paused') || lower.contains('already at its limit'))return 'No change needed';
-    if(lower.contains('no success claimed') || lower.contains('not verified') || lower.contains('could not') || lower.contains("couldn't") || lower.contains('refused') || lower.contains('timed out') || lower.contains('failed'))return "Couldn't do it";
-    if(lower.contains('cancelled') || lower.contains('closed before') || lower.contains('stopped'))return 'Stopped';
+    final lines =
+        text.split('\n').where((line) => line.trim().isNotEmpty).toList();
+    if (lines.isEmpty || (text.trim() == 'Done.' || text.trim() == 'Done'))
+      return 'Done';
+    bool verified(String line) =>
+        line.startsWith('Media volume verified by two readbacks.') ||
+        line.startsWith('Spotify ') &&
+            line.contains(' verified from playback or track state.') ||
+        line.startsWith('Reminder registered for ') ||
+        line.trim() == 'Done.';
+    if (lines.every(verified)) return 'Done';
+    final lower = text.toLowerCase();
+    if (lower.contains('already at target') ||
+        lower.contains('already playing') ||
+        lower.contains('already paused') ||
+        lower.contains('already at its limit')) return 'No change needed';
+    if (lower.contains('no success claimed') ||
+        lower.contains('not verified') ||
+        lower.contains('could not') ||
+        lower.contains("couldn't") ||
+        lower.contains('refused') ||
+        lower.contains('timed out') ||
+        lower.contains('failed')) return "Couldn't do it";
+    if (lower.contains('cancelled') ||
+        lower.contains('closed before') ||
+        lower.contains('stopped')) return 'Stopped';
     return 'Check the screen';
   }
 
@@ -145,7 +164,9 @@ class FridayController extends ChangeNotifier {
           );
         else
           oroContext.clear();
-        final reply = link == null ? 'Pair the other device first. No action was run on this device.' : await link!.send(remoteText);
+        final reply = link == null
+            ? 'Pair the other device first. No action was run on this device.'
+            : await link!.send(remoteText);
         messages.add(
           ChatMessage(
             id: '${DateTime.now().microsecondsSinceEpoch}r',
@@ -165,6 +186,49 @@ class FridayController extends ChangeNotifier {
     final localText = remote == null ? clean : clean.substring(0, remote.start);
     if (Platform.isAndroid &&
         screenAgent != null &&
+        RegExp(r'^play (?:the )?first video[.!?]?$', caseSensitive: false)
+            .hasMatch(localText.trim())) {
+      // Observe fresh underlying screen. Never infer a Gallery default or reuse
+      // old search history; only a uniquely identified current YouTube query.
+      await screenAgent!.start('read my screen');
+      final screen = screenAgent!.observation;
+      final fields = ((screen['elements'] as List?) ?? [])
+          .where((e) =>
+              e['editable'] == true &&
+              e['text'] is String &&
+              RegExp(r'search', caseSensitive: false)
+                  .hasMatch('${e['resourceId']} ${e['contentDescription']}'))
+          .toList();
+      String reply =
+          'Open YouTube search results with a visible exact search query first, or say open gallery and play first video. No video selected.';
+      if (screen['package'] == 'com.google.android.youtube' &&
+          fields.length == 1) {
+        final query = fields.single['text'].toString().trim();
+        if (query.isNotEmpty && query.length <= 200) {
+          final task = 'open youtube search for $query and play first video';
+          final g = AgentGoal.parse(task);
+          if (g != null && WorkflowPlanner.searchResults(g, screen)) {
+            await screenAgent!.start(task);
+            reply = screenAgent!.result;
+          }
+        }
+      }
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}first',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now(),
+          localOnly: true,
+          transient: true));
+      busy = false;
+      phase = 'Ready';
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(reply);
+      return;
+    }
+    if (Platform.isAndroid &&
+        screenAgent != null &&
         AgentGoal.parse(localText) != null) {
       phase = 'Screen control';
       notifyListeners();
@@ -181,21 +245,47 @@ class FridayController extends ChangeNotifier {
       busy = false;
       notifyListeners();
       await chatStore.save(messages);
-      if (settings.speakReplies) await speech.speak(privateScreen ? reply : spokenActionReply(reply));
+      if (settings.speakReplies)
+        await speech.speak(privateScreen ? reply : spokenActionReply(reply));
+      return;
+    }
+    final galleryIndex = GalleryCommand.parse(localText);
+    if (galleryIndex != null) {
+      final reply = await router.deviceHub.galleryVideo(galleryIndex);
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}gallery',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now(),
+          localOnly: true));
+      busy = false;
+      phase = 'Ready';
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(reply);
       return;
     }
     final compound = CompoundCommand.parse(localText);
     if (compound != null && AgentGoal.parse(localText) == null) {
       // Do not pass the entire compound string to app-name matching, or let
       // a chat model invent unsupported execution of the remaining action.
-      final opened = await router.execute(FridayAction(
-          type:FridayActionType.openApp, app:compound.app));
-      final reply = '$opened The requested action "${compound.action}" is not supported for this app yet. No such action was run.';
-      messages.add(ChatMessage(id:'${DateTime.now().microsecondsSinceEpoch}compound',
-          role:MessageRole.friday,text:reply,at:DateTime.now(),localOnly:true));
-      busy=false;phase='Ready';notifyListeners();
+      final opened = await router.execute(
+          FridayAction(type: FridayActionType.openApp, app: compound.app));
+      final reply =
+          '$opened The requested action "${compound.action}" is not supported for this app yet. No such action was run.';
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}compound',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now(),
+          localOnly: true));
+      busy = false;
+      phase = 'Ready';
+      notifyListeners();
       await chatStore.save(messages);
-      if(settings.speakReplies) await speech.speak('That action is not supported yet. Check the app launch result.');
+      if (settings.speakReplies)
+        await speech.speak(
+            'That action is not supported yet. Check the app launch result.');
       return;
     }
     final goldTask = GoldTaskRequest.parse(clean);
@@ -279,7 +369,9 @@ class FridayController extends ChangeNotifier {
 
     await chatStore.save(messages);
     if (settings.speakReplies) {
-      await speech.speak(!infoOnly && actions.isNotEmpty ? spokenActionReply(reply) : conciseReply(reply));
+      await speech.speak(!infoOnly && actions.isNotEmpty
+          ? spokenActionReply(reply)
+          : conciseReply(reply));
     }
   }
 
@@ -319,7 +411,9 @@ class FridayController extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await router.executeAll(actions);
-      final reply = result.isEmpty ? 'Action requested on this device; completion is not verified.' : result;
+      final reply = result.isEmpty
+          ? 'Action requested on this device; completion is not verified.'
+          : result;
       messages.add(
         ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}remote',

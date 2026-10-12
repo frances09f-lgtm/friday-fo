@@ -164,7 +164,7 @@ class AgentGoal {
           workflow: 'play', firstVideo: true);
     }
     final m = RegExp(
-            r'^open (youtube|chrome|instagram|chatgpt) and (search(?: for)?|play|ask) (.+?)[.!]?$',
+            r'^open (youtube|chrome|instagram|chatgpt|whatsapp) and (search(?: for)?|play|ask) (.+?)[.!]?$',
             caseSensitive: false)
         .firstMatch(s);
     if (m == null) return null;
@@ -179,7 +179,8 @@ class AgentGoal {
           'youtube': 'com.google.android.youtube',
           'chrome': 'com.android.chrome',
           'instagram': 'com.instagram.android',
-          'chatgpt': 'com.openai.chatgpt'
+          'chatgpt': 'com.openai.chatgpt',
+          'whatsapp': 'com.whatsapp'
         }[app]!,
         query,
         workflow: app == 'chatgpt'

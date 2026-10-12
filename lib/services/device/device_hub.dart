@@ -22,6 +22,19 @@ class SmsEntry {
 /// app launching, and SMS reading. The Kotlin half lives in MainActivity.kt.
 class DeviceHub {
   static const _channel = MethodChannel('friday/device');
+  Future<String> galleryVideo(int index) async {
+    try {
+      final r =
+          await _channel.invokeMapMethod('galleryVideo', {'index': index}) ??
+              {};
+      if (r['success'] == true && r['status'] == 'DISPATCHED')
+        return 'Requested opening gallery video #$index, ordered newest-added first, in your video player. Playback is not verified.';
+      return r['errorMessage']?.toString() ??
+          'Could not open gallery video. No playback claimed.';
+    } catch (_) {
+      return 'Gallery video dispatch unavailable. No playback claimed.';
+    }
+  }
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 

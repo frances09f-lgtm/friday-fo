@@ -539,6 +539,23 @@ class FridayAgent extends ChangeNotifier {
         .map((e) =>
             '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'.toLowerCase())
         .join(' ');
+    if (g.package == 'com.whatsapp' && g.workflow == 'search') {
+      final fields = es
+          .where((e) =>
+              e['editable'] == true &&
+              e['text'] == g.query &&
+              RegExp(r'search', caseSensitive: false)
+                  .hasMatch('${e['resourceId']} ${e['contentDescription']}'))
+          .toList();
+      final result = es.any((e) =>
+          e['editable'] != true &&
+          e['text']?.toString().toLowerCase() == g.query.toLowerCase());
+      final empty = es.any((e) => RegExp(
+              r'^(no results found|no results|no chats found)$',
+              caseSensitive: false)
+          .hasMatch('${e['text'] ?? ''}'));
+      return fields.length == 1 && (result || empty);
+    }
     if (g.workflow == 'play') {
       final title = es.any((e) =>
           e['editable'] != true &&

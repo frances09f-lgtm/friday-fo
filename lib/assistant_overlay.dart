@@ -62,7 +62,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
   void initState() {
     super.initState();
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'outsideTap') await _dismiss();
+      if (call.method == 'outsideTap' && !_sending) await _dismiss();
     });
     // Ready for input the moment it appears; start listening when the mic
     // is usable, fall back to a focused text field when it is not.
