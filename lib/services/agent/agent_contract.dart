@@ -26,6 +26,7 @@ class AgentAction {
     'read_screen',
     'finish',
     'submit',
+    'search_intent',
     'ask_confirmation'
   };
   factory AgentAction.parse(String raw) {
@@ -188,6 +189,14 @@ class AgentGoal {
         a.action == 'wait' ||
         a.action == 'read_screen' ||
         a.action == 'finish') return true;
+    if (a.action == 'search_intent')
+      return {'com.google.android.youtube', 'com.android.chrome'}
+              .contains(package) &&
+          {'search', 'play'}.contains(workflow) &&
+          a.text == query &&
+          a.target['package'] == package &&
+          query.isNotEmpty &&
+          query.length <= 200;
     if (a.action == 'open_app') return a.target['package'] == package;
     if (a.action == 'home') return false;
     if (a.action == 'back')

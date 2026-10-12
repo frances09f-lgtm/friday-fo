@@ -222,6 +222,7 @@ class FridayAgent extends ChangeNotifier {
     commandIndex = 0;
     var questionSubmitted = false;
     var youtubeTextVerified = false;
+    var searchIntentAttempted = false;
     final epoch = ++_epoch;
     steps = 0;
     retries = 0;
@@ -281,24 +282,58 @@ class FridayAgent extends ChangeNotifier {
         }
         _status('Planning next action');
         final decisionClock = Stopwatch()..start();
-        final a = steps == 0 && observation['package'] != g.package
+        final fallbackDue = retries >= 2 &&
+            !searchIntentAttempted &&
+            g.query.length <= 200 &&
+            {'search', 'play'}.contains(g.workflow) &&
+            {'com.google.android.youtube', 'com.android.chrome'}
+                .contains(g.package);
+        var a = fallbackDue
             ? AgentAction(
-                action: 'open_app',
+                action: 'search_intent',
                 target: {'package': g.package},
+                text: g.query,
                 confidence: 1,
-                reason:
-                    'Open the exact app from your validated task before reading its screen.',
                 expect: {'package': g.package})
-            : g.workflow == 'commands'
-                ? commandAction(
-                    g.commands[commandIndex], observation, g.package)
-                : await brain
-                    .decide(g, observation, log.reversed.toList())
-                    .timeout(const Duration(seconds: 45));
+            : steps == 0 && observation['package'] != g.package
+                ? AgentAction(
+                    action: 'open_app',
+                    target: {'package': g.package},
+                    confidence: 1,
+                    reason:
+                        'Open the exact app from your validated task before reading its screen.',
+                    expect: {'package': g.package})
+                : g.workflow == 'commands'
+                    ? commandAction(
+                        g.commands[commandIndex], observation, g.package)
+                    : await brain
+                        .decide(g, observation, log.reversed.toList())
+                        .timeout(const Duration(seconds: 45));
         if (!running || epoch != _epoch) break;
         decisionClock.stop();
         log.add(
             'Decision ${steps + 1}: ${decisionClock.elapsedMilliseconds} ms');
+        if ({'com.google.android.youtube', 'com.android.chrome'}
+                .contains(g.package) &&
+            (youtubeTextVerified || retries >= 2) &&
+            !searchIntentAttempted &&
+            g.query.length <= 200 &&
+            (retries >= 2 ||
+                a.action == 'type' ||
+                (a.action == 'ask_confirmation' &&
+                    a.reason.contains(
+                        'Previously verified search text disappeared')))) {
+          // One exact package/query fallback, never another text write.
+          searchIntentAttempted = true;
+          a = AgentAction(
+              action: 'search_intent',
+              target: {'package': g.package},
+              text: g.query,
+              confidence: 1,
+              reason: 'Open exact results once after an unverified search path',
+              expect: {'package': g.package});
+        }
+        if (a.action == 'search_intent') searchIntentAttempted = true;
         lastAction = a;
         steps++;
         if (a.action == 'ask_confirmation') {
@@ -443,9 +478,10 @@ class FridayAgent extends ChangeNotifier {
       return false;
     if (a.action == 'back' || a.action == 'scroll' || a.action == 'swipe')
       return screen['token'] != null;
-    if (a.action == 'submit' && a.expect['package'] == 'com.android.chrome')
+    if ((a.action == 'submit' || a.action == 'search_intent') &&
+        a.expect['package'] == 'com.android.chrome')
       return chromeSearchResult(a.text, screen);
-    if (a.action == 'submit' &&
+    if ((a.action == 'submit' || a.action == 'search_intent') &&
         a.expect['package'] == 'com.google.android.youtube')
       return WorkflowPlanner.searchResults(
           AgentGoal('', 'com.google.android.youtube', a.text), screen);
@@ -494,7 +530,9 @@ class FridayAgent extends ChangeNotifier {
       final raw = e['text']?.toString() ?? '';
       try {
         final uri = Uri.parse(raw.contains('://') ? raw : 'https://$raw');
-        return uri.path.contains('search') &&
+        return {'google.com', 'www.google.com'}
+                .contains(uri.host.toLowerCase()) &&
+            uri.path == '/search' &&
             uri.queryParameters['q']?.toLowerCase() == query.toLowerCase();
       } catch (_) {
         return false;

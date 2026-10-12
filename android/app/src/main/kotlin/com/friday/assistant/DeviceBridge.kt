@@ -139,7 +139,7 @@ object DeviceBridge {
         return out
     }
 
-    private fun searchApp(context:Context,app:String,query:String):Boolean {
+    fun searchApp(context:Context,app:String,query:String):Boolean {
         if(query.isBlank()||query.length>200)return false
         val pkg=when(app){"youtube"->"com.google.android.youtube";"chrome"->"com.android.chrome";"instagram"->"com.instagram.android";else->return false}
         // Instagram offers no supported public query-search intent. Agent Mode

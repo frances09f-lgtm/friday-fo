@@ -37,6 +37,9 @@ class RepeatDevice implements AgentDevice {
   };
   int starts = 0, stops = 0, changes = 0;
   final actions = <String>[];
+  bool eraseAfterWrite = false;
+  bool intentNoop = false;
+  bool eraseOnNextObserve = false;
   String query = '';
   void results(String value) {
     current = {
@@ -68,7 +71,17 @@ class RepeatDevice implements AgentDevice {
       query = args['query'] as String;
     }
     if (method == 'stop') stops++;
-    if (method == 'observe') return current;
+    if (method == 'observe') {
+      if (eraseOnNextObserve) {
+        current = searchField('', true);
+        eraseOnNextObserve = false;
+      }
+      if (eraseAfterWrite &&
+          (current['elements'] as List)
+              .any((e) => e['editable'] == true && e['text'] == query))
+        eraseOnNextObserve = true;
+      return current;
+    }
     if (method == 'act') {
       final a = args['action'] as Map;
       actions.add(a['action'] as String);
@@ -77,6 +90,7 @@ class RepeatDevice implements AgentDevice {
       if (a['action'] == 'type')
         current = searchField(a['text'] as String, true);
       if (a['action'] == 'submit') results(query);
+      if (a['action'] == 'search_intent' && !intentNoop) results(query);
     }
     return {'success': true};
   }
@@ -96,6 +110,46 @@ void main() {
     expect(d.stops, 2);
     expect(d.actions,
         ['open_app', 'tap', 'type', 'submit', 'tap', 'type', 'submit']);
+  });
+  test('lost verified text uses one results intent without rewriting',
+      () async {
+    final d = RepeatDevice()..eraseAfterWrite = true;
+    final a = FridayAgent(brain: RepeatBrain(), device: d);
+    await a.start(g.task);
+    expect(a.result, 'Done');
+    expect(d.actions.where((x) => x == 'type').length, 1);
+    expect(d.actions.where((x) => x == 'search_intent').length, 1);
+  });
+  test('intent dispatch without actual results never claims done', () async {
+    final d = RepeatDevice()
+      ..eraseAfterWrite = true
+      ..intentNoop = true;
+    final a = FridayAgent(brain: RepeatBrain(), device: d);
+    await a.start(g.task);
+    expect(a.result, isNot('Done'));
+    expect(d.actions.where((x) => x == 'type').length, 1);
+    expect(d.actions.where((x) => x == 'search_intent').length, 1);
+  });
+  test('results intent scope is exact supported search query only', () {
+    expect(
+        g.permits(AgentAction(
+            action: 'search_intent',
+            text: g.query,
+            target: {'package': g.package})),
+        true);
+    expect(
+        g.permits(AgentAction(
+            action: 'search_intent',
+            text: 'other',
+            target: {'package': g.package})),
+        false);
+    final chrome = AgentGoal.parse('Open Chrome and search for GTA 6')!;
+    expect(
+        chrome.permits(AgentAction(
+            action: 'search_intent',
+            text: chrome.query,
+            target: {'package': chrome.package})),
+        true);
   });
   test('repeat search focuses retained old field before replacing query', () {
     final action = WorkflowPlanner.next(g, searchField('old query', false))!;

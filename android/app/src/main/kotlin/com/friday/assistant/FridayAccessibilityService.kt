@@ -60,6 +60,7 @@ class FridayAccessibilityService : AccessibilityService() {
  private var allowed=""
  private var query=""
  private var settings=false
+ private var searchIntentAttempted=false
  private var youtubeEditorAttempted=false
  private var youtubeImeAttempted=false
  private var youtubeKeyboardAttempted=false
@@ -82,7 +83,7 @@ class FridayAccessibilityService : AccessibilityService() {
  fun start(pkg:String,q:String,setting:Boolean,flow:String="search",steps:List<Map<String,Any>> = emptyList()):Map<String,Any>{
   if(active)return fail("Agent already running")
   if(locked())return fail("Unlock your phone before screen control",true)
-  workflow=flow;commands=steps;youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
+  workflow=flow;commands=steps;searchIntentAttempted=false;youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
   var target=pkg
   if(target.isEmpty()&&flow in setOf("read","commands")){
    val root=rootInActiveWindow?:return fail("No readable foreground app")
@@ -150,6 +151,11 @@ class FridayAccessibilityService : AccessibilityService() {
   if(action in setOf("wait","read_screen")){result.success(ok());return}
   if(action=="back"){if(workflow!="commands"||commands.none{it["action"]=="back"}){result.success(fail("Back not authorized by this workflow",true));return};resultAnswer(result,performGlobalAction(GLOBAL_ACTION_BACK));return}
   // Home deliberately not dispatched: changes target context without a goal.
+  if(action=="search_intent"){
+   if(searchIntentAttempted||allowed !in setOf("com.google.android.youtube","com.android.chrome")||workflow !in setOf("search","play")||target["package"]!=allowed||text!=query||query.isBlank()||query.length>200){result.success(fail("Search intent outside exact YouTube task",true));return}
+   searchIntentAttempted=true
+   resultAnswer(result,DeviceBridge.searchApp(this,if(allowed=="com.google.android.youtube")"youtube" else "chrome",query));return
+  }
   val fields=listOf("text","contentDescription","resourceId").filter{(target[it]?.toString()?:"").isNotBlank()}
   var matches=nodes.filter{n->fields.isNotEmpty()&&fields.all{f->val actual=when(f){"text"->n.text?.toString();"contentDescription"->n.contentDescription?.toString();else->n.viewIdResourceName};actual.equals(target[f]?.toString(),true)}}
   if(action in setOf("scroll","swipe")&&fields.isEmpty())matches=nodes.filter{it.isScrollable}
