@@ -42,16 +42,16 @@ class GalleryPlayer(private val context: Context) {
 
             cursor.use {
                 val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                
+
 
                 var position = 0
                 var targetId: Long? = null
-                
+
                 while (it.moveToNext()) {
                     position++
                     if (position == safeIndex) {
                         targetId = it.getLong(idColumn)
-                        
+
                         break
                     }
                 }

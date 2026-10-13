@@ -46,7 +46,7 @@ object DeviceBridge {
                         result.success(mapOf("success" to false,"errorMessage" to "Unlock your phone first. No video opened."))
                     }else {
                         val selected=GalleryPlayer(context).selectVideoAt(call.argument<Int>("index"))
-                        if(selected["success"]==true) GalleryVideoActivity.request(context,Uri.parse(selected["uri"] as String),result)
+                        if(selected["success"]==true) result.success(OnePlusGalleryDispatch.open(context,Uri.parse(selected["uri"] as String)))
                         else result.success(selected)
                     }
                 }

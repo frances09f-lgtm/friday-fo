@@ -27,8 +27,8 @@ class DeviceHub {
       final r =
           await _channel.invokeMapMethod('galleryVideo', {'index': index}) ??
               {};
-      if (r['success'] == true && r['status'] == 'PLAYING')
-        return 'Friday v61: local player started gallery video #$index, ordered newest-added first.';
+      if (r['success'] == true && r['status'] == 'GALLERY_DISPATCHED' && r['package'] == 'com.oneplus.gallery')
+        return 'Requested gallery video #$index in OnePlus Gallery, ordered newest-added first. Playback inside Gallery is not verified.';
       return r['errorMessage']?.toString() ??
           'Could not open gallery video. No playback claimed.';
     } catch (_) {
