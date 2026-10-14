@@ -84,7 +84,7 @@ void main() {
                   key: key, child: const AssistantOverlayApp()))));
       await t.pump(const Duration(milliseconds: 300));
       expect(speech.starts, voice ? 1 : 0);
-      expect(find.text('Ask Friday...'), findsOneWidget);
+      expect(find.text('Ask Friday anything...'), findsOneWidget);
       final input = t.getRect(find.byType(TextField));
       expect(input.bottom, greaterThan(90));
       expect(input.bottom, lessThan(132));

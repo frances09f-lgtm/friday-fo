@@ -218,45 +218,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
                   enabled: !_closeRequested,
                   child: Container(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xff252334), Color(0xff15151e)],
-                      ),
-                      borderRadius: BorderRadius.circular(26),
+                      color: const Color(0xff0d1222),
+                      borderRadius: BorderRadius.circular(29),
                     ),
                     child: SafeArea(
                       top: false,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 4, 4, 0),
-                            child: Row(children: [
-                              Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(colors: [
-                                        Color(0xffa7c9ff),
-                                        Color(0xffb795ff)
-                                      ]))),
-                              const SizedBox(width: 8),
-                              const Text('FRIDAY',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 2,
-                                      color: Color(0xffddd3ff))),
-                              const Spacer(),
-                              IconButton(
-                                  tooltip: 'Close Friday',
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.close, size: 19),
-                                  onPressed: _dismiss),
-                            ]),
-                          ),
                           if (recent.isNotEmpty)
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxHeight: 180),
@@ -320,12 +289,18 @@ class _AssistantPanelState extends State<AssistantPanel> {
                               ),
                             ),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 0, 8, 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 8),
                             child: Row(
                               children: [
                                 PopupMenuButton<String>(
                                   tooltip: 'Friday controls',
-                                  icon: const Icon(Icons.add, size: 26),
+                                  child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7),
+                                      child: FridayWave(
+                                          active: speech.isListening,
+                                          enabled: !_closeRequested)),
                                   onSelected: (value) async {
                                     if (value == 'open')
                                       await _openFullApp();
@@ -361,10 +336,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                     textInputAction: TextInputAction.send,
                                     onSubmitted: (_) => _send(),
                                     decoration: const InputDecoration(
-                                      hintText: 'Ask Friday...',
+                                      hintText: 'Ask Friday anything...',
                                       hintStyle: const TextStyle(
-                                        fontSize: 16,
-                                        color: Color(0xffd7d5df),
+                                        fontSize: 14,
+                                        color: Color(0xff919aaa),
                                       ),
                                       border: InputBorder.none,
                                     ),
@@ -375,7 +350,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                       ? 'Stop listening'
                                       : 'Talk to Friday',
                                   style: IconButton.styleFrom(
-                                    backgroundColor: const Color(0xff33466c),
+                                    foregroundColor: const Color(0xff00f2fe),
+                                    minimumSize: const Size(36, 40),
+                                    padding: const EdgeInsets.all(6),
                                   ),
                                   icon: Icon(
                                     speech.isListening
@@ -404,9 +381,24 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                   )
                                 else
                                   IconButton(
-                                    icon: const Icon(Icons.send),
+                                    tooltip: 'Send',
+                                    style: IconButton.styleFrom(
+                                        foregroundColor:
+                                            const Color(0xff00f2fe),
+                                        minimumSize: const Size(36, 40),
+                                        padding: const EdgeInsets.all(6)),
+                                    icon: const Icon(Icons.send, size: 20),
                                     onPressed: _send,
                                   ),
+                                IconButton(
+                                  tooltip: 'Close Friday',
+                                  style: IconButton.styleFrom(
+                                      foregroundColor: const Color(0xff9faabd),
+                                      minimumSize: const Size(32, 40),
+                                      padding: const EdgeInsets.all(4)),
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: _dismiss,
+                                ),
                               ],
                             ),
                           ),
@@ -488,17 +480,16 @@ class _GlowPainter extends CustomPainter {
   final bool active;
   _GlowPainter(this.phase, this.active) : super(repaint: phase);
   static const colors = [
-    Color(0xff50dfff),
-    Color(0xff708bff),
-    Color(0xffae68ff),
-    Color(0xffff63c4),
-    Color(0xffffac77),
-    Color(0xff50dfff)
+    Color(0xff00c6ff),
+    Color(0xff4facfe),
+    Color(0xff00f2fe),
+    Color(0xff096b89),
+    Color(0xff00c6ff)
   ];
   @override
   void paint(Canvas canvas, Size size) {
     final rect = (Offset.zero & size).deflate(2);
-    final edge = RRect.fromRectAndRadius(rect, const Radius.circular(29));
+    final edge = RRect.fromRectAndRadius(rect, const Radius.circular(32));
     final shader = SweepGradient(
             colors: colors,
             transform: GradientRotation(phase.value * math.pi * 2))
@@ -507,8 +498,8 @@ class _GlowPainter extends CustomPainter {
     final bloom = Paint()
       ..shader = shader
       ..style = PaintingStyle.stroke
-      ..strokeWidth = (active ? 7.0 : 5.0)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+      ..strokeWidth = (active ? 10.0 : 8.0)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.saveLayer(rect.inflate(16),
         Paint()..color = Color.fromRGBO(255, 255, 255, pulse));
     canvas.drawRRect(edge, bloom);
@@ -524,4 +515,79 @@ class _GlowPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GlowPainter old) =>
       old.active != active || old.phase != phase;
+}
+
+class FridayWave extends StatefulWidget {
+  final bool active, enabled;
+  const FridayWave({super.key, required this.active, required this.enabled});
+  @override
+  State<FridayWave> createState() => _FridayWaveState();
+}
+
+class _FridayWaveState extends State<FridayWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController wave = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1200));
+  void sync() {
+    if (widget.active &&
+        widget.enabled &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      if (!wave.isAnimating) wave.repeat();
+    } else {
+      wave.stop();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant FridayWave old) {
+    super.didUpdateWidget(old);
+    sync();
+  }
+
+  @override
+  void dispose() {
+    wave.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+      width: 32,
+      height: 32,
+      child: CustomPaint(painter: _WavePainter(wave, widget.active)));
+}
+
+class _WavePainter extends CustomPainter {
+  final Animation<double> phase;
+  final bool active;
+  _WavePainter(this.phase, this.active) : super(repaint: phase);
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < 5; i++) {
+      final pulse = (math.sin(phase.value * math.pi * 2 + i * 0.95) + 1) / 2;
+      final height = active ? 6 + 22 * pulse : [8.0, 15.0, 22.0, 15.0, 8.0][i];
+      final r = RRect.fromRectAndRadius(
+          Rect.fromLTWH(i * 6.0 + 2, (size.height - height) / 2, 3, height),
+          const Radius.circular(2));
+      canvas.drawRRect(
+          r,
+          Paint()
+            ..color = const Color(0xff00f2fe)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawRRect(
+          r,
+          Paint()
+            ..color =
+                active ? const Color(0xff00f2fe) : const Color(0xff4facfe));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WavePainter old) => old.active != active;
 }
