@@ -73,7 +73,7 @@ void main() {
       await t.pumpWidget(MultiProvider(providers: [
         ChangeNotifierProvider<FridayController>.value(value: c),
         Provider<SpeechService>.value(value: speech)
-      ], child: RepaintBoundary(key: key, child: const AssistantOverlayApp())));
+      ], child: MediaQuery(data: const MediaQueryData(disableAnimations:true), child: RepaintBoundary(key: key, child: const AssistantOverlayApp()))));
       await t.pumpAndSettle();
       expect(speech.starts, voice ? 1 : 0);
       expect(find.text('Ask Friday...'), findsOneWidget);

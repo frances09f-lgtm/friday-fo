@@ -3,6 +3,7 @@
 /// power). Talk or type here; the full app opens only if the user asks.
 library;
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -150,17 +151,19 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _dismiss() async {
-    _closeRequested = true;
+    final controller = context.read<FridayController>();
+    final speech = context.read<SpeechService>();
+    setState(() => _closeRequested = true);
     _focus.unfocus();
     // Remove the window before waiting for speech or an in-flight request.
     try {
       await _channel.invokeMethod('hidePanelWhileBusy');
     } catch (_) {}
-    if (_sending || context.read<FridayController>().busy) {
-      await context.read<SpeechService>().stopListening();
+    if (_sending || controller.busy) {
+      await speech.stopListening();
       return;
     }
-    await context.read<SpeechService>().stopListening();
+    await speech.stopListening();
     try {
       await _channel.invokeMethod<void>('dismiss');
     } catch (_) {}
@@ -210,206 +213,205 @@ class _AssistantPanelState extends State<AssistantPanel> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: GestureDetector(
                 onTap: () {},
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xff252334), Color(0xff15151e)],
+                child: FridayGlowFrame(
+                  active: speech.isListening || controller.busy,
+                  enabled: !_closeRequested,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xff252334), Color(0xff15151e)],
+                      ),
+                      borderRadius: BorderRadius.circular(26),
                     ),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Color(0x806f4bd8),
-                          blurRadius: 18,
-                          spreadRadius: -6)
-                    ],
-                    border: Border.all(color: const Color(0xff645586)),
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 4, 4, 0),
-                          child: Row(children: [
-                            Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(colors: [
-                                      Color(0xffa7c9ff),
-                                      Color(0xffb795ff)
-                                    ]))),
-                            const SizedBox(width: 8),
-                            const Text('FRIDAY',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 2,
-                                    color: Color(0xffddd3ff))),
-                            const Spacer(),
-                            IconButton(
-                                tooltip: 'Close Friday',
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(Icons.close, size: 19),
-                                onPressed: _dismiss),
-                          ]),
-                        ),
-                        if (recent.isNotEmpty)
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 180),
-                            child: ListView.builder(
-                              shrinkWrap: true,
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 4, 4, 0),
+                            child: Row(children: [
+                              Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(colors: [
+                                        Color(0xffa7c9ff),
+                                        Color(0xffb795ff)
+                                      ]))),
+                              const SizedBox(width: 8),
+                              const Text('FRIDAY',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 2,
+                                      color: Color(0xffddd3ff))),
+                              const Spacer(),
+                              IconButton(
+                                  tooltip: 'Close Friday',
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.close, size: 19),
+                                  onPressed: _dismiss),
+                            ]),
+                          ),
+                          if (recent.isNotEmpty)
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 180),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                itemCount: recent.length,
+                                itemBuilder: (_, i) {
+                                  final m = recent[i];
+                                  final isUser = m.role == MessageRole.user;
+                                  return Align(
+                                    alignment: isUser
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isUser
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .primaryContainer
+                                            : Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        m.text,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          if (controller.partialHeard.isNotEmpty)
+                            Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
+                                vertical: 4,
                               ),
-                              itemCount: recent.length,
-                              itemBuilder: (_, i) {
-                                final m = recent[i];
-                                final isUser = m.role == MessageRole.user;
-                                return Align(
-                                  alignment: isUser
-                                      ? Alignment.centerRight
-                                      : Alignment.centerLeft,
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 2,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isUser
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primaryContainer
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      m.text,
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  controller.partialHeard,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
+                                    fontStyle: FontStyle.italic,
                                   ),
-                                );
-                              },
+                                ),
+                              ),
                             ),
-                          ),
-                        if (controller.partialHeard.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                controller.partialHeard,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Theme.of(context).colorScheme.outline,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(6, 0, 8, 12),
-                          child: Row(
-                            children: [
-                              PopupMenuButton<String>(
-                                tooltip: 'Friday controls',
-                                icon: const Icon(Icons.add, size: 26),
-                                onSelected: (value) async {
-                                  if (value == 'open')
-                                    await _openFullApp();
-                                  else if (value == 'close')
-                                    await _dismiss();
-                                  else {
-                                    await speech.stopListening();
-                                    try {
-                                      await _channel.invokeMethod('hideBubble');
-                                    } catch (_) {}
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'open',
-                                    child: Text('Open Friday'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'close',
-                                    child: Text('Close panel'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'hide',
-                                    child: Text('Hide floating assistant'),
-                                  ),
-                                ],
-                              ),
-                              Expanded(
-                                child: TextField(
-                                  controller: _input,
-                                  focusNode: _focus,
-                                  textInputAction: TextInputAction.send,
-                                  onSubmitted: (_) => _send(),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Ask Friday...',
-                                    hintStyle: const TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xffd7d5df),
+                            padding: const EdgeInsets.fromLTRB(6, 0, 8, 12),
+                            child: Row(
+                              children: [
+                                PopupMenuButton<String>(
+                                  tooltip: 'Friday controls',
+                                  icon: const Icon(Icons.add, size: 26),
+                                  onSelected: (value) async {
+                                    if (value == 'open')
+                                      await _openFullApp();
+                                    else if (value == 'close')
+                                      await _dismiss();
+                                    else {
+                                      await speech.stopListening();
+                                      try {
+                                        await _channel
+                                            .invokeMethod('hideBubble');
+                                      } catch (_) {}
+                                    }
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                      value: 'open',
+                                      child: Text('Open Friday'),
                                     ),
-                                    border: InputBorder.none,
-                                  ),
+                                    PopupMenuItem(
+                                      value: 'close',
+                                      child: Text('Close panel'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'hide',
+                                      child: Text('Hide floating assistant'),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              IconButton(
-                                tooltip: speech.isListening
-                                    ? 'Stop listening'
-                                    : 'Talk to Friday',
-                                style: IconButton.styleFrom(
-                                  backgroundColor: const Color(0xff33466c),
-                                ),
-                                icon: Icon(
-                                  speech.isListening
-                                      ? Icons.mic
-                                      : Icons.mic_none,
-                                ),
-                                onPressed: () async {
-                                  if (speech.isListening) {
-                                    await speech.stopListening();
-                                  } else if (await speech.initSpeech() &&
-                                      mounted) {
-                                    _startListening(speech);
-                                  }
-                                },
-                              ),
-                              if (controller.busy)
-                                const Padding(
-                                  padding: EdgeInsets.all(10),
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                Expanded(
+                                  child: TextField(
+                                    controller: _input,
+                                    focusNode: _focus,
+                                    textInputAction: TextInputAction.send,
+                                    onSubmitted: (_) => _send(),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Ask Friday...',
+                                      hintStyle: const TextStyle(
+                                        fontSize: 16,
+                                        color: Color(0xffd7d5df),
+                                      ),
+                                      border: InputBorder.none,
                                     ),
                                   ),
-                                )
-                              else
+                                ),
                                 IconButton(
-                                  icon: const Icon(Icons.send),
-                                  onPressed: _send,
+                                  tooltip: speech.isListening
+                                      ? 'Stop listening'
+                                      : 'Talk to Friday',
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: const Color(0xff33466c),
+                                  ),
+                                  icon: Icon(
+                                    speech.isListening
+                                        ? Icons.mic
+                                        : Icons.mic_none,
+                                  ),
+                                  onPressed: () async {
+                                    if (speech.isListening) {
+                                      await speech.stopListening();
+                                    } else if (await speech.initSpeech() &&
+                                        mounted) {
+                                      _startListening(speech);
+                                    }
+                                  },
                                 ),
-                            ],
+                                if (controller.busy)
+                                  const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  IconButton(
+                                    icon: const Icon(Icons.send),
+                                    onPressed: _send,
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -420,4 +422,106 @@ class _AssistantPanelState extends State<AssistantPanel> {
       ),
     );
   }
+}
+
+/// Border-only repaint: no animation-driven rebuilding of chat/input widgets.
+class FridayGlowFrame extends StatefulWidget {
+  final Widget child;
+  final bool active;
+  final bool enabled;
+  const FridayGlowFrame(
+      {super.key,
+      required this.child,
+      this.active = false,
+      this.enabled = true});
+  @override
+  State<FridayGlowFrame> createState() => _FridayGlowFrameState();
+}
+
+class _FridayGlowFrameState extends State<FridayGlowFrame>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController glow;
+  @override
+  void initState() {
+    super.initState();
+    glow =
+        AnimationController(vsync: this, duration: const Duration(seconds: 6))
+          ..repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant FridayGlowFrame old) {
+    super.didUpdateWidget(old);
+    if (!widget.enabled) {
+      glow.stop();
+    } else if (!MediaQuery.disableAnimationsOf(context) && !glow.isAnimating) {
+      glow.repeat();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.enabled || MediaQuery.disableAnimationsOf(context)) {
+      glow.stop();
+    } else if (!glow.isAnimating) {
+      glow.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    glow.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+          child: CustomPaint(
+        painter: _GlowPainter(glow, widget.active),
+        child: Padding(padding: const EdgeInsets.all(3), child: widget.child),
+      ));
+}
+
+class _GlowPainter extends CustomPainter {
+  final Animation<double> phase;
+  final bool active;
+  _GlowPainter(this.phase, this.active) : super(repaint: phase);
+  static const colors = [
+    Color(0xff50dfff),
+    Color(0xff708bff),
+    Color(0xffae68ff),
+    Color(0xffff63c4),
+    Color(0xffffac77),
+    Color(0xff50dfff)
+  ];
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(2);
+    final edge = RRect.fromRectAndRadius(rect, const Radius.circular(29));
+    final shader = SweepGradient(
+            colors: colors,
+            transform: GradientRotation(phase.value * math.pi * 2))
+        .createShader(rect);
+    final pulse = 0.65 + 0.15 * math.sin(phase.value * math.pi * 2);
+    final bloom = Paint()
+      ..shader = shader
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (active ? 7.0 : 5.0)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+    canvas.saveLayer(rect.inflate(16),
+        Paint()..color = Color.fromRGBO(255, 255, 255, pulse));
+    canvas.drawRRect(edge, bloom);
+    canvas.restore();
+    canvas.drawRRect(
+        edge,
+        Paint()
+          ..shader = shader
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowPainter old) =>
+      old.active != active || old.phase != phase;
 }
