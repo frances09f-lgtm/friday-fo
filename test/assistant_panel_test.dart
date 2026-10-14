@@ -67,14 +67,22 @@ void main() {
       final calls = <String>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(const MethodChannel('friday/assistant'),
-              (call) async { calls.add(call.method); return {'voice': voice}; });
+              (call) async {
+        calls.add(call.method);
+        return {'voice': voice};
+      });
       await t.binding.setSurfaceSize(const Size(412, 132));
       final key = GlobalKey();
-      await t.pumpWidget(MultiProvider(providers: [
-        ChangeNotifierProvider<FridayController>.value(value: c),
-        Provider<SpeechService>.value(value: speech)
-      ], child: MediaQuery(data: const MediaQueryData(disableAnimations:true), child: RepaintBoundary(key: key, child: const AssistantOverlayApp()))));
-      await t.pumpAndSettle();
+      await t.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<FridayController>.value(value: c),
+            Provider<SpeechService>.value(value: speech)
+          ],
+          child: MediaQuery(
+              data: const MediaQueryData(disableAnimations: true),
+              child: RepaintBoundary(
+                  key: key, child: const AssistantOverlayApp()))));
+      await t.pump(const Duration(milliseconds: 300));
       expect(speech.starts, voice ? 1 : 0);
       expect(find.text('Ask Friday...'), findsOneWidget);
       final input = t.getRect(find.byType(TextField));
@@ -88,12 +96,12 @@ void main() {
               const StandardMethodCodec()
                   .encodeMethodCall(const MethodCall('outsideTap')),
               (_) {});
-      await t.pumpAndSettle();
+      await t.pump(const Duration(milliseconds: 300));
       expect(calls, contains('hidePanelWhileBusy'));
       expect(calls, isNot(contains('dismiss')));
       c.busy = false;
       await t.tap(find.byTooltip('Close Friday'));
-      await t.pumpAndSettle();
+      await t.pump(const Duration(milliseconds: 300));
       expect(calls, contains('dismiss'));
       await t.runAsync(() async {
         final im = await (key.currentContext!.findRenderObject()
@@ -103,6 +111,7 @@ void main() {
         await File('/tmp/friday-assistant-panel.png')
             .writeAsBytes(d!.buffer.asUint8List());
       });
+      await t.pumpWidget(const SizedBox());
     });
   }
 }
