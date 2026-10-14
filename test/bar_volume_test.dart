@@ -103,10 +103,10 @@ void main() {
       ChangeNotifierProvider.value(value: c),
       Provider<SpeechService>.value(value: speech)
     ], child: RepaintBoundary(key: key, child: const AssistantOverlayApp())));
-    await t.pumpAndSettle();
+    await t.pump(const Duration(milliseconds: 350));
     await t.enterText(find.byType(TextField), 'Set volume to 40');
     await t.testTextInput.receiveAction(TextInputAction.send);
-    await t.pumpAndSettle();
+    await t.pump(const Duration(milliseconds: 350));
     expect(stages, ['stopped', 'write'],
         reason: c.messages.map((m) => m.text).join('|'));
     expect(c.messages.last.text, contains('No success claimed'));
@@ -120,5 +120,6 @@ void main() {
       await File('/tmp/friday-v49-volume-bar.png')
           .writeAsBytes(bytes!.buffer.asUint8List());
     });
+    await t.pumpWidget(const SizedBox());
   });
 }
