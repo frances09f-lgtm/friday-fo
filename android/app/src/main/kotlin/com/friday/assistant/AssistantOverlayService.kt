@@ -39,6 +39,7 @@ class AssistantOverlayService : Service() {
         var instance:AssistantOverlayService?=null
         fun volumeWindow(show:Boolean){
             val service=instance?:return
+            if(!service.panelAttached)return
             service.view?.let { v ->
                 val params=v.layoutParams as? WindowManager.LayoutParams?:return@let
                 if(show)params.flags=params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -54,6 +55,7 @@ class AssistantOverlayService : Service() {
 
     private var engine: FlutterEngine? = null
     private var view: FlutterView? = null
+    private var panelAttached=false
     private var windowManager: WindowManager? = null
     private var bubble:TextView?=null
     private var persistent=false
@@ -74,8 +76,23 @@ class AssistantOverlayService : Service() {
 
         windowManager=getSystemService(WINDOW_SERVICE) as WindowManager
     }
+    private fun hidePanelImmediately(){
+        view?.let { v ->
+            v.visibility=android.view.View.GONE
+            if(panelAttached){
+                try{windowManager?.removeViewImmediate(v)}catch(_:Exception){}
+                panelAttached=false
+            }
+        }
+    }
+    private fun outsideDismiss(){
+        // Do not depend on a busy Dart handler to remove a system window.
+        hidePanelImmediately()
+        engine?.let { MethodChannel(it.dartExecutor.binaryMessenger,CHANNEL).invokeMethod("outsideTap",null) }
+    }
     private fun clearPanel(){
-        view?.let{try{windowManager?.removeView(it)}catch(_:Exception){};it.detachFromFlutterEngine()}
+        hidePanelImmediately()
+        view?.let{it.detachFromFlutterEngine()}
         engine?.destroy();engine=null;view=null
     }
     private fun clearBubble(){hold?.let{handler.removeCallbacks(it)};hold=null;bubble?.let{try{windowManager?.removeView(it)}catch(_:Exception){}};bubble=null}
@@ -106,11 +123,11 @@ class AssistantOverlayService : Service() {
         val e=FlutterEngine(this)
         MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).setMethodCallHandler{call,result->
             when(call.method){
-                "hidePanelWhileBusy"->{view?.visibility=android.view.View.INVISIBLE;result.success(null)}
+                "hidePanelWhileBusy"->{hidePanelImmediately();result.success(null)}
                 "panelExpanded"->{
                     val expanded=call.argument<Boolean>("expanded")==true
                     view?.let{v-> val lp=v.layoutParams as? WindowManager.LayoutParams
-                        if(lp!=null){lp.height=((if(expanded)360 else 132)*resources.displayMetrics.density).toInt();windowManager?.updateViewLayout(v,lp)}
+                        if(lp!=null&&panelAttached){lp.height=((if(expanded)360 else 132)*resources.displayMetrics.density).toInt();windowManager?.updateViewLayout(v,lp)}
                     };result.success(null)
                 }
                 "launchMode"->result.success(mapOf("voice" to voice))
@@ -123,12 +140,18 @@ class AssistantOverlayService : Service() {
         DeviceBridge.register(e.dartExecutor.binaryMessenger,this,null)
         engine=e
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint(loader.findAppBundlePath(),"assistantOverlayMain"))
-        val texture=FlutterTextureView(this).apply{isOpaque=false};val v=FlutterView(this,texture);v.setBackgroundColor(android.graphics.Color.TRANSPARENT);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
-        v.setOnTouchListener{_,event->
-            if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).invokeMethod("outsideTap",null);true}else false
-        }
+        val texture=FlutterTextureView(this).apply{isOpaque=false};val v=object:FlutterView(this,texture){
+            override fun dispatchTouchEvent(event:MotionEvent):Boolean{
+                if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){outsideDismiss();return true}
+                return super.dispatchTouchEvent(event)
+            }
+            override fun dispatchKeyEvent(event:android.view.KeyEvent):Boolean{
+                if(event.keyCode==android.view.KeyEvent.KEYCODE_BACK&&event.action==android.view.KeyEvent.ACTION_UP){outsideDismiss();return true}
+                return super.dispatchKeyEvent(event)
+            }
+        };v.setBackgroundColor(android.graphics.Color.TRANSPARENT);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
         val params=WindowManager.LayoutParams(-1,(132*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
-        try{windowManager?.addView(v,params);AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
+        try{windowManager?.addView(v,params);panelAttached=true;AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
         if(intent?.action==ACTION_STOP){stopSelf();return START_NOT_STICKY}

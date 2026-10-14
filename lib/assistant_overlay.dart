@@ -37,7 +37,10 @@ class AssistantOverlayApp extends StatelessWidget {
       title: 'Friday',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-          useMaterial3: true, colorScheme: scheme, brightness: Brightness.dark),
+        useMaterial3: true,
+        colorScheme: scheme,
+        brightness: Brightness.dark,
+      ),
       home: const AssistantPanel(),
     );
   }
@@ -62,7 +65,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
   void initState() {
     super.initState();
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'outsideTap' && !_sending) await _dismiss();
+      if (call.method == 'outsideTap') await _dismiss();
     });
     // Ready for input the moment it appears; start listening when the mic
     // is usable, fall back to a focused text field when it is not.
@@ -70,8 +73,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
       if (!mounted) return;
       final speech = context.read<SpeechService>();
       try {
-        final mode =
-            await _channel.invokeMapMethod<String, dynamic>('launchMode');
+        final mode = await _channel.invokeMapMethod<String, dynamic>(
+          'launchMode',
+        );
         if (mode?['voice'] == true && await speech.initSpeech()) {
           _startListening(speech);
           return;
@@ -119,9 +123,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
       // Give the finished response a short reading window. Failed requests and
       // questions also end this invocation; this never claims task success.
       if (mounted && controller.messages.length > before) {
-        final volumeCommand =
-            RegExp(r'\bvolume\b|\blouder\b|\bquieter\b', caseSensitive: false)
-                .hasMatch(text);
+        final volumeCommand = RegExp(
+          r'\bvolume\b|\blouder\b|\bquieter\b',
+          caseSensitive: false,
+        ).hasMatch(text);
         // Leave measured volume evidence on screen for a screenshot/retry.
         if (volumeCommand && !_closeRequested) {
           _sending = false;
@@ -136,17 +141,23 @@ class _AssistantPanelState extends State<AssistantPanel> {
       }
     } finally {
       _sending = false;
+      if (mounted && _closeRequested) {
+        try {
+          await _channel.invokeMethod<void>('dismiss');
+        } catch (_) {}
+      }
     }
   }
 
   Future<void> _dismiss() async {
+    _closeRequested = true;
+    _focus.unfocus();
+    // Remove the window before waiting for speech or an in-flight request.
+    try {
+      await _channel.invokeMethod('hidePanelWhileBusy');
+    } catch (_) {}
     if (_sending || context.read<FridayController>().busy) {
-      _closeRequested = true;
-      _focus.unfocus();
       await context.read<SpeechService>().stopListening();
-      try {
-        await _channel.invokeMethod('hidePanelWhileBusy');
-      } catch (_) {}
       return;
     }
     await context.read<SpeechService>().stopListening();
@@ -175,133 +186,173 @@ class _AssistantPanelState extends State<AssistantPanel> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted) {
           try {
-            await _channel
-                .invokeMethod('panelExpanded', {'expanded': expanded});
+            await _channel.invokeMethod('panelExpanded', {
+              'expanded': expanded,
+            });
           } catch (_) {}
         }
       });
     }
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Align(
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _dismiss,
+        child: Align(
           alignment: Alignment.bottomCenter,
           child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 24, end: 0),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) =>
-                  Transform.translate(offset: Offset(0, value), child: child),
-              child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xff242328),
-                      border: Border.all(color: const Color(0xff44434b)),
-                      borderRadius: BorderRadius.circular(32),
+            tween: Tween(begin: 24, end: 0),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) =>
+                Transform.translate(offset: Offset(0, value), child: child),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: GestureDetector(
+                onTap: () {},
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xff252334), Color(0xff15151e)],
                     ),
-                    child: SafeArea(
-                      top: false,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                              onVerticalDragEnd: (d) {
-                                if ((d.primaryVelocity ?? 0) < -200)
-                                  _openFullApp();
-                              },
-                              child: Padding(
-                                  padding:
-                                      const EdgeInsets.only(top: 10, bottom: 4),
-                                  child: Container(
-                                      width: 30,
-                                      height: 3,
-                                      decoration: BoxDecoration(
-                                          color: Colors.white24,
-                                          borderRadius:
-                                              BorderRadius.circular(3))))),
-                          if (recent.isNotEmpty)
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 180),
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: recent.length,
-                                itemBuilder: (_, i) {
-                                  final m = recent[i];
-                                  final isUser = m.role == MessageRole.user;
-                                  return Align(
-                                    alignment: isUser
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                    child: Container(
-                                      margin: const EdgeInsets.symmetric(
-                                          vertical: 2),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: isUser
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .primaryContainer
-                                            : Theme.of(context)
-                                                .colorScheme
-                                                .surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(m.text,
-                                          style: const TextStyle(fontSize: 13)),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          if (controller.partialHeard.isNotEmpty)
-                            Padding(
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x806f4bd8),
+                          blurRadius: 18,
+                          spreadRadius: -6)
+                    ],
+                    border: Border.all(color: const Color(0xff645586)),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 4, 4, 0),
+                          child: Row(children: [
+                            Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(colors: [
+                                      Color(0xffa7c9ff),
+                                      Color(0xffb795ff)
+                                    ]))),
+                            const SizedBox(width: 8),
+                            const Text('FRIDAY',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 2,
+                                    color: Color(0xffddd3ff))),
+                            const Spacer(),
+                            IconButton(
+                                tooltip: 'Close Friday',
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.close, size: 19),
+                                onPressed: _dismiss),
+                          ]),
+                        ),
+                        if (recent.isNotEmpty)
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 180),
+                            child: ListView.builder(
+                              shrinkWrap: true,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 4),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(controller.partialHeard,
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .outline,
-                                        fontStyle: FontStyle.italic)),
+                                horizontal: 16,
+                              ),
+                              itemCount: recent.length,
+                              itemBuilder: (_, i) {
+                                final m = recent[i];
+                                final isUser = m.role == MessageRole.user;
+                                return Align(
+                                  alignment: isUser
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(
+                                      vertical: 2,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isUser
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primaryContainer
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      m.text,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        if (controller.partialHeard.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                controller.partialHeard,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
                             ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 0, 8, 12),
-                            child: Row(children: [
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 0, 8, 12),
+                          child: Row(
+                            children: [
                               PopupMenuButton<String>(
-                                  tooltip: 'Friday controls',
-                                  icon: const Icon(Icons.add, size: 26),
-                                  onSelected: (value) async {
-                                    if (value == 'open')
-                                      await _openFullApp();
-                                    else if (value == 'close')
-                                      await _dismiss();
-                                    else {
-                                      await speech.stopListening();
-                                      try {
-                                        await _channel
-                                            .invokeMethod('hideBubble');
-                                      } catch (_) {}
-                                    }
-                                  },
-                                  itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                            value: 'open',
-                                            child: Text('Open Friday')),
-                                        PopupMenuItem(
-                                            value: 'close',
-                                            child: Text('Close panel')),
-                                        PopupMenuItem(
-                                            value: 'hide',
-                                            child:
-                                                Text('Hide floating assistant'))
-                                      ]),
+                                tooltip: 'Friday controls',
+                                icon: const Icon(Icons.add, size: 26),
+                                onSelected: (value) async {
+                                  if (value == 'open')
+                                    await _openFullApp();
+                                  else if (value == 'close')
+                                    await _dismiss();
+                                  else {
+                                    await speech.stopListening();
+                                    try {
+                                      await _channel.invokeMethod('hideBubble');
+                                    } catch (_) {}
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'open',
+                                    child: Text('Open Friday'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'close',
+                                    child: Text('Close panel'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'hide',
+                                    child: Text('Hide floating assistant'),
+                                  ),
+                                ],
+                              ),
                               Expanded(
                                 child: TextField(
                                   controller: _input,
@@ -311,47 +362,62 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                   decoration: const InputDecoration(
                                     hintText: 'Ask Friday...',
                                     hintStyle: const TextStyle(
-                                        fontSize: 18, color: Color(0xffd7d5df)),
+                                      fontSize: 16,
+                                      color: Color(0xffd7d5df),
+                                    ),
                                     border: InputBorder.none,
                                   ),
                                 ),
                               ),
                               IconButton(
-                                  tooltip: speech.isListening
-                                      ? 'Stop listening'
-                                      : 'Talk to Friday',
-                                  style: IconButton.styleFrom(
-                                      backgroundColor: const Color(0xff33466c)),
-                                  icon: Icon(speech.isListening
+                                tooltip: speech.isListening
+                                    ? 'Stop listening'
+                                    : 'Talk to Friday',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xff33466c),
+                                ),
+                                icon: Icon(
+                                  speech.isListening
                                       ? Icons.mic
-                                      : Icons.mic_none),
-                                  onPressed: () async {
-                                    if (speech.isListening) {
-                                      await speech.stopListening();
-                                    } else if (await speech.initSpeech() &&
-                                        mounted) {
-                                      _startListening(speech);
-                                    }
-                                  }),
+                                      : Icons.mic_none,
+                                ),
+                                onPressed: () async {
+                                  if (speech.isListening) {
+                                    await speech.stopListening();
+                                  } else if (await speech.initSpeech() &&
+                                      mounted) {
+                                    _startListening(speech);
+                                  }
+                                },
+                              ),
                               if (controller.busy)
                                 const Padding(
                                   padding: EdgeInsets.all(10),
                                   child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2)),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
                                 )
                               else
                                 IconButton(
-                                    icon: const Icon(Icons.send),
-                                    onPressed: _send),
-                            ]),
+                                  icon: const Icon(Icons.send),
+                                  onPressed: _send,
+                                ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  )))),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

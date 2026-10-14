@@ -64,9 +64,10 @@ void main() {
           await l.load();
         }
       });
+      final calls = <String>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(const MethodChannel('friday/assistant'),
-              (call) async => {'voice': voice});
+              (call) async { calls.add(call.method); return {'voice': voice}; });
       await t.binding.setSurfaceSize(const Size(412, 132));
       final key = GlobalKey();
       await t.pumpWidget(MultiProvider(providers: [
@@ -80,6 +81,7 @@ void main() {
       expect(input.bottom, greaterThan(90));
       expect(input.bottom, lessThan(132));
       expect(t.takeException(), isNull);
+      c.busy = true;
       await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .handlePlatformMessage(
               'friday/assistant',
@@ -87,6 +89,12 @@ void main() {
                   .encodeMethodCall(const MethodCall('outsideTap')),
               (_) {});
       await t.pumpAndSettle();
+      expect(calls, contains('hidePanelWhileBusy'));
+      expect(calls, isNot(contains('dismiss')));
+      c.busy = false;
+      await t.tap(find.byTooltip('Close Friday'));
+      await t.pumpAndSettle();
+      expect(calls, contains('dismiss'));
       await t.runAsync(() async {
         final im = await (key.currentContext!.findRenderObject()
                 as RenderRepaintBoundary)
