@@ -12,6 +12,7 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
+import android.os.SystemClock
 import android.os.Looper
 import android.provider.Settings
 import android.view.inputmethod.EditorInfo
@@ -43,10 +44,11 @@ class FridayAccessibilityService : AccessibilityService() {
      "start" -> result.success(s?.start(call.argument<String>("package")?:"",call.argument<String>("query")?:"",call.argument<Boolean>("settings")==true,call.argument<String>("workflow")?:"search",call.argument<List<Map<String,Any>>>("commands")?:emptyList())?:mapOf("success" to false,"error" to "Enable Friday Accessibility in Settings"))
      "stop" -> {s?.stop();result.success(mapOf("success" to true))}
      "screenshot" -> if(s==null)result.success(mapOf("success" to false,"error" to "Accessibility disconnected")) else s.capture(result)
+     "await_screen" -> if(s==null)result.success(mapOf("success" to false,"error" to "Accessibility disconnected"))else s.awaitScreen(result,(call.argument<Int>("timeoutMs")?:1200).coerceIn(220,1500))
      "observe" -> result.success(s?.observe()?:mapOf("success" to false,"error" to "Accessibility disconnected"))
      "act" -> if(s==null)result.success(mapOf("success" to false,"error" to "Accessibility disconnected"))else s.act(call.argument<Map<String,Any>>("action")?:emptyMap(),call.argument<String>("token")?:"",result)
      "progress" -> {s?.indicator?.text=call.argument<String>("phase")?.take(65)?:"Friday screen control";result.success(mapOf("success" to true))}
-     "log" -> {val line=call.argument<String>("line")?:"";if(Regex("Step [0-9]+ [a-z_]+: (verified|not verified)").matches(line)){val p=c.getSharedPreferences("agent_debug",0);p.edit().putString("log",((p.getString("log","")?:"")+"\n"+line).lines().takeLast(60).joinToString("\n")).apply()};result.success(mapOf("success" to true))}
+     "log" -> {val line=call.argument<String>("line")?:"";if(Regex("Step [0-9]+ [a-z_]+: (verified|not verified)|Check [0-9]+: (protected_screen|action_refused|screen_loading|expected_result|wrong_or_missing_result); [0-9]+ ms").matches(line)){val p=c.getSharedPreferences("agent_debug",0);p.edit().putString("log",((p.getString("log","")?:"")+"\n"+line).lines().takeLast(60).joinToString("\n")).apply()};result.success(mapOf("success" to true))}
      "logs" -> result.success(mapOf("log" to c.getSharedPreferences("agent_debug",0).getString("log","")))
      else -> result.notImplemented()
     }}catch(e:Exception){result.success(mapOf("success" to false,"error" to "Native screen operation failed; no completion claimed"))}
@@ -76,13 +78,46 @@ class FridayAccessibilityService : AccessibilityService() {
  private fun fail(s:String,blocked:Boolean=false)=mapOf("success" to false,"error" to s,"blocked" to blocked)
  private fun ok()=mapOf("success" to true)
  @Suppress("DEPRECATION") private fun releaseNodes(){nodes.forEach{try{it.recycle()}catch(_:Exception){}};nodes.clear();token=""}
- override fun onServiceConnected(){current=this;serviceInfo=serviceInfo.apply{if(android.os.Build.VERSION.SDK_INT>=33)flags=flags or AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR;flags=flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED}}
- override fun onAccessibilityEvent(e:AccessibilityEvent?){}
+ override fun onServiceConnected(){current=this;serviceInfo=serviceInfo.apply{if(android.os.Build.VERSION.SDK_INT>=33)flags=flags or AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR;flags=flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;eventTypes=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED or AccessibilityEvent.TYPE_VIEW_SCROLLED or AccessibilityEvent.TYPE_VIEW_FOCUSED or AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED}}
+ private var eventRevision=0L
+ private var lastEventAt=0L
+ private var scrollEvent=emptyMap<String,Any>()
+ private var scrollPositions=mutableMapOf<String,Pair<Int,Int>>()
+ override fun onAccessibilityEvent(e:AccessibilityEvent?){
+  if(!active||e==null||e.packageName?.toString()!=allowed)return
+  eventRevision++;lastEventAt=SystemClock.uptimeMillis()
+  if(e.eventType==AccessibilityEvent.TYPE_VIEW_SCROLLED){
+   val n=e.source?:return
+   try{
+    if(!n.isScrollable||!n.isVisibleToUser)return
+    val b=Rect();n.getBoundsInScreen(b)
+    val key="${n.viewIdResourceName}:${b.toShortString()}"
+    val previous=scrollPositions[key]
+    val delta=if(android.os.Build.VERSION.SDK_INT>=28)e.scrollDeltaY else 0
+    val direction=ScreenSettlingPolicy.scrollDirection(delta,previous?.first,e.scrollY,previous?.second,e.fromIndex)
+    scrollPositions[key]=Pair(e.scrollY,e.fromIndex)
+    scrollEvent=mapOf("revision" to eventRevision,"package" to allowed,
+     "bounds" to listOf(b.left,b.top,b.right,b.bottom),"direction" to direction,"moved" to (direction!="unknown"))
+   }finally{n.recycle()}
+  }
+ }
+ private fun awaitScreen(result:MethodChannel.Result, timeout:Int){
+  val started=SystemClock.uptimeMillis()
+  fun check(){
+   if(!active){result.success(fail(stopReason));return}
+   val now=SystemClock.uptimeMillis()
+   val stable=ScreenSettlingPolicy.settled(now,started,lastEventAt)
+   if(stable||now-started>=timeout){result.success(observe()+mapOf("settlingTimedOut" to !stable));return}
+   timer.postDelayed({check()},60)
+  }
+  check()
+ }
  override fun onInterrupt(){stop("Android interrupted the accessibility service")}
  override fun onDestroy(){stop("Accessibility service was destroyed");current=null;super.onDestroy()}
  fun start(pkg:String,q:String,setting:Boolean,flow:String="search",steps:List<Map<String,Any>> = emptyList()):Map<String,Any>{
   if(active)return fail("Agent already running")
   if(locked())return fail("Unlock your phone before screen control",true)
+  scrollPositions.clear();scrollEvent=emptyMap();eventRevision=0;lastEventAt=SystemClock.uptimeMillis()
   workflow=flow;commands=steps;searchIntentAttempted=false;youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
   var target=pkg
   if(target.isEmpty()&&flow in setOf("read","commands")){
@@ -125,22 +160,23 @@ class FridayAccessibilityService : AccessibilityService() {
   timer.removeCallbacks(expire);timer.postDelayed(expire,60000);releaseNodes()
   observedPackage=root.packageName?.toString()?:""
   val elements=mutableListOf<Map<String,Any>>();var visits=0
-  fun walk(n:AccessibilityNodeInfo,depth:Int){
+  fun walk(n:AccessibilityNodeInfo,depth:Int,path:String,parentContext:String){
    try{
     if(visits++>=600||depth>22||elements.size>=100)return
     if(n.isVisibleToUser&&!n.isPassword&&(n.text!=null||n.contentDescription!=null||n.isEditable||n.isClickable||n.isScrollable)){
      val b=Rect();n.getBoundsInScreen(b);nodes.add(AccessibilityNodeInfo.obtain(n))
-     elements.add(mapOf("text" to (n.text?.toString()?.take(250)?:""),"contentDescription" to (n.contentDescription?.toString()?.take(180)?:""),"resourceId" to (n.viewIdResourceName?:""),"class" to (n.className?.toString()?:""),"clickable" to n.isClickable,"editable" to n.isEditable,"scrollable" to n.isScrollable,"focused" to n.isFocused,"bounds" to listOf(b.left,b.top,b.right,b.bottom)))
+     elements.add(mapOf("id" to path,"parentContext" to parentContext,"text" to (n.text?.toString()?.take(250)?:""),"contentDescription" to (n.contentDescription?.toString()?.take(180)?:""),"resourceId" to (n.viewIdResourceName?:""),"class" to (n.className?.toString()?:""),"clickable" to n.isClickable,"editable" to n.isEditable,"scrollable" to n.isScrollable,"focused" to n.isFocused,"bounds" to listOf(b.left,b.top,b.right,b.bottom)))
     }
-    for(i in 0 until n.childCount)n.getChild(i)?.let{walk(it,depth+1)}
+    val context=if(n.isPassword)"" else (n.contentDescription?.toString()?:n.viewIdResourceName?:n.className?.toString()?:"").take(180)
+    for(i in 0 until n.childCount)n.getChild(i)?.let{walk(it,depth+1,"$path/$i",context)}
    }finally{n.recycle()}
   }
   val rootClass=root.className?.toString()?:""
-  if(observedPackage==allowed)walk(root,0)else root.recycle()
+  if(observedPackage==allowed)walk(root,0,"root","")else root.recycle()
   token=(observedPackage+elements.toString()).hashCode().toString()
   if(observedPackage.contains("permissioncontroller")||observedPackage=="com.android.systemui")return fail("Permission or security application requires you: $observedPackage (workflow $workflow). No action on it was run",true)
   val audioActive=(getSystemService(AUDIO_SERVICE)as android.media.AudioManager).isMusicActive
-  return mapOf("audioActive" to audioActive,"success" to true,"package" to observedPackage,"screen" to rootClass,"elements" to elements,"token" to token,"truncated" to (visits>=600||elements.size>=100))
+  return mapOf("eventRevision" to eventRevision,"scrollEvent" to scrollEvent,"audioActive" to audioActive,"success" to true,"package" to observedPackage,"screen" to rootClass,"elements" to elements,"token" to token,"truncated" to (visits>=600||elements.size>=100))
  }
  private fun label(n:AccessibilityNodeInfo)="${n.text?:""} ${n.contentDescription?:""} ${n.viewIdResourceName?:""}"
  private fun protected(label:String)=Regex("\\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\\b",RegexOption.IGNORE_CASE).containsMatchIn(label)

@@ -52,7 +52,8 @@ class WorkflowPlanner {
         }
       }
       if (target.isEmpty) return null;
-      if (e['bounds'] is List && (e['bounds'] as List).length == 4) target['bounds'] = e['bounds'];
+      if (e['bounds'] is List && (e['bounds'] as List).length == 4)
+        target['bounds'] = e['bounds'];
       final proposed = AgentAction(
           action: action,
           target: target,
@@ -62,7 +63,18 @@ class WorkflowPlanner {
           expect: {
             'package': g.package,
             if (action == 'type') 'textEquals': text,
-            if (expected != null) 'contains': expected
+            if (expected != null) 'contains': expected,
+            if (action == 'tap' &&
+                expected != null &&
+                {'play', 'contact'}.contains(g.workflow)) ...{
+              'workflowResult': g.workflow,
+              'query': g.query
+            },
+            if (action == 'tap' &&
+                expected == null &&
+                e['editable'] == true) ...{'editable': true, 'focused': true},
+            if (action == 'tap' && expected == null && e['editable'] != true)
+              'searchFieldFocused': true
           });
       return g.permits(proposed) ? proposed : null;
     }
@@ -100,7 +112,7 @@ class WorkflowPlanner {
             action: a.action,
             target: a.target,
             confidence: 1,
-            expect: {'package': g.package, 'editable': true, 'focused': true});
+            expect: {'package': g.package, 'searchFieldFocused': true});
       }
       if (bar['text'] != g.query) return choose('type', bars, text: g.query);
       return choose('submit', bars, text: g.query);
@@ -125,14 +137,35 @@ class WorkflowPlanner {
       }
       return choose('type', fields, text: g.query);
     }
-    if(g.package=='com.whatsapp' && g.workflow=='search') {
-      final fields=es.where((e)=>e['editable']==true && search(e)).toList();
-      if(fields.length==1) {
-        if(fields.single['focused']!=true) return choose('tap',fields);
-        if(fields.single['text']!=g.query) return choose('type',fields,text:g.query);
-        return AgentAction(action:'wait',confidence:1,reason:'Wait for WhatsApp live-filtered search results');
+    if (g.package == 'com.whatsapp' &&
+        {'search', 'contact'}.contains(g.workflow)) {
+      final fields =
+          es.where((e) => e['editable'] == true && search(e)).toList();
+      if (fields.length == 1) {
+        if (fields.single['focused'] != true) return choose('tap', fields);
+        if (fields.single['text'] != g.query)
+          return choose('type', fields, text: g.query);
+        if (g.workflow == 'contact') {
+          final contacts = es
+              .where((e) =>
+                  e['editable'] != true &&
+                  e['text']?.toString().toLowerCase() == g.query.toLowerCase())
+              .toList();
+          if (contacts.length == 1)
+            return choose('tap', contacts, expected: g.query);
+          if (contacts.length > 1)
+            return AgentAction(
+                action: 'ask_confirmation',
+                confidence: 1,
+                reason: 'Several contacts match. Choose the chat manually.');
+        }
+        return AgentAction(
+            action: 'wait',
+            confidence: 1,
+            reason: 'Wait for WhatsApp live-filtered search results');
       }
-      return choose('tap',es.where((e)=>e['clickable']==true && search(e)).toList());
+      return choose(
+          'tap', es.where((e) => e['clickable'] == true && search(e)).toList());
     }
     final fields = es.where((e) => e['editable'] == true && search(e)).toList();
     if (fields.length == 1) {
@@ -271,7 +304,6 @@ class WorkflowPlanner {
                 search(e) &&
                 e['editable'] != true &&
                 !AgentGoal.unsafeLabel(label(e)))
-            .toList(),
-        expected: 'Search');
+            .toList());
   }
 }
