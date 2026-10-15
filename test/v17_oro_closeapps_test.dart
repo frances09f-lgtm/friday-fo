@@ -11,7 +11,7 @@ void main() {
     return r.action;
   }
 
-  group('Oro routing (user project: connect the apps, offline-first)', () {
+  group('Sona routing (user project: connect the apps, offline-first)', () {
     test('gold price questions route to the bridge', () {
       for (final q in [
         'current gold price',
@@ -57,7 +57,16 @@ void main() {
       expect(a.target, 'balance');
     });
 
-    test('ordinary commands are not swallowed by Oro routing', () {
+    test('Sona balance uses renamed brand and retains legacy alias', () {
+      for (final q in ['Sona balance', 'Oro balance']) {
+        final response = engine.handle(q);
+        expect(response.action.type, FridayActionType.oroStatus, reason: q);
+        expect(response.action.target, 'balance', reason: q);
+        expect(response.reply, contains('Sona'), reason: q);
+      }
+    });
+
+    test('ordinary commands are not swallowed by Sona routing', () {
       expect(actionOf('open camera').type, FridayActionType.openApp);
       expect(actionOf('read my messages').type, FridayActionType.readMessages);
       expect(actionOf('volume up').type, FridayActionType.volumeUp);
@@ -103,7 +112,7 @@ void main() {
 
     test('no snapshot: honest, no invented numbers', () {
       final a = OroBridge.answer('price', null, nowMs: now);
-      expect(a, contains("couldn't read Oro"));
+      expect(a, contains("couldn't read Sona"));
       expect(a, isNot(contains(RegExp(r'\d,\d{3}'))));
     });
 

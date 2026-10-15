@@ -446,11 +446,11 @@ object DeviceBridge {
     }
 
     /**
-     * Offline bridge into Oro (user project: connect the apps, offline
-     * first). Reads the real trade snapshot Oro's OroBridgeProvider wrote
+     * Offline bridge into Sona (user project: connect the apps, offline
+     * first). Reads the real trade snapshot Sona's OroBridgeProvider wrote
      * on this phone - quote, paper balance, open positions - straight from
      * the ContentProvider, no network. Returns the raw JSON string, or
-     * null when Oro is not installed or has no snapshot yet.
+     * null when Sona is not installed or has no snapshot yet.
      */
     private fun oroStatus(context: Context): String? {
         val uri = Uri.parse("content://com.ambi.gold_paper_trading.bridge/status")

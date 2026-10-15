@@ -161,9 +161,9 @@ class FridayController extends ChangeNotifier {
     if (infoOnly) {
       oroContext.remember(DateTime.now());
       // A question, not a task: no okay/done wrapper - the answer from
-      // Oro's real data is the reply itself.
+      // Sona's real data is the reply itself.
       reply = await router.executeAll(actions);
-      if (reply.isEmpty) reply = "I couldn't read Oro's data.";
+      if (reply.isEmpty) reply = "I couldn't read Sona's data.";
     } else if (actions.isNotEmpty) {
       oroContext.clear();
       // Acknowledge on acceptance, confirm on completion - the user hears
@@ -223,7 +223,7 @@ class FridayController extends ChangeNotifier {
         .where((a) => a.type != FridayActionType.none)
         .toList();
     if (actions.isEmpty || actions.any((a) => !allowed.contains(a.type)))
-      return 'Remote command not supported. Use app launch, device controls or Oro questions.';
+      return 'Remote command not supported. Use app launch, device controls or Sona questions.';
     if (actions.any((a) =>
         a.type == FridayActionType.openApp &&
         !RegExp(r'^[a-zA-Z0-9 ._-]{1,60}$').hasMatch(a.app))) {

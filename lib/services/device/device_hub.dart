@@ -207,8 +207,8 @@ class DeviceHub {
   /// Fuzzy-matches the app the user (or the model) named against the
   /// installed list, then launches it. Returns the app label, or null when
   /// nothing on the phone matches.
-  /// Raw JSON snapshot from Oro's offline bridge provider, or null when
-  /// Oro is not installed / has nothing yet. Phone-only by design.
+  /// Raw JSON snapshot from Sona's offline bridge provider, or null when
+  /// Sona is not installed / has nothing yet. Phone-only by design.
   Future<String?> oroStatusRaw() async {
     if (_isWindows || kIsWeb) return null;
     try {
@@ -236,6 +236,15 @@ class DeviceHub {
           : null;
     }
     final apps = await getInstalledApps();
+
+    // Sona keeps its installed Android identity; accept the legacy spoken name.
+    if (q == 'sona' || q == 'oro') {
+      for (final app in apps) {
+        if (app.packageName == 'com.ambi.gold_paper_trading') {
+          return await _launch(app) ? app : null;
+        }
+      }
+    }
 
     for (final app in apps) {
       if (app.label.toLowerCase() == q ||

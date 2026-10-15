@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:friday/services/context/oro_context.dart';
 
 void main() {
-  test('follow-ups require recent Oro context and cannot mutate', () {
+  test('follow-ups require recent Sona context and cannot mutate', () {
     final c = OroContext();
     final now = DateTime(2026, 10, 7, 22);
     expect(c.resolve('what about my trade?', now), isNull);

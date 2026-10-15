@@ -27,7 +27,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <!-- See Oro's offline bridge provider so Friday can read the
+        <!-- See Sona's offline bridge provider so Friday can read the
              on-device trade snapshot (user project: connect the apps) -->
         <provider android:authorities="com.ambi.gold_paper_trading.bridge" />
     </queries>

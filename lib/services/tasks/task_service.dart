@@ -12,7 +12,7 @@ class TaskService {
 
   Future<String> create(GoldTaskRequest request) async {
     if (!Platform.isAndroid)
-      return 'Background Oro checks run on the Android phone, where Oro is installed.';
+      return 'Background Sona checks run on the Android phone, where Sona is installed.';
     try {
       return await _channel.invokeMethod<String>(
               'taskCreate', request.toJson()) ??

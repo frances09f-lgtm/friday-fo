@@ -133,8 +133,8 @@ class IntentRouter {
     }
   }
 
-  /// Friday + Oro offline bridge (user project): the answer is built
-  /// entirely from Oro's real on-device snapshot - quote, balance, open
+  /// Friday + Sona offline bridge (user project): the answer is built
+  /// entirely from Sona's real on-device snapshot - quote, balance, open
   /// positions - with its age disclosed. Never invented numbers.
   Future<String> _oroStatus(FridayAction action) async {
     final snapshot = await OroBridge(deviceHub).read();

@@ -50,8 +50,8 @@ object GoldTasks {
             save(c, ts)
             return "The task was saved but could not start. Reopen Friday, cancel this blocked task, and create it again."
         }
-        return if (saver(c)) "Saved a one-shot gold $direction $threshold alert. Battery saver checks are best-effort, at least 15 minutes apart. It reads Oro's saved quote, not a fresh internet price."
-          else "Saved a one-shot gold $direction $threshold alert, checking about every $interval minutes. A quiet notification shows Friday is checking. It reads Oro's saved quote; old or missing quotes will not trigger an alert."
+        return if (saver(c)) "Saved a one-shot gold $direction $threshold alert. Battery saver checks are best-effort, at least 15 minutes apart. It reads Sona's saved quote, not a fresh internet price."
+          else "Saved a one-shot gold $direction $threshold alert, checking about every $interval minutes. A quiet notification shows Friday is checking. It reads Sona's saved quote; old or missing quotes will not trigger an alert."
     }
     @Synchronized fun cancelAll(c: Context): String {
         val ts = tasks(c)
@@ -112,17 +112,17 @@ object GoldTasks {
             val interval = task.optInt("intervalMinutes", 15).coerceIn(5, 1440)
             task.put("lastCheckAt", now).put("nextCheckAt", now + interval * 60000L)
             if (!NotificationHealth.channelAllowed(c, "friday_gold_alerts")) { task.put("lastOutcome", "Gold alert notifications disabled; no alert sent"); continue }
-            if (snapshot == null) { task.put("lastOutcome", "No Oro snapshot. Open Oro and let it update."); continue }
+            if (snapshot == null) { task.put("lastOutcome", "No Sona snapshot. Open Sona and let it update."); continue }
             val quoteAt = snapshot.optLong("quoteAt", 0)
             val outcome = GoldTaskRule.evaluate(task.optString("direction"), task.optDouble("threshold"),
                 snapshot.optDouble("bid", Double.NaN), snapshot.optDouble("ask", Double.NaN),
                 quoteAt, task.optLong("lastQuoteAt"), now, 300000L)
             task.put("lastOutcome", when(outcome) {
-                "stale_quote" -> "Oro quote is old or has no valid timestamp; waiting for Oro to update"
-                "same_quote" -> "Oro has no newer quote; waiting"
-                "not_met" -> "Checked Oro's saved quote; condition not met"
-                "triggered" -> "Condition met in Oro's saved quote"
-                else -> "Invalid Oro quote; no alert sent"
+                "stale_quote" -> "Sona quote is old or has no valid timestamp; waiting for Sona to update"
+                "same_quote" -> "Sona has no newer quote; waiting"
+                "not_met" -> "Checked Sona's saved quote; condition not met"
+                "triggered" -> "Condition met in Sona's saved quote"
+                else -> "Invalid Sona quote; no alert sent"
             })
             if (outcome in listOf("not_met", "triggered")) task.put("lastQuoteAt", quoteAt)
             if (outcome == "triggered") {
@@ -132,7 +132,7 @@ object GoldTasks {
                 try {
                     val mid = (snapshot.getDouble("bid") + snapshot.getDouble("ask")) / 2
                     GoldTaskService.alert(c, task.optString("id"), "Gold ${task.optString("direction")} ${task.optDouble("threshold")}",
-                        "Oro saved quote: %.2f, %d seconds old. No trade was placed.".format(mid, (now-quoteAt)/1000))
+                        "Sona saved quote: %.2f, %d seconds old. No trade was placed.".format(mid, (now-quoteAt)/1000))
                 } catch (_: Exception) { task.put("status", "blocked").put("lastOutcome", "Condition met, but notification could not be shown") }
             }
         }

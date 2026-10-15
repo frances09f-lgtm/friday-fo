@@ -54,7 +54,7 @@ class _DeviceLinkScreenState extends State<DeviceLinkScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           const Text(
-              'Use the same Wi-Fi or phone hotspot. Keep both Friday apps open. This pairing allows app launch, device controls, closing laptop windows and reading Oro data. It cannot send messages, make calls or run shell commands. Commands are encrypted. Pairing ends when Friday exits.'),
+              'Use the same Wi-Fi or phone hotspot. Keep both Friday apps open. This pairing allows app launch, device controls, closing laptop windows and reading Sona data. It cannot send messages, make calls or run shell commands. Commands are encrypted. Pairing ends when Friday exits.'),
           const SizedBox(height: 16),
           Text(link.status),
           if (!link.running)

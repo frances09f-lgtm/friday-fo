@@ -18,7 +18,7 @@ class PreviewTasks extends TaskService {
             'threshold': 4150,
             'status': 'active',
             'intervalMinutes': 5,
-            'lastOutcome': 'Oro quote is old; waiting for Oro to update'
+            'lastOutcome': 'Sona quote is old; waiting for Sona to update'
           }
         ]
       };

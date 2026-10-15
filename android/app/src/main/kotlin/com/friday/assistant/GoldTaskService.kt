@@ -19,7 +19,7 @@ class GoldTaskService : Service() {
         val open = PendingIntent.getActivity(this, 82, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         startForeground(81, Notification.Builder(this, "friday_gold_running")
             .setSmallIcon(android.R.drawable.ic_menu_info_details).setContentTitle("Friday background checks")
-            .setContentText("Checking saved Oro quotes. No trades are placed.")
+            .setContentText("Checking saved Sona quotes. No trades are placed.")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Stop checks", stop).build()).build())
         GoldTasks.runtime(this, "Foreground checker running")
