@@ -3,6 +3,7 @@
 /// power). Talk or type here; the full app opens only if the user asks.
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -61,10 +62,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
   bool? _expanded;
   bool _sending = false;
   bool _closeRequested = false;
+  bool _initializingSpeech = false;
+  int _listenGeneration = 0;
+  late final SpeechService _speech;
 
   @override
   void initState() {
     super.initState();
+    _speech = context.read<SpeechService>();
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'outsideTap') await _dismiss();
     });
@@ -77,8 +82,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
         final mode = await _channel.invokeMapMethod<String, dynamic>(
           'launchMode',
         );
-        if (mode?['voice'] == true && await speech.initSpeech()) {
-          _startListening(speech);
+        if (mounted && !_closeRequested && mode?['voice'] == true) {
+          await _beginListening(speech);
           return;
         }
       } catch (_) {}
@@ -88,24 +93,64 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   @override
   void dispose() {
+    _closeRequested = true;
+    _invalidateListening();
+    // A final recognition callback can arrive while stop is in progress.
+    // Invalidate it before releasing the panel, without using its context.
+    unawaited(_speech.stopListening().catchError((Object _) {}));
     _channel.setMethodCallHandler(null);
     _input.dispose();
     _focus.dispose();
     super.dispose();
   }
 
-  void _startListening(SpeechService speech) {
+  void _invalidateListening() => _listenGeneration++;
+
+  Future<void> _beginListening(SpeechService speech) async {
+    if (!mounted || _closeRequested || _sending || _initializingSpeech) return;
     final controller = context.read<FridayController>();
-    speech.startListening(
-      onResult: (t) => controller.setPartialHeard(t),
-      onDone: () {
-        final text = controller.partialHeard;
-        if (text.trim().isNotEmpty) _submit(text);
-      },
-    );
+    if (controller.busy) return;
+    final generation = ++_listenGeneration;
+    _initializingSpeech = true;
+    try {
+      final ready = await speech.initSpeech();
+      if (!ready ||
+          !mounted ||
+          _closeRequested ||
+          _sending ||
+          controller.busy ||
+          generation != _listenGeneration) {
+        return;
+      }
+      controller.setPartialHeard('');
+      bool current() =>
+          mounted && !_closeRequested && generation == _listenGeneration;
+      speech.startListening(
+        onResult: (text) {
+          if (current()) controller.setPartialHeard(text);
+        },
+        onDone: () {
+          if (!current()) return;
+          final text = controller.partialHeard;
+          // Consume each session once, even if a plugin repeats a final event.
+          _invalidateListening();
+          if (text.trim().isNotEmpty) _submit(text);
+        },
+      );
+    } catch (_) {
+      // An unavailable recognizer leaves text input usable.
+    } finally {
+      _initializingSpeech = false;
+    }
   }
 
   void _send() {
+    if (!mounted ||
+        _closeRequested ||
+        _sending ||
+        context.read<FridayController>().busy) {
+      return;
+    }
     final text = _input.text;
     if (text.trim().isEmpty) return;
     _input.clear();
@@ -113,10 +158,12 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _submit(String text) async {
+    if (!mounted || _closeRequested || text.trim().isEmpty) return;
     final controller = context.read<FridayController>();
     if (_sending || controller.busy) return;
     final before = controller.messages.length;
     _sending = true;
+    _invalidateListening();
     try {
       // Recognition/audio teardown must settle before Android volume writes.
       await context.read<SpeechService>().stopListening();
@@ -151,6 +198,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _dismiss() async {
+    if (!mounted) return;
+    _invalidateListening();
     final controller = context.read<FridayController>();
     final speech = context.read<SpeechService>();
     setState(() => _closeRequested = true);
@@ -170,6 +219,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _openFullApp() async {
+    _closeRequested = true;
+    _invalidateListening();
     await context.read<SpeechService>().stopListening();
     try {
       await _channel.invokeMethod<void>('openFriday');
@@ -307,6 +358,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                     else if (value == 'close')
                                       await _dismiss();
                                     else {
+                                      _closeRequested = true;
+                                      _invalidateListening();
                                       await speech.stopListening();
                                       try {
                                         await _channel
@@ -362,9 +415,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                   onPressed: () async {
                                     if (speech.isListening) {
                                       await speech.stopListening();
-                                    } else if (await speech.initSpeech() &&
-                                        mounted) {
-                                      _startListening(speech);
+                                    } else {
+                                      await _beginListening(speech);
                                     }
                                   },
                                 ),
