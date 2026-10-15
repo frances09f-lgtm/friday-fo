@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../state/friday_controller.dart';
 import '../../services/speech/speech_service.dart';
-import '../../services/ai/local_model_service.dart';
 import '../../services/agent/friday_agent.dart';
 import '../stitch_style.dart';
+import '../responsive_globe.dart';
 import 'home_screen.dart';
 import 'background_tasks_screen.dart';
 import 'immersive_voice_screen.dart';
@@ -66,9 +66,11 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
   void open(Widget w) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => w));
   void send() {
+    final c = context.read<FridayController>();
+    if (c.busy || input.text.trim().isEmpty) return;
     final text = input.text;
     input.clear();
-    context.read<FridayController>().send(text);
+    c.send(text);
   }
 
   Future<void> command(String title, String prefix) async {
@@ -91,289 +93,284 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
                       child: const Text('Run'))
                 ]));
     field.dispose();
-    if (text != null && text.trim().isNotEmpty && mounted)
+    if (text != null && text.trim().isNotEmpty && mounted) {
       context.read<FridayController>().send('$prefix ${text.trim()}');
+    }
   }
+
+  void moreActions() => showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+          child: SingleChildScrollView(
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('What would you like to do?',
+                            style: Stitch.title(23)),
+                        const SizedBox(height: 8),
+                        for (final action
+                            in <(IconData, String, String, VoidCallback)>[
+                          (
+                            Icons.document_scanner_outlined,
+                            'Read my screen',
+                            'Read accessible text on this phone',
+                            () => context
+                                .read<FridayController>()
+                                .send('read my screen')
+                          ),
+                          (
+                            Icons.smart_display_outlined,
+                            'Open YouTube',
+                            'Launch the app',
+                            () => context
+                                .read<FridayController>()
+                                .send('open YouTube')
+                          ),
+                          (
+                            Icons.alarm_outlined,
+                            'Set alarm',
+                            'Choose a time',
+                            () => command('Set alarm', 'set alarm for')
+                          ),
+                          (
+                            Icons.call_outlined,
+                            'Call someone',
+                            'Choose a contact',
+                            () => command('Call someone', 'call')
+                          ),
+                          (
+                            Icons.graphic_eq,
+                            'Voice session',
+                            'Open the full-screen voice view',
+                            () => open(const ImmersiveVoiceScreen())
+                          ),
+                          (
+                            Icons.smart_toy_outlined,
+                            'Agent Mode',
+                            'Review screen-task details and controls',
+                            () => open(const AgentModeScreen())
+                          ),
+                        ])
+                          ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(action.$1, color: Stitch.cyan),
+                              title: Text(action.$2),
+                              subtitle: Text(action.$3),
+                              trailing:
+                                  const Icon(Icons.chevron_right, size: 20),
+                              onTap: () {
+                                Navigator.pop(sheet);
+                                action.$4();
+                              }),
+                      ])))));
+
+  Widget composer(FridayController c) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+      child: SafeArea(
+          top: false,
+          bottom: false,
+          child: Container(
+              decoration: BoxDecoration(
+                  color: Stitch.low,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Stitch.high)),
+              padding: const EdgeInsets.fromLTRB(18, 5, 6, 5),
+              child: Row(children: [
+                Expanded(
+                    child: TextField(
+                        controller: input,
+                        textInputAction: TextInputAction.send,
+                        minLines: 1,
+                        maxLines: 4,
+                        onSubmitted: (_) {
+                          if (!c.busy) send();
+                        },
+                        decoration: const InputDecoration(
+                            hintText: 'Type a message…',
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none))),
+                IconButton.filled(
+                    tooltip: 'Send',
+                    onPressed: c.busy ? null : send,
+                    icon: const Icon(Icons.arrow_upward, size: 22))
+              ]))));
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<FridayController>(),
-        local = context.watch<LocalModelService>();
-    final s = context.read<SpeechService>();
-    final status = s.isListening
-        ? 'Listening closely...'
-        : c.busy
-            ? '${c.phase}...'
-            : 'Ready when you are.';
-    return Scaffold(
-        appBar: StitchHeader(
-            title: tab == 0
-                ? 'Overview'
-                : tab == 2
-                    ? 'Activity'
-                    : 'Task Matrix',
-            onVoice: () => open(const ImmersiveVoiceScreen()),
-            onSettings: () => Navigator.pushNamed(context, '/settings')),
-        body: IndexedStack(index: tab, children: [
-          ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              children: [
-                Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_greeting(), style: Stitch.mono(11)),
-                      StitchBadge(local.isReady ? 'LOCAL READY' : 'LOCAL SETUP',
-                          color: local.isReady ? Stitch.green : Stitch.muted)
-                    ]),
-                const SizedBox(height: 8),
-                Text("I'm Friday.", style: Stitch.title(32)),
-                const SizedBox(height: 4),
-                const Text('Your personal ambient intelligence.',
-                    style: TextStyle(color: Stitch.muted, fontSize: 15)),
-                const SizedBox(height: 12),
-                StitchCard(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(children: [
-                      const Icon(Icons.memory, size: 16, color: Stitch.cyan),
-                      const SizedBox(width: 8),
-                      Text('Qwen 2.5 · 0.5B', style: Stitch.mono()),
-                      const Spacer(),
-                      const StitchBadge('ON-DEVICE')
-                    ])),
-                const SizedBox(height: 28),
-                Center(
-                    child: GestureDetector(
-                        onTap: talk,
-                        child: Semantics(
-                            button: true,
-                            label: 'Talk to Friday',
-                            child: FridayOrb()))),
-                const SizedBox(height: 12),
-                Center(child: Text(status, style: Stitch.title(20))),
-                const SizedBox(height: 6),
-                Center(
-                    child: Text(
-                        s.isListening
-                            ? 'MICROPHONE LISTENING'
-                            : 'TAP THE CORE TO TALK',
-                        style: Stitch.mono(10, Stitch.cyan))),
-                const SizedBox(height: 16),
-                Row(children: [
-                  for (final name in [
-                    'Idle',
-                    'Listening',
-                    'Thinking',
-                    'Speaking'
-                  ])
-                    Expanded(
-                        child: Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: StitchBadge(name,
-                                color: (s.isListening && name == 'Listening') ||
-                                        (!s.isListening &&
-                                            !c.busy &&
-                                            name == 'Idle') ||
-                                        (c.busy && name == 'Thinking')
-                                    ? Stitch.cyan
-                                    : Stitch.muted)))
-                ]),
-                const SizedBox(height: 28),
-                StitchCard(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    child: Row(children: [
-                      const Icon(Icons.auto_fix_high,
-                          size: 20, color: Stitch.muted),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: TextField(
-                              controller: input,
-                              onSubmitted: (_) => send(),
-                              decoration: const InputDecoration(
-                                  hintText: 'Ask Friday anything...',
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none))),
+    final c = context.watch<FridayController>();
+    final speech = context.read<SpeechService>();
+    final busy = c.busy || (context.watch<FridayAgent?>()?.running ?? false);
+    return ListenableBuilder(
+        listenable: speech.activity,
+        builder: (context, _) {
+          final listening = speech.isListening ||
+              speech.activity.value == SpeechActivity.listening;
+          final status = busy ? c.phase : 'Tap to talk, or type below';
+          final speaking = speech.activity.value == SpeechActivity.speaking;
+          final globeListening =
+              speech.activity.value == SpeechActivity.listening;
+          final globeMode = speaking
+              ? GlobeMode.speaking
+              : globeListening
+                  ? GlobeMode.listening
+                  : busy
+                      ? GlobeMode.thinking
+                      : GlobeMode.idle;
+          return Scaffold(
+              appBar: AppBar(
+                  title: Text(
+                      tab == 0
+                          ? 'Friday'
+                          : tab == 1
+                              ? 'Tasks'
+                              : 'Activity',
+                      style: Stitch.title(23)),
+                  titleSpacing: 22,
+                  actions: [
+                    if (tab == 0)
                       IconButton(
-                          tooltip: 'Send',
-                          onPressed: c.busy ? null : send,
-                          icon: const Icon(Icons.arrow_upward))
-                    ])),
-                const SizedBox(height: 18),
-                Center(
-                    child: FilledButton(
-                        style: FilledButton.styleFrom(
-                            backgroundColor: Stitch.cyan,
-                            foregroundColor: const Color(0xFF002C72),
-                            shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(20)),
-                        onPressed: talk,
-                        child: Icon(s.isListening ? Icons.stop : Icons.mic,
-                            size: 30))),
-                const SizedBox(height: 8),
-                Center(
-                    child: Text('Push to talk · microphone permission required',
-                        style: Stitch.mono(9))),
-                if (c.partialHeard.isNotEmpty)
-                  Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(c.partialHeard, textAlign: TextAlign.center)),
-                if (micError != null)
-                  Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(micError!)),
-                const SizedBox(height: 26),
-                Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('QUICK COMMANDS', style: Stitch.mono(11)),
-                      Text('Phone controls',
-                          style: Stitch.mono(10, Stitch.cyan))
-                    ]),
-                const SizedBox(height: 8),
-                _quick(
-                    'Read my screen',
-                    'Accessible text on this phone',
-                    Icons.document_scanner,
-                    Stitch.blue,
-                    () => c.send('read my screen')),
-                const SizedBox(height: 8),
-                Row(children: [
+                          tooltip: 'Chat history',
+                          icon: const Icon(Icons.chat_bubble_outline_rounded),
+                          onPressed: () => open(const HomeScreen())),
+                    IconButton(
+                        tooltip: 'Settings',
+                        icon: const Icon(Icons.tune_rounded),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/settings')),
+                    const SizedBox(width: 8)
+                  ]),
+              body: IndexedStack(index: tab, children: [
+                Column(children: [
                   Expanded(
-                      child: _quick(
-                          'Open YouTube',
-                          'App launch',
-                          Icons.smart_display,
-                          const Color(0xFFFFB4AB),
-                          () => c.send('open YouTube'))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: _quick(
-                          'Set alarm',
-                          'Choose a time',
-                          Icons.alarm,
-                          Stitch.cyan,
-                          () => command('Set alarm', 'set alarm for')))
+                      child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              SingleChildScrollView(
+                                  child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                          minHeight: constraints.maxHeight),
+                                      child: Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              24, 20, 24, 16),
+                                          child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                ResponsiveGlobe(
+                                                  mode: globeMode,
+                                                  active: tab == 0 &&
+                                                      (ModalRoute.of(context)
+                                                              ?.isCurrent ??
+                                                          true),
+                                                  onTap: speaking
+                                                      ? () {
+                                                          speech.stopSpeaking();
+                                                        }
+                                                      : busy
+                                                          ? null
+                                                          : talk,
+                                                ),
+                                                const SizedBox(height: 28),
+                                                Text('What can I help with?',
+                                                    textAlign: TextAlign.center,
+                                                    style: Stitch.title(29)),
+                                                const SizedBox(height: 10),
+                                                Text(
+                                                    speaking
+                                                        ? 'Speaking…'
+                                                        : globeListening
+                                                            ? 'Listening…'
+                                                            : status,
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                        color: Stitch.muted,
+                                                        fontSize: 15,
+                                                        height: 1.5)),
+                                                const SizedBox(height: 26),
+                                                FilledButton.icon(
+                                                    style: FilledButton.styleFrom(
+                                                        backgroundColor:
+                                                            Stitch.cyan,
+                                                        foregroundColor:
+                                                            const Color(
+                                                                0xFF08232A),
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                                horizontal: 28,
+                                                                vertical: 17)),
+                                                    onPressed:
+                                                        busy ? null : talk,
+                                                    icon: Icon(listening
+                                                        ? Icons.stop_rounded
+                                                        : Icons.mic_rounded),
+                                                    label: Text(
+                                                        listening
+                                                            ? 'Stop listening'
+                                                            : 'Talk to Friday',
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize: 16))),
+                                                const SizedBox(height: 12),
+                                                TextButton.icon(
+                                                    onPressed: moreActions,
+                                                    icon: const Icon(
+                                                        Icons.grid_view_rounded,
+                                                        size: 17),
+                                                    label: const Text(
+                                                        'More actions')),
+                                                if (c.partialHeard.isNotEmpty)
+                                                  Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 12),
+                                                      child: Text(
+                                                          c.partialHeard,
+                                                          textAlign: TextAlign
+                                                              .center)),
+                                                if (micError != null)
+                                                  Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 12),
+                                                      child: Text(micError!,
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: const TextStyle(
+                                                              color: Color(
+                                                                  0xFFFFB4AB)))),
+                                              ])))))),
+                  composer(c),
                 ]),
-                const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                      child: _quick(
-                          'Call someone',
-                          'Choose a contact',
-                          Icons.call,
-                          Stitch.green,
-                          () => command('Call someone', 'call'))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: _quick(
-                          'Ask AI Core',
-                          'Chat with Friday',
-                          Icons.psychology_alt,
-                          Stitch.blue,
-                          () => open(const HomeScreen())))
-                ]),
-                TextButton.icon(
-                    onPressed: () => open(const HomeScreen()),
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Chat')),
-                const SizedBox(height: 24),
-                StitchCard(
-                    color: const Color(0xFF0B0E15),
-                    padding: const EdgeInsets.all(10),
-                    child: Row(children: [
-                      const Icon(Icons.memory, color: Stitch.cyan, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                          child: Text(
-                              local.isReady ? 'Qwen loaded' : 'Qwen not loaded',
-                              style: Stitch.mono(10))),
-                      Text('CPU · .task', style: Stitch.mono(10, Stitch.green))
-                    ])),
-                TextButton.icon(
-                    onPressed: () => open(const AgentModeScreen()),
-                    icon: const Icon(Icons.smart_toy_outlined),
-                    label: const Text('Agent Mode · screen task details')),
-                if (c.messages.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('LATEST RESULT', style: Stitch.mono(10)),
-                  const SizedBox(height: 8),
-                  StitchCard(child: Text(c.messages.last.text)),
-                  TextButton(
-                      onPressed: () => open(const HomeScreen()),
-                      child: const Text('Open conversation'))
-                ]
+                BackgroundTasksScreen(
+                    embedded: true, onCreate: () => open(const HomeScreen())),
+                _activity(c),
               ]),
-          BackgroundTasksScreen(
-              embedded: true, onCreate: () => open(const HomeScreen())),
-          _activity(c)
-        ]),
-        bottomNavigationBar: NavigationBar(
-            backgroundColor: const Color(0xFF0B0E15),
-            indicatorColor: Stitch.low,
-            selectedIndex: tab,
-            onDestinationSelected: (v) {
-              if (v == 3) {
-                Navigator.pushNamed(context, '/settings');
-              } else {
-                setState(() => tab = v);
-              }
-            },
-            destinations: const [
-              NavigationDestination(
-                  icon: Icon(Icons.auto_awesome), label: 'Home'),
-              NavigationDestination(
-                  icon: Icon(Icons.checklist), label: 'Tasks'),
-              NavigationDestination(
-                  icon: Icon(Icons.stacked_line_chart), label: 'Activity'),
-              NavigationDestination(icon: Icon(Icons.tune), label: 'Settings')
-            ]));
+              bottomNavigationBar: NavigationBar(
+                  height: 72,
+                  backgroundColor: Stitch.bg,
+                  indicatorColor: Stitch.cyan.withValues(alpha: .12),
+                  selectedIndex: tab,
+                  onDestinationSelected: (value) => setState(() => tab = value),
+                  destinations: const [
+                    NavigationDestination(
+                        icon: Icon(Icons.auto_awesome_outlined),
+                        selectedIcon: Icon(Icons.auto_awesome),
+                        label: 'Home'),
+                    NavigationDestination(
+                        icon: Icon(Icons.checklist_rounded), label: 'Tasks'),
+                    NavigationDestination(
+                        icon: Icon(Icons.history_rounded), label: 'Activity'),
+                  ]));
+        });
   }
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    return h < 12
-        ? 'GOOD MORNING'
-        : h < 17
-            ? 'GOOD AFTERNOON'
-            : 'GOOD EVENING';
-  }
-
-  Widget _quick(String title, String subtitle, IconData icon, Color color,
-          VoidCallback action) =>
-      Material(
-          color: Stitch.low,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: action,
-              child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(children: [
-                    Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                            color: color.withValues(alpha: .12),
-                            borderRadius: BorderRadius.circular(12)),
-                        child: Icon(icon, color: color, size: 22)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text(subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Stitch.mono(9))
-                        ]))
-                  ]))));
   Widget _activity(FridayController c) =>
       ListView(padding: const EdgeInsets.all(20), children: [
         Text('Activity', style: Stitch.title(30)),

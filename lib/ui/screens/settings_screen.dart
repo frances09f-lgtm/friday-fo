@@ -102,285 +102,232 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final local = context.watch<LocalModelService>();
     return Scaffold(
-      appBar: const StitchHeader(title: 'Overview', back: true),
+      appBar: AppBar(title: Text('Settings', style: Stitch.title(23))),
       body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Row(children: [
-            const Icon(Icons.memory, color: Stitch.cyan, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text('AI ENGINE & ON-DEVICE INFERENCE',
-                    style: Stitch.mono(11))),
-            const StitchBadge('CPU')
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          children: [
+            const Text('Make Friday work for you.',
+                style: TextStyle(color: Stitch.muted, fontSize: 15)),
+            const SizedBox(height: 24),
+            _sectionLabel('Get started'),
+            StitchCard(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Column(children: [
+                  ListTile(
+                      leading: const Icon(Icons.assistant_outlined,
+                          color: Stitch.cyan),
+                      title: const Text('Assistant setup'),
+                      subtitle: const Text(
+                          'Microphone, floating assistant & power button'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const AssistantSetupScreen()))
+                          .then((_) => _readPermissions())),
+                  const Divider(color: Stitch.high, indent: 56, height: 1),
+                  ListTile(
+                      leading: const Icon(Icons.devices_outlined,
+                          color: Stitch.cyan),
+                      title: const Text('Connected devices'),
+                      subtitle: const Text('Pair Friday on another device'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const DeviceLinkScreen()))),
+                ])),
+            const SizedBox(height: 22),
+            _sectionLabel('Voice'),
+            StitchCard(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: SwitchListTile(
+                    title: const Text('Speak replies out loud'),
+                    subtitle: const Text('Turn off for quiet replies'),
+                    value: _speakReplies,
+                    onChanged: (value) =>
+                        setState(() => _speakReplies = value))),
+            const SizedBox(height: 22),
+            _sectionLabel('More settings'),
+            StitchCard(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Column(children: [
+                  ExpansionTile(
+                      leading: const Icon(Icons.psychology_outlined),
+                      title: const Text('AI & models'),
+                      subtitle: Text(local.isReady
+                          ? 'On-device model loaded'
+                          : 'On-device model not loaded'),
+                      childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
+                      children: [
+                        ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Qwen local model'),
+                            subtitle:
+                                const Text('Manage the existing .task model'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const LocalModelSetupScreen()))),
+                        SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('On-device fallback'),
+                            subtitle: const Text(
+                                'Used when cloud services are unavailable'),
+                            value: _localFallback,
+                            onChanged: (value) =>
+                                setState(() => _localFallback = value)),
+                        ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: const Text('Cloud fallback keys'),
+                            subtitle: const Text('Gemini, Groq and OpenRouter'),
+                            children: [
+                              const Text(
+                                  'Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
+                              const SizedBox(height: 12),
+                              _KeyField(
+                                  controller: _gemini,
+                                  label: 'Gemini API key',
+                                  hint: 'aistudio.google.com/apikey'),
+                              _KeyField(
+                                  controller: _groq,
+                                  label: 'Groq API key',
+                                  hint: 'console.groq.com/keys'),
+                              _KeyField(
+                                  controller: _openRouter,
+                                  label: 'OpenRouter API key',
+                                  hint: 'openrouter.ai/keys'),
+                              TextField(
+                                  controller: _groqModel,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Groq model')),
+                              const SizedBox(height: 12),
+                              TextField(
+                                  controller: _openRouterModel,
+                                  decoration: const InputDecoration(
+                                      labelText: 'OpenRouter model')),
+                            ]),
+                        if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                          ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              title:
+                                  const Text('Advanced legacy .task installer'),
+                              subtitle: const Text(
+                                  'Only runs when you choose Install'),
+                              children: [
+                                TextField(
+                                    controller: _modelUrl,
+                                    decoration: const InputDecoration(
+                                        labelText:
+                                            'Advanced legacy model URL (.task)')),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                    onPressed: _loadLocalModel,
+                                    icon: const Icon(Icons.download),
+                                    label:
+                                        const Text('Install specified .task')),
+                                if (_modelStatus.isNotEmpty) Text(_modelStatus),
+                              ]),
+                      ]),
+                  const Divider(color: Stitch.high, height: 1, indent: 54),
+                  ExpansionTile(
+                      leading: const Icon(Icons.shield_outlined),
+                      title: const Text('Permissions & phone controls'),
+                      subtitle: const Text('Review access and screen actions'),
+                      children: [
+                        ListTile(
+                            title: const Text('Accessibility Service'),
+                            subtitle: const Text(
+                                'Accessible screen text and checked actions'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const AgentModeScreen()))),
+                        ListTile(
+                            title: const Text('Microphone'),
+                            subtitle: Text(_permissions == null
+                                ? 'Permission not checked'
+                                : _permissions!['microphone'] == true
+                                    ? 'Allowed by Android'
+                                    : 'Permission needed'),
+                            onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AssistantSetupScreen()))
+                                .then((_) => _readPermissions())),
+                        ListTile(
+                            title: const Text('Floating assistant'),
+                            subtitle: Text(_permissions == null
+                                ? 'Permission not checked'
+                                : _permissions!['overlay'] == true
+                                    ? 'Display over other apps allowed'
+                                    : 'Display-over-apps permission needed'),
+                            onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AssistantSetupScreen()))
+                                .then((_) => _readPermissions())),
+                        if (!kIsWeb && Platform.isAndroid)
+                          ListTile(
+                              title: const Text('Spotify controls'),
+                              subtitle:
+                                  const Text('Optional notification access'),
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const SpotifyControlsScreen()))),
+                      ]),
+                  const Divider(color: Stitch.high, height: 1, indent: 54),
+                  ListTile(
+                      leading: const Icon(Icons.help_outline),
+                      title: const Text('Commands'),
+                      subtitle: const Text('What Friday can do'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const CommandsScreen()))),
+                ])),
+            const SizedBox(height: 24),
+            const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.lock_outline, size: 16, color: Stitch.muted),
+              SizedBox(width: 9),
+              Expanded(
+                  child: Text(
+                      'Provider keys stay in secure storage. Screen-action safety checks stay on.',
+                      style: TextStyle(
+                          color: Stitch.muted, fontSize: 12, height: 1.5)))
+            ]),
+            if (!kIsWeb && Platform.isWindows)
+              const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text(
+                      'Windows voice input uses your Groq key. Tap the microphone to start, then tap again to stop and send.',
+                      style: TextStyle(fontSize: 12, color: Stitch.muted))),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Save changes'),
+                style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16))),
           ]),
-          const SizedBox(height: 14),
-          StitchCard(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('Qwen 2.5 · 0.5B', style: Stitch.title(23)),
-                const SizedBox(height: 8),
-                const Text('Existing .task model · MediaPipe CPU inference',
-                    style: TextStyle(color: Stitch.muted)),
-                const SizedBox(height: 16),
-                ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.radio_button_checked,
-                        color: Stitch.cyan),
-                    title: const Text('Qwen local model'),
-                    subtitle: Text(context.watch<LocalModelService>().isReady
-                        ? 'Loaded on this device'
-                        : 'Load and test to check readiness'),
-                    trailing: Icon(
-                        context.watch<LocalModelService>().isReady
-                            ? Icons.check_circle_outline
-                            : Icons.settings_outlined,
-                        color: Stitch.cyan),
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const LocalModelSetupScreen()))),
-                SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('On-device fallback'),
-                    subtitle: const Text(
-                        'Used when cloud keys fail or are unavailable'),
-                    value: _localFallback,
-                    onChanged: (v) => setState(() => _localFallback = v)),
-                const SizedBox(height: 8),
-                StitchCard(
-                    color: Color(0xFF0B0E15),
-                    padding: EdgeInsets.all(12),
-                    child: Text('Saved Qwen file retained · No GGUF conversion',
-                        style: Stitch.mono(10, Stitch.green))),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const LocalModelSetupScreen())),
-                    icon: const Icon(Icons.memory),
-                    label: const Text('Manage existing .task model'))
-              ])),
-          const SizedBox(height: 22),
-          Row(children: [
-            const Icon(Icons.shield_outlined, color: Stitch.cyan, size: 18),
-            const SizedBox(width: 8),
-            Text('SYSTEM PRIVILEGES & SETUP', style: Stitch.mono(11))
-          ]),
-          const SizedBox(height: 12),
-          if (!kIsWeb && Platform.isAndroid)
-            ListTile(
-                title: const Text('Spotify controls'),
-                subtitle: const Text('Review optional notification access'),
-                leading: const Icon(Icons.music_note),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SpotifyControlsScreen()))),
-          StitchCard(
-              child: Column(children: [
-            ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading:
-                    const Icon(Icons.accessibility_new, color: Stitch.cyan),
-                title: const Text('Accessibility Service'),
-                subtitle:
-                    const Text('Accessible screen text and checked actions'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AgentModeScreen()))),
-            ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.mic_none, color: Stitch.cyan),
-                title: const Text('Microphone'),
-                subtitle: Text(_permissions == null
-                    ? 'Permission not checked'
-                    : _permissions!['microphone'] == true
-                        ? 'Allowed by Android'
-                        : 'Permission needed'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AssistantSetupScreen()))
-                    .then((_) => _readPermissions())),
-            ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.picture_in_picture_alt,
-                    color: Stitch.cyan),
-                title: const Text('Floating assistant'),
-                subtitle: Text(_permissions == null
-                    ? 'Permission not checked'
-                    : _permissions!['overlay'] == true
-                        ? 'Display over other apps allowed'
-                        : 'Display-over-apps permission needed'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AssistantSetupScreen()))
-                    .then((_) => _readPermissions())),
-            ListTile(
-                title: const Text('Assistant setup'),
-                subtitle:
-                    const Text('Floating bar, microphone and power button'),
-                leading: const Icon(Icons.assistant),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const AssistantSetupScreen()))),
-            ListTile(
-              leading: const Icon(Icons.devices),
-              title: const Text('Connected devices'),
-              subtitle:
-                  const Text('Pair this phone with Friday on another device'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const DeviceLinkScreen())),
-            ),
-            Card(
-                child: ListTile(
-                    leading: const Icon(Icons.terminal),
-                    title: const Text('Commands'),
-                    subtitle:
-                        const Text('All supported patterns and what they do'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const CommandsScreen())))),
-          ])),
-          const SizedBox(height: 24),
-          StitchCard(
-              child: ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  title: const Text('Cloud fallback keys'),
-                  subtitle: const Text('Gemini, Groq and OpenRouter'),
-                  children: [
-                Text('Cloud fallback keys',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                const Text(
-                    'Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.'),
-                const SizedBox(height: 12),
-                _KeyField(
-                    controller: _gemini,
-                    label: 'Gemini API key',
-                    hint: 'aistudio.google.com/apikey'),
-                _KeyField(
-                    controller: _groq,
-                    label: 'Groq API key',
-                    hint: 'console.groq.com/keys'),
-                _KeyField(
-                    controller: _openRouter,
-                    label: 'OpenRouter API key',
-                    hint: 'openrouter.ai/keys'),
-                TextField(
-                  controller: _groqModel,
-                  decoration: const InputDecoration(
-                    labelText: 'Groq model',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _openRouterModel,
-                  decoration: const InputDecoration(
-                    labelText: 'OpenRouter model',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ])),
-          const SizedBox(height: 24),
-          Row(children: [
-            const Icon(Icons.record_voice_over_outlined,
-                color: Stitch.blue, size: 18),
-            const SizedBox(width: 8),
-            Text('VOICE & AUDIO', style: Stitch.mono(11))
-          ]),
-          const SizedBox(height: 12),
-          StitchCard(
-              child: Column(children: [
-            Text('Voice', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Speak replies out loud'),
-              subtitle: const Text('Turn off to mute Friday'),
-              value: _speakReplies,
-              onChanged: (v) => setState(() => _speakReplies = v),
-            ),
-          ])),
-          if (!kIsWeb && Platform.isWindows) ...[
-            const Text(
-              'Voice input: tap the mic to start talking, tap again to stop '
-              'and send. Speech is transcribed with your Groq key; replies '
-              'speak through Windows voices. If the mic stays silent, check '
-              'Windows Settings > Privacy > Microphone.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-            ExpansionTile(
-                title: const Text('Advanced legacy .task installer'),
-                subtitle: const Text(
-                    'Does not run unless you explicitly choose Install'),
-                children: [
-                  Text('On-device backup',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Use on-device model when keys fail'),
-                    value: _localFallback,
-                    onChanged: (v) => setState(() => _localFallback = v),
-                  ),
-                  TextField(
-                    controller: _modelUrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Advanced legacy model URL (.task)',
-                      hintText: 'Optional existing .task source',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.download),
-                        label: const Text('Install specified .task'),
-                        onPressed: _loadLocalModel,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(_modelStatus)),
-                    ],
-                  ),
-                ]),
-          const SizedBox(height: 24),
-          StitchCard(
-              color: Color(0xFF0B0E15),
-              child: Row(children: [
-                const Icon(Icons.fingerprint, color: Stitch.cyan),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Text(
-                        'Provider keys stay in secure storage. Screen actions keep their existing safety checks.',
-                        style: Stitch.mono(10)))
-              ])),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            icon: const Icon(Icons.save),
-            label: const Text('Save'),
-            onPressed: _save,
-          ),
-        ],
-      ),
     );
   }
+
+  Widget _sectionLabel(String title) => Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      child: Text(title,
+          style: const TextStyle(
+              fontSize: 13, color: Stitch.muted, fontWeight: FontWeight.w600)));
 }
 
 class _KeyField extends StatelessWidget {

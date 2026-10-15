@@ -104,7 +104,9 @@ void main() {
           ChangeNotifierProvider<DeviceLink>(create: (_) => DeviceLink())
         ], child: RepaintBoundary(key: key, child: page));
     Future<void> capture(String name) async {
-      await t.pumpAndSettle();
+      // Voice states intentionally animate continuously; capture a bounded frame.
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
       expect(t.takeException(), isNull);
       await t.runAsync(() async {
         final im = await (key.currentContext!.findRenderObject()
@@ -177,8 +179,15 @@ void main() {
     await capture('settings-pass2');
     expect(find.textContaining('Gemini Nano'), findsNothing);
     expect(find.textContaining('GGUF / ONNX'), findsNothing);
+    expect(find.text('Microphone'), findsNothing);
+    await t.tap(find.text('Permissions & phone controls'));
+    await t.pumpAndSettle();
     expect(find.text('Microphone'), findsOneWidget);
     expect(find.text('Floating assistant'), findsOneWidget);
+    await t.tap(find.text('Permissions & phone controls'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('AI & models'));
+    await t.pumpAndSettle();
     expect(find.text('Cloud fallback keys'), findsOneWidget);
     await t.tap(find.text('Cloud fallback keys'));
     await t.pumpAndSettle();

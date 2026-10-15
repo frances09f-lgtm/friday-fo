@@ -19,9 +19,41 @@ import 'groq_stt.dart';
 /// have said something (user ask), or tap again to stop sooner. No partial
 /// words on Windows; the text lands when recording ends. Output is
 /// flutter_tts everywhere.
+enum SpeechActivity { idle, listening, speaking }
+
 class SpeechService {
   SpeechService({Future<String> Function()? groqKeyProvider})
-      : _groqKeyProvider = groqKeyProvider;
+      : _groqKeyProvider = groqKeyProvider {
+    _tts.setStartHandler(() => _setSpeaking(true));
+    _tts.setCompletionHandler(() => _setSpeaking(false));
+    _tts.setCancelHandler(() => _setSpeaking(false));
+    _tts.setPauseHandler(() => _setSpeaking(false));
+    _tts.setContinueHandler(() => _setSpeaking(true));
+    _tts.setErrorHandler((_) => _setSpeaking(false));
+  }
+
+  /// Plugin state only; no synthetic amplitude or claimed audio-level signal.
+  final ValueNotifier<SpeechActivity> activity =
+      ValueNotifier(SpeechActivity.idle);
+  bool _visualListening = false;
+  bool _visualSpeaking = false;
+  void _refreshActivity() {
+    activity.value = _visualSpeaking
+        ? SpeechActivity.speaking
+        : _visualListening
+            ? SpeechActivity.listening
+            : SpeechActivity.idle;
+  }
+
+  void _setListening(bool value) {
+    _visualListening = value;
+    _refreshActivity();
+  }
+
+  void _setSpeaking(bool value) {
+    _visualSpeaking = value;
+    _refreshActivity();
+  }
 
   final stt.SpeechToText _stt = stt.SpeechToText();
   final FlutterTts _tts = FlutterTts();
@@ -59,7 +91,10 @@ class SpeechService {
     }
     if (_sttReady) return true;
     try {
-      _sttReady = await _stt.initialize();
+      _sttReady = await _stt.initialize(
+        onStatus: (status) => _setListening(status == 'listening'),
+        onError: (_) => _setListening(false),
+      );
     } catch (_) {
       _sttReady = false;
     }
@@ -81,17 +116,25 @@ class SpeechService {
       return;
     }
     if (!_sttReady) return;
-    _stt.listen(
+    unawaited(_stt
+        .listen(
       onResult: (r) {
         onResult(r.recognizedWords);
-        if (r.finalResult) onDone();
+        if (r.finalResult) {
+          _setListening(false);
+          onDone();
+        }
       },
       listenOptions: SpeechListenOptions(
         localeId: localeId,
         partialResults: true,
         cancelOnError: true,
       ),
-    );
+    )
+        .catchError((Object error) {
+      _setListening(false);
+      lastSttError = 'Could not start the microphone.';
+    }));
   }
 
   Future<void> _startRecording() async {
@@ -100,6 +143,7 @@ class SpeechService {
         lastSttError =
             'Microphone permission is off. Enable it in Windows Settings > Privacy > Microphone.';
         _recListening = false;
+        _setListening(false);
         _onDone?.call();
         return;
       }
@@ -114,23 +158,33 @@ class SpeechService {
         path: _wavPath!,
       );
       _recListening = true;
+      _setListening(true);
       _maxTimer = Timer(const Duration(seconds: 90), () => stopListening());
       _startSilenceWatch();
     } catch (_) {
       lastSttError = 'Could not start the microphone.';
       _recListening = false;
+      _setListening(false);
       _onDone?.call();
     }
   }
 
   Future<void> stopListening() async {
-    if (!_isWindows) return _stt.stop();
+    if (!_isWindows) {
+      try {
+        await _stt.stop();
+      } finally {
+        _setListening(false);
+      }
+      return;
+    }
     _maxTimer?.cancel();
     _maxTimer = null;
     _ampTimer?.cancel();
     _ampTimer = null;
     if (!_recListening) return;
     _recListening = false;
+    _setListening(false);
     try {
       await _rec.stop();
     } catch (_) {}
@@ -144,8 +198,7 @@ class SpeechService {
     try {
       final key = (await _groqKeyProvider?.call()) ?? '';
       if (key.isEmpty) {
-        lastSttError =
-            'Voice input needs a Groq API key. Add one in Settings.';
+        lastSttError = 'Voice input needs a Groq API key. Add one in Settings.';
       } else {
         final text = await GroqStt(apiKey: key).transcribe(path);
         if (text.isEmpty) {
@@ -188,16 +241,15 @@ class SpeechService {
         _silenceSince ??= now;
         final quietFor = now.difference(_silenceSince!);
         final heardEnough = _recStartedAt != null &&
-            _silenceSince!.isAfter(
-                _recStartedAt!.add(const Duration(milliseconds: 800)));
+            _silenceSince!
+                .isAfter(_recStartedAt!.add(const Duration(milliseconds: 800)));
         if (_heardSpeech &&
             heardEnough &&
             quietFor >= const Duration(milliseconds: 1800)) {
           await stopListening();
         } else if (!_heardSpeech &&
             _recStartedAt != null &&
-            now.difference(_recStartedAt!) >=
-                const Duration(seconds: 10)) {
+            now.difference(_recStartedAt!) >= const Duration(seconds: 10)) {
           await stopListening();
         }
       }
@@ -215,8 +267,16 @@ class SpeechService {
       await _tts.speak(text).timeout(const Duration(seconds: 90));
     } catch (_) {
       // Speaking is a nicety; never block the answer on it.
+    } finally {
+      _setSpeaking(false);
     }
   }
 
-  Future<void> stopSpeaking() => _tts.stop();
+  Future<void> stopSpeaking() async {
+    try {
+      await _tts.stop();
+    } finally {
+      _setSpeaking(false);
+    }
+  }
 }

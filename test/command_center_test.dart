@@ -86,7 +86,7 @@ void main() {
     expect(find.byTooltip('Pair devices'), findsNothing);
     expect(find.byTooltip('Assistant setup'), findsNothing);
     expect(find.byTooltip('Settings'), findsWidgets);
-    expect(find.text("I'm Friday."), findsOneWidget);
+    expect(find.text('What can I help with?'), findsOneWidget);
     expect(find.byType(ActionChip), findsNothing);
     expect(find.text('Previous session private text'), findsNothing);
     expect(find.text('Home'), findsOneWidget);
@@ -150,9 +150,7 @@ void main() {
       await File('/tmp/friday-session-home.png')
           .writeAsBytes(d!.buffer.asUint8List());
     });
-    await t.scrollUntilVisible(find.text('Chat'), 300,
-        scrollable: find.byType(Scrollable).first);
-    await t.tap(find.text('Chat'));
+    await t.tap(find.byTooltip('Chat history'));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsWidgets);
     expect(find.text('Done'), findsNothing);
