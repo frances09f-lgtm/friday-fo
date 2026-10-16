@@ -42,6 +42,44 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
       AgentGoal goal, Map<String, dynamic> screen, List<String> history) async {
     if (!goal.settings) {
       final recipe = WorkflowPlanner.next(goal, screen, history);
+      if (goal.package == 'com.whatsapp' &&
+          {'contact', 'search'}.contains(goal.workflow)) {
+        // These are exact, deterministic navigation recipes. Missing/ambiguous
+        // controls are not a reason to ask an LLM to invent another action.
+        if (recipe != null && recipe.action != 'wait') return recipe;
+        final elements = (screen['elements'] as List?) ?? [];
+        final protected = elements.any((e) => RegExp(
+                r'\b(login|log.?in|sign.?in|permission|allow)\b',
+                caseSensitive: false)
+            .hasMatch('${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'));
+        final searchControls = elements.where((e) =>
+            (e['editable'] == true || e['clickable'] == true) &&
+            RegExp(r'search', caseSensitive: false).hasMatch(
+                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''}') &&
+            !WorkflowPlanner.clearControl(
+                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'));
+        final fields = searchControls.where((e) => e['editable'] == true);
+        final ambiguous =
+            fields.length > 1 || (fields.isEmpty && searchControls.length > 1);
+        final waits = history
+            .where((h) => RegExp(r'^Step [0-9]+ wait: verified$').hasMatch(h))
+            .length;
+        if (!protected && !ambiguous && waits < 2) {
+          return AgentAction(
+              action: 'wait',
+              confidence: 1,
+              reason:
+                  'Wait briefly for readable WhatsApp search controls/results');
+        }
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason: protected
+                ? 'WhatsApp shows a sign-in or permission prompt. Complete it yourself before retrying.'
+                : ambiguous
+                    ? 'Several WhatsApp search controls match. Open the main chat list and retry; no control was guessed.'
+                    : 'WhatsApp search controls or an exact chat result could not be verified. Open its main chat list and retry; no chat was guessed.');
+      }
       if (recipe != null) return recipe;
     }
     // The installed local engine has a small context window. Rank the whole
@@ -309,7 +347,7 @@ class FridayAgent extends ChangeNotifier {
         steps++;
         if (a.action == 'ask_confirmation') {
           result =
-              'Local model asked for help with the next step. No confirmation action is queued. Inspect Last decision below; you can finish manually.';
+              'Friday asked for help: ${a.reason.isEmpty ? 'The next step needs your help.' : a.reason} No confirmation action is queued. You can finish manually.';
           break;
         }
         if (!a.confidence.isFinite || a.confidence < .8 || a.confidence > 1) {
