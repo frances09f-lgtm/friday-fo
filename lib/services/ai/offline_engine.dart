@@ -29,7 +29,7 @@ class OfflineEngine {
   );
 
   static final _whatsApp = RegExp(
-    r'^(?:send\s+)?(?:a\s+)?whatsapp(?:\s+message)?\s+(?:to\s+)?(?<who>.+?)\s+(?:saying|that)\s+(?<what>.+?)[\s.!?]*$',
+    r'^\s*(?:send\s+)?(?:a\s+)?whatsapp(?:\s+message)?\s+(?:to\s+)?(?<who>.+?)\s+(?:saying|that)[ \t](?<what>[\s\S]+)$',
     caseSensitive: false,
   );
 
@@ -174,6 +174,19 @@ class OfflineEngine {
   }
 
   FridayResponse handle(String text, {DateTime? now}) {
+    // WhatsApp named explicitly: route to WhatsApp, never to SMS.
+    final wa = _whatsApp.firstMatch(text);
+    if (wa != null) {
+      final who = wa.namedGroup('who')!.trim();
+      final what = wa.namedGroup('what')!;
+      return FridayResponse(
+        reply: 'Opening WhatsApp for $who.',
+        action: FridayAction(
+            type: FridayActionType.sendWhatsApp, target: who, body: what),
+        source: FridaySource.offline,
+      );
+    }
+
     final t =
         normalizeTradeSpeech(normalizeSiblingNames(text.trim().toLowerCase()));
     final clock = now ?? DateTime.now();
@@ -384,19 +397,6 @@ class OfflineEngine {
       return FridayResponse(
         reply: 'Calling $who.',
         action: FridayAction(type: FridayActionType.callContact, target: who),
-        source: FridaySource.offline,
-      );
-    }
-
-    // WhatsApp named explicitly: route to WhatsApp, never to SMS.
-    final wa = _whatsApp.firstMatch(text.trim());
-    if (wa != null) {
-      final who = wa.namedGroup('who')!.trim();
-      final what = wa.namedGroup('what')!.trim();
-      return FridayResponse(
-        reply: 'Opening WhatsApp for $who.',
-        action: FridayAction(
-            type: FridayActionType.sendWhatsApp, target: who, body: what),
         source: FridaySource.offline,
       );
     }

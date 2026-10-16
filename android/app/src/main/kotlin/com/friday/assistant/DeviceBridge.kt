@@ -78,9 +78,11 @@ object DeviceBridge {
                     requestPermissions(activity, arrayOf(Manifest.permission.READ_SMS))
                     result.success(true)
                 }
-                "callContact" -> result.success(callContact(context, activity, call.argument<String>("who") ?: ""))
-                "sendWhatsApp" -> result.success(sendWhatsApp(context, activity,
-                    call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
+                "callContact" -> RecipientConfirmationActivity.request(context, activity,
+                    RecipientRequest(RecipientOperation.CALL, call.argument<String>("who") ?: ""), result)
+                "sendWhatsApp" -> RecipientConfirmationActivity.request(context, activity,
+                    RecipientRequest(RecipientOperation.WHATSAPP_DRAFT, call.argument<String>("who") ?: "",
+                        call.argument<String>("text") ?: ""), result)
                 "sendText" -> result.success(sendText(context, activity,
                     call.argument<String>("who") ?: "", call.argument<String>("text") ?: ""))
                 "setVolume" -> result.success(setVolumePercent(context, call.argument<Int>("percent") ?: -1))
@@ -367,74 +369,8 @@ object DeviceBridge {
         return "pick:" + matches.joinToString("|") { it["name"]!! }
     }
 
-    private fun sendWhatsApp(context: Context, activity: Activity?, who: String, text: String): String {
-        if (who.isBlank() || text.isBlank()) return "error"
-        if (needsPhonePermissions(context, who)) {
-            requestPermissions(
-                activity,
-                arrayOf(
-                    Manifest.permission.READ_CONTACTS,
-                    Manifest.permission.CALL_PHONE,
-                    Manifest.permission.SEND_SMS
-                )
-            )
-            return "asked"
-        }
-        val resolved = resolveContact(context, who)
-        if (resolved.isEmpty()) return "no_match"
-        if (resolved.startsWith("pick:")) return resolved
-        var digits = resolved.filter { it.isDigit() }
-        // Local 10-digit numbers get the user's home country code (+91).
-        if (digits.length == 10) digits = "91$digits"
-        return try {
-            val uri = android.net.Uri.parse(
-                "whatsapp://send?phone=$digits&text=" + android.net.Uri.encode(text)
-            )
-            context.startActivity(
-                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-            "opened"
-        } catch (e: android.content.ActivityNotFoundException) {
-            "no_whatsapp"
-        } catch (e: Exception) {
-            "error"
-        }
-    }
-
     private fun needsPhonePermissions(context: Context, who: String): Boolean =
         !looksLikeNumber(who) && !hasPermission(context, Manifest.permission.READ_CONTACTS)
-
-    private fun callContact(context: Context, activity: Activity?, who: String): String {
-        if (who.isBlank()) return "error"
-        if (needsPhonePermissions(context, who) ||
-            (!looksLikeNumber(who) && !hasPermission(context, Manifest.permission.CALL_PHONE))
-        ) {
-            requestPermissions(
-                activity,
-                arrayOf(
-                    Manifest.permission.READ_CONTACTS,
-                    Manifest.permission.CALL_PHONE,
-                    Manifest.permission.SEND_SMS
-                )
-            )
-            return "asked"
-        }
-        val number = resolveContact(context, who)
-        if (number.isEmpty()) return "no_match"
-        if (number.startsWith("pick:")) return number
-        val uri = android.net.Uri.parse("tel:$number")
-        return try {
-            if (hasPermission(context, Manifest.permission.CALL_PHONE)) {
-                context.startActivity(Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                "calling"
-            } else {
-                context.startActivity(Intent(Intent.ACTION_DIAL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                "dialer"
-            }
-        } catch (e: Exception) {
-            "error"
-        }
-    }
 
     private fun sendText(context: Context, activity: Activity?, who: String, text: String): String {
         if (who.isBlank() || text.isBlank()) return "error"

@@ -259,10 +259,31 @@ class IntentRouter {
         '${query.isEmpty ? '' : ' matching "$query"'}. Latest: ${lines.join(' | ')}';
   }
 
+  /// Native recipient confirmation is one-use and cannot be resumed by an AI reply.
+  static String? recipientConfirmationReply(String outcome) {
+    switch (outcome) {
+      case 'cancelled':
+        return 'Recipient confirmation cancelled. No call or WhatsApp draft was opened.';
+      case 'recipient_changed':
+        return 'The contact or matching numbers changed. Nothing opened; ask again to review the current contact.';
+      case 'confirmation_expired':
+        return 'Recipient confirmation expired. Nothing opened; ask again when ready.';
+      case 'confirmation_unavailable':
+        return 'Could not show recipient confirmation. Nothing opened.';
+      case 'locked':
+        return 'Unlock your phone and ask again. Nothing opened.';
+      case 'agent_running':
+        return 'Stop Agent Mode before calling or opening a WhatsApp draft.';
+    }
+    return null;
+  }
+
   Future<String> _callContact(FridayAction action) async {
     final who = action.target.isNotEmpty ? action.target : action.query;
     if (who.isEmpty) return 'Who should I call?';
     final callResult = await deviceHub.callContact(who);
+    final confirmationReply = recipientConfirmationReply(callResult);
+    if (confirmationReply != null) return confirmationReply;
     if (callResult.startsWith('pick:')) {
       return 'I found a few contacts: ${callResult.substring(5).split('|').join(', ')}. Say the full name and I will call the right one.';
     }
@@ -307,12 +328,14 @@ class IntentRouter {
       return 'Tell me who to message on WhatsApp and what to say.';
     }
     final result = await deviceHub.sendWhatsApp(who, action.body);
+    final confirmationReply = recipientConfirmationReply(result);
+    if (confirmationReply != null) return confirmationReply;
     if (result.startsWith('pick:')) {
       return 'I found a few contacts: ${result.substring(5).split('|').join(', ')}. Say the full name and I will open WhatsApp for the right one.';
     }
     switch (result) {
       case 'opened':
-        return '';
+        return 'Opened the WhatsApp draft. Review the recipient and message, then tap Send in WhatsApp yourself.';
       case 'asked':
         return 'I need contacts permission to message on WhatsApp. Allow it and ask again.';
       case 'no_match':
