@@ -201,8 +201,9 @@ void main() {
     final a = FridayAgent(brain: LocalBrain(l), device: d);
     await a.start('Open YouTube and search for GTA 6');
     expect(l.calls, 0);
-    expect(d.acts, 2); // Read-only waits, not taps or writes.
-    expect(a.result, contains('missing or ambiguous'));
+    expect(d.acts, 3); // Two waits and one bounded exact-query platform intent.
+    expect(a.result, contains('already attempted'));
+    expect(a.result, isNot('Done'));
     expect(a.rejectedOutput, isEmpty);
     a.clearRejectedOutput();
     expect(a.rejectedOutput, isEmpty);

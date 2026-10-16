@@ -129,6 +129,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           .then((_) => _readPermissions())),
                   const Divider(color: Stitch.high, indent: 56, height: 1),
                   ListTile(
+                      leading: const Icon(Icons.contact_phone_outlined,
+                          color: Stitch.cyan),
+                      title: const Text('Saved call name matches'),
+                      subtitle: const Text(
+                          'Review or forget names you chose to remember on this phone'),
+                      onTap: () async {
+                        try {
+                          await const MethodChannel('friday/device')
+                              .invokeMethod('manageSavedCallMatches');
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Open Friday on Android to manage saved matches.')));
+                          }
+                        }
+                      }),
+                  ListTile(
                       leading: const Icon(Icons.devices_outlined,
                           color: Stitch.cyan),
                       title: const Text('Connected devices'),

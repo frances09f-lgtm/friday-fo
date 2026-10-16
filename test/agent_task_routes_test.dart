@@ -214,7 +214,13 @@ void main() {
       final m = NoModel();
       final a = await LocalBrain(m).decide(
           goal, s(pkg, []), ['Step 1 wait: verified', 'Step 2 wait: verified']);
-      expect(a.action, 'ask_confirmation');
+      if ({yt, chrome}.contains(pkg)) {
+        expect(a.action, 'search_intent');
+        expect(a.target['package'], pkg);
+        expect(a.text, 'Rahul');
+      } else {
+        expect(a.action, 'ask_confirmation');
+      }
       expect(m.calls, 0);
     });
   }

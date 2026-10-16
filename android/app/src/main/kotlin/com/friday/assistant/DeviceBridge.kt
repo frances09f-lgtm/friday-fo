@@ -50,6 +50,10 @@ object DeviceBridge {
                         else result.success(selected)
                     }
                 }
+                "manageSavedCallMatches" -> {
+                    if (activity == null) result.error("foreground_required","Open Friday Settings to manage saved call matches",null)
+                    else { RecipientConfirmationActivity.manageSavedMatches(activity); result.success(true) }
+                }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
                 "spotifyState" -> result.success(SpotifySessionControl.state(context))

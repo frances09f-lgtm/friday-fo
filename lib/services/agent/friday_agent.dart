@@ -85,12 +85,48 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
       // A missing control is not authority to improvise model navigation.
       if (goal.noPlanner && screen['package'] != null) {
         final waits = history.where((h) => h.contains('wait: verified')).length;
+        final elements = ((screen['elements'] as List?) ?? []);
+        final protected = screen['blocked'] == true ||
+            elements.any((e) => RegExp(
+                    r'\b(login|log.?in|sign.?in|permission|allow)\b',
+                    caseSensitive: false)
+                .hasMatch(
+                    '${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'));
+        final searchControls = elements.where((e) =>
+            (e['editable'] == true || e['clickable'] == true) &&
+            RegExp(r'search|url_bar|omnibox', caseSensitive: false).hasMatch(
+                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['hintText'] ?? ''}') &&
+            !WorkflowPlanner.clearControl(
+                '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''} ${e['text'] ?? ''}'));
+        // Successful waits reset action retries. Previously a missing-control
+        // stop never reached the existing exact-package search-intent recovery.
+        // Do not use it to bypass ambiguous, protected or incomplete screens.
+        if (waits >= 2 &&
+            !protected &&
+            screen['truncated'] != true &&
+            screen['package'] == goal.package &&
+            searchControls.isEmpty &&
+            elements.every((e) => e['editable'] != true) &&
+            {'com.android.chrome', 'com.google.android.youtube'}
+                .contains(goal.package) &&
+            {'search', 'play'}.contains(goal.workflow) &&
+            goal.query.length <= 200) {
+          return AgentAction(
+              action: 'search_intent',
+              target: {'package': goal.package},
+              text: goal.query,
+              confidence: 1,
+              reason:
+                  'No exposed search control after bounded observation; try exact app search once',
+              expect: {'package': goal.package});
+        }
+
         return AgentAction(
             action: waits < 2 ? 'wait' : 'ask_confirmation',
             confidence: 1,
             reason: waits < 2
                 ? 'Wait for supported task controls to load'
-                : 'The required controls are missing or ambiguous. No control was guessed; inspect the app screen.');
+                : 'Search/navigation controls could not be uniquely identified. Observed ${elements.length} elements, ${elements.where((e) => e['editable'] == true).length} editors; capture ${screen['truncated'] == true ? 'incomplete' : 'within limits'}. Open the target app screen and inspect its controls; no control was guessed.');
       }
     }
     // The installed local engine has a small context window. Rank the whole
@@ -344,7 +380,6 @@ class FridayAgent extends ChangeNotifier {
                     a.reason.contains(
                         'Previously verified search text disappeared')))) {
           // One exact package/query fallback, never another text write.
-          searchIntentAttempted = true;
           a = AgentAction(
               action: 'search_intent',
               target: {'package': g.package},
@@ -352,6 +387,11 @@ class FridayAgent extends ChangeNotifier {
               confidence: 1,
               reason: 'Open exact results once after an unverified search path',
               expect: {'package': g.package});
+        }
+        if (a.action == 'search_intent' && searchIntentAttempted) {
+          result =
+              'Exact app search was already attempted; results could not be verified. Inspect the target screen. No search repeated.';
+          break;
         }
         if (a.action == 'search_intent') searchIntentAttempted = true;
         lastAction = a;
@@ -629,7 +669,16 @@ class FridayAgent extends ChangeNotifier {
   }
 
   static bool chromeSearchResult(String query, Map<String, dynamic> screen) {
-    if (screen['package'] != 'com.android.chrome') return false;
+    if (screen['package'] != 'com.android.chrome' ||
+        screen['success'] == false ||
+        screen['blocked'] == true) {
+      return false;
+    }
+    // An edited URL or autocomplete is not a submitted search.
+    if (((screen['elements'] as List?) ?? [])
+        .any((e) => e['editable'] == true && e['focused'] == true)) {
+      return false;
+    }
     return ((screen['elements'] as List?) ?? []).any((e) {
       if (!RegExp(r'url_bar|omnibox', caseSensitive: false)
           .hasMatch('${e['resourceId'] ?? ''}')) return false;

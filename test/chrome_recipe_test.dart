@@ -70,6 +70,8 @@ void main() {
       'resourceId': 'com.android.chrome:id/url_bar',
       'text': 'Search or type web address',
       'editable': false,
+      'clickable':
+          true, // Android capture explicitly reports actionable NTP bars.
       'focused': false
     };
     final tap = WorkflowPlanner.next(g, s([idle]))!;

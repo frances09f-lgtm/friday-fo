@@ -13,6 +13,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.ContactsContract
+import android.widget.CheckBox
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodChannel
@@ -50,9 +52,17 @@ class RecipientConfirmationActivity : Activity() {
                 result.success("asked"); return
             }
             if (numeric) { result.success(dispatch(context, request, request.query.trim())); return }
-            val resolution = try { resolve(context, request.query) } catch (_: Exception) { result.success("error"); return }
+            val rows = try { contactRows(context) } catch (_: Exception) { result.success("error"); return }
+            val matches = SavedContactMatches(ContactMatchPreferences(context))
+            val remembered = matches.resolve(request.query, rows, request.operation)
+            if (remembered != null) {
+                // Dispatch still rechecks lock, running agent and CALL_PHONE.
+                result.success(dispatch(context, request, remembered.number)); return
+            }
+            val staleCallAlias = request.operation == RecipientOperation.CALL && matches.has(request.query)
+            val resolution = ContactNameMatcher.resolve(request.query, rows)
             if (resolution.candidates.isEmpty()) { result.success("no_match"); return }
-            if (resolution.exactUnique) {
+            if (resolution.exactUnique && !staleCallAlias) {
                 // Preserve unique exact-match behavior; no approximate candidate reaches this path.
                 result.success(dispatch(context, request, resolution.candidates.single().number)); return
             }
@@ -69,7 +79,8 @@ class RecipientConfirmationActivity : Activity() {
         }
         // Used only for rendering this single in-memory request, never accepted from an Intent.
         private var candidates: List<ContactEndpoint> = emptyList()
-        private fun resolve(context: Context, query: String): RecipientResolution {
+        private fun resolve(context: Context, query: String): RecipientResolution = ContactNameMatcher.resolve(query, contactRows(context))
+        private fun contactRows(context: Context): List<ContactEndpoint> {
             if (!permitted(context, Manifest.permission.READ_CONTACTS)) throw SecurityException()
             val rows = mutableListOf<ContactEndpoint>()
             context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
@@ -77,7 +88,30 @@ class RecipientConfirmationActivity : Activity() {
                 while (cursor.moveToNext()) rows.add(ContactEndpoint(cursor.getLong(0).toString(), cursor.getString(1) ?: "",
                     cursor.getString(2) ?: "", cursor.getString(3) ?: ""))
             } ?: throw IllegalStateException("Contacts unavailable")
-            return ContactNameMatcher.resolve(query, rows)
+            return rows
+        }
+        fun manageSavedMatches(activity: Activity) {
+            if (locked(activity) || FridayAccessibilityService.current?.isRunning == true) return
+            val matches = SavedContactMatches(ContactMatchPreferences(activity))
+            fun show() {
+                val saved=matches.all()
+                if (saved.isEmpty()) {
+                    AlertDialog.Builder(activity).setTitle("Saved call name matches")
+                        .setMessage("No saved matches. These stay on this phone and only apply to calls.")
+                        .setPositiveButton("Close", null).show(); return
+                }
+                AlertDialog.Builder(activity).setTitle("Saved call name matches · tap to forget")
+                    .setItems(saved.map { "${it.alias} → ${it.endpoint.name}\n${it.endpoint.number}" }.toTypedArray()) { _, index ->
+                        val selected=saved[index]
+                        AlertDialog.Builder(activity).setTitle("Forget this name match?")
+                            .setMessage("${selected.alias} → ${selected.endpoint.name}\n${selected.endpoint.number}")
+                            .setPositiveButton("Forget") { _, _ ->
+                                if (!matches.forget(selected.alias)) Toast.makeText(activity,"Could not forget match",Toast.LENGTH_LONG).show()
+                                show()
+                            }.setNegativeButton("Keep", null).show()
+                    }.setNegativeButton("Close", null).show()
+            }
+            show()
         }
         private fun dispatch(context: Context, request: RecipientRequest, number: String): String {
             if (locked(context)) return "locked"
@@ -139,16 +173,27 @@ class RecipientConfirmationActivity : Activity() {
         val call = current.consent.request.operation == RecipientOperation.CALL
         val message = "You asked for: ${current.consent.request.query}\n\n${endpoint.name}\n${endpoint.number}" +
             if (call) "\n\nCall this contact?" else "\nWhatsApp destination: +${ContactNameMatcher.whatsAppDigits(endpoint.number)}\n\nMessage (unchanged):\n${current.consent.request.body}\n\nOpen this WhatsApp draft? Nothing is sent until you tap Send in WhatsApp."
+        val remember = CheckBox(this).apply {
+            text = "Always use this contact for this name when calling\nSaved only on this phone. Forget it in Settings → Saved call name matches."
+            isChecked = false
+        }
         dialog = AlertDialog.Builder(this).setTitle(if (call) "Confirm contact to call" else "Confirm WhatsApp recipient")
             .setMessage(message)
+            .setView(if (call) remember else null)
             .setPositiveButton(if (call) "Call ${endpoint.name}" else "Open WhatsApp draft") { _, _ ->
                 if (pending?.id != requestId || dialog?.window?.decorView?.hasWindowFocus() != true || locked(this)) {
                     complete(requestId, "confirmation_expired"); finish(); return@setPositiveButton
                 }
-                val latest = try { resolve(this, current.consent.request.query) } catch (_: Exception) { null }
+                val latestRows = try { contactRows(this) } catch (_: Exception) { null }
+                val latest = latestRows?.let { ContactNameMatcher.resolve(current.consent.request.query, it) }
                 val approved = latest?.let { current.consent.confirm(it, SystemClock.elapsedRealtime()) }
                 if (approved == null) { complete(requestId, "recipient_changed"); finish(); return@setPositiveButton }
                 // Consent is consumed synchronously before dispatch. Double taps cannot dial twice.
+                if (call && remember.isChecked && latestRows != null) {
+                    val saved = SavedContactMatches(ContactMatchPreferences(this)).remember(current.consent.request.query,
+                        approved, latestRows, current.consent.request.operation, explicitlyChecked = true, confirmed = true)
+                    if (!saved) Toast.makeText(this,"Match not saved: contact is ambiguous, changed, or conflicts with an older match. Manage saved matches in Settings.",Toast.LENGTH_LONG).show()
+                }
                 val outcome = dispatch(this, current.consent.request, approved.number)
                 complete(requestId, outcome); finish()
             }.setNegativeButton("Cancel") { _, _ -> complete(requestId, "cancelled"); finish() }
