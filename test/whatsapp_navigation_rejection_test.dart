@@ -227,9 +227,9 @@ void main() {
     }
   });
 
-  test('other workflows still reject malformed model output', () async {
+  test('nonrecipe model path still rejects malformed output', () async {
     final model = RejectingModel();
-    final youtube = AgentGoal.parse('Open YouTube and search for cats')!;
+    const youtube = AgentGoal('custom', 'example.custom', 'cats');
     await expectLater(
         LocalBrain(model).decide(
             youtube, screen('unknown', [], package: youtube.package), []),

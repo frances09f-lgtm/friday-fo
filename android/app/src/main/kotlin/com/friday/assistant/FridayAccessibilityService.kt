@@ -192,7 +192,14 @@ class FridayAccessibilityService : AccessibilityService() {
   }
   if(now["package"]!=allowed){result.success(fail("Wrong foreground app",true));return}
   if(action in setOf("wait","read_screen")){result.success(ok());return}
-  if(action=="back"){if(workflow!="commands"||commands.none{it["action"]=="back"}){result.success(fail("Back not authorized by this workflow",true));return};resultAnswer(result,performGlobalAction(GLOBAL_ACTION_BACK));return}
+  if(action=="back"){
+   val chatExit=ConversationExitPolicy.permits(allowed,workflow,
+    nodes.any{Regex("conversation_contact|conversation_title",RegexOption.IGNORE_CASE).containsMatchIn(it.viewIdResourceName?:"")},
+    nodes.any{it.isEditable&&Regex("(?:^|[/_:])entry$|message",RegexOption.IGNORE_CASE).containsMatchIn("${it.viewIdResourceName?:""} ${it.contentDescription?:""}".trim())},
+    nodes.any{Regex("\\b(login|log.?in|sign.?in|permission|allow)\\b",RegexOption.IGNORE_CASE).containsMatchIn(label(it))})
+   if(!chatExit&&(workflow!="commands"||commands.none{it["action"]=="back"})){result.success(fail("Back not authorized by this workflow",true));return}
+   resultAnswer(result,performGlobalAction(GLOBAL_ACTION_BACK));return
+  }
   // Home deliberately not dispatched: changes target context without a goal.
   if(action=="search_intent"){
    if(searchIntentAttempted||allowed !in setOf("com.google.android.youtube","com.android.chrome")||workflow !in setOf("search","play")||target["package"]!=allowed||text!=query||query.isBlank()||query.length>200){result.success(fail("Search intent outside exact YouTube task",true));return}

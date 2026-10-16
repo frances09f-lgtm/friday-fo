@@ -31,7 +31,7 @@ class WorkflowPlanner {
         .join(' ')
         .toLowerCase();
     return queryVisible &&
-        RegExp(r'\b(filter|results|videos|all|accounts|reels)\b')
+        RegExp(r'\b(filters?|results|videos|all|accounts|reels)\b')
             .hasMatch(markers);
   }
 
@@ -85,7 +85,9 @@ class WorkflowPlanner {
         !clearControl(label(e)) &&
         RegExp(r'search|url_bar|omnibox', caseSensitive: false)
             .hasMatch(label(e));
-    if (screen['package'] == null) return null;
+    if (screen['success'] == false ||
+        screen['blocked'] == true ||
+        screen['package'] == null) return null;
     if (screen['package'] != g.package)
       return AgentAction(
           action: 'open_app',
@@ -96,6 +98,40 @@ class WorkflowPlanner {
         AgentGoal.unsafeLabel(label(e)) &&
         RegExp(r'login|log.?in|sign.?in|permission|allow', caseSensitive: false)
             .hasMatch(label(e)))) return null;
+    if (g.settings) {
+      final controls = es
+          .where((e) =>
+              e['editable'] != true &&
+              e['text']?.toString().trim().toLowerCase() == 'bluetooth')
+          .toList();
+      final a = choose('tap', controls);
+      if (a == null) return null;
+      return AgentAction(
+          action: 'tap',
+          target: a.target,
+          confidence: 1,
+          expect: {'package': g.package, 'settingsPage': true});
+    }
+    if (g.package == 'com.whatsapp' &&
+        {'contact', 'search'}.contains(g.workflow)) {
+      final conversation = es.any((e) =>
+              e['editable'] == true &&
+              RegExp(r'(?:^|[/_:])entry$|message', caseSensitive: false)
+                  .hasMatch(
+                      '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''}'
+                          .trim())) &&
+          es.any((e) => RegExp(r'conversation_contact|conversation_title',
+                  caseSensitive: false)
+              .hasMatch('${e['resourceId'] ?? ''}'));
+      if (conversation) {
+        if (history.where((h) => h.contains('back:')).length >= 2) return null;
+        return AgentAction(
+            action: 'back',
+            confidence: 1,
+            reason: 'Leave the observed conversation to use global chat search',
+            expect: {'package': g.package, 'whatsappConversationExit': true});
+      }
+    }
     if (g.package == 'com.android.chrome') {
       final bars = es
           .where((e) => RegExp(

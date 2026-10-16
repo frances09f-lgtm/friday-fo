@@ -147,6 +147,27 @@ class AgentGoal {
     }
     if (commands.isNotEmpty && commands.length <= 8)
       return AgentGoal(s, '', '', workflow: 'commands', commands: commands);
+    // Explicit chat-search aliases only. Never interpret message/send requests
+    // as navigation, and never infer or fuzzy-match the recipient.
+    final shortContact = RegExp(
+            r'^(?:please )?(?:open )?whatsapp open (?:my )?chat (?:search|with) (.+?)[.!]?$',
+            caseSensitive: false)
+        .firstMatch(s);
+    final searchChat = RegExp(
+            r'^(?:please )?open whatsapp and search (?:for )?(.+?) chat[.!]?$',
+            caseSensitive: false)
+        .firstMatch(s);
+    final contact = (shortContact?[1] ?? searchChat?[1])?.trim();
+    if (contact != null && unsafeLabel(contact)) return null;
+    if (RegExp(r'\band (?:send|delete|pay|buy|purchase|call|post|confirm)\b',
+            caseSensitive: false)
+        .hasMatch(s)) return null;
+    if (contact != null &&
+        contact.isNotEmpty &&
+        contact.length <= 120 &&
+        !unsafeLabel(contact)) {
+      return AgentGoal(s, 'com.whatsapp', contact, workflow: 'contact');
+    }
     final wa = RegExp(r'^open whatsapp and open (?:my )?chat with (.+?)[.!]?$',
             caseSensitive: false)
         .firstMatch(s);
@@ -195,7 +216,17 @@ class AgentGoal {
       workflow: workflow,
       commands: commands,
       firstVideo: firstVideo);
-  bool get noPlanner => workflow == 'read' || workflow == 'commands';
+  bool get noPlanner =>
+      workflow == 'read' ||
+      workflow == 'commands' ||
+      settings ||
+      {
+        'com.whatsapp',
+        'com.google.android.youtube',
+        'com.android.chrome',
+        'com.instagram.android',
+        'com.openai.chatgpt'
+      }.contains(package);
   static bool unsafeLabel(String value) => RegExp(
           r'\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\b',
           caseSensitive: false)
@@ -217,7 +248,11 @@ class AgentGoal {
     if (a.action == 'open_app') return a.target['package'] == package;
     if (a.action == 'home') return false;
     if (a.action == 'back')
-      return workflow == 'commands' && commands.any((c) => c.action == 'back');
+      return (workflow == 'commands' &&
+              commands.any((c) => c.action == 'back')) ||
+          (package == 'com.whatsapp' &&
+              {'contact', 'search'}.contains(workflow) &&
+              a.expect['whatsappConversationExit'] == true);
     if (a.action == 'type')
       return !settings &&
           (workflow == 'commands'
@@ -235,7 +270,9 @@ class AgentGoal {
           '${a.target['text'] ?? ''} ${a.target['contentDescription'] ?? ''} ${a.target['resourceId'] ?? ''}'
               .trim()
               .toLowerCase();
-      if (settings) return value == 'bluetooth';
+      if (settings)
+        return a.target['text']?.toString().toLowerCase() == 'bluetooth' &&
+            !unsafeLabel(value);
       if (unsafeLabel(value)) return false;
       if (workflow != 'commands' &&
           RegExp(r'clear|dismiss|close|reset', caseSensitive: false)

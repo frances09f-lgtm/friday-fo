@@ -52,14 +52,14 @@ void main() {
       () async {
     final g = AgentGoal.parse(
         'open YouTube and search for free alternatives of jio hotstar')!;
-    await expectLater(
-        LocalBrain(Output('{"action":"tap","confidence":0}')).decide(g, {
-          'package': g.package,
-          'elements': [
-            {'resourceId': 'search', 'text': 'Allow permission'}
-          ]
-        }, []),
-        throwsA(isA<AgentOutputFailure>()));
+    final safeDecision =
+        await LocalBrain(Output('{"action":"tap","confidence":0}')).decide(g, {
+      'package': g.package,
+      'elements': [
+        {'resourceId': 'search', 'text': 'Allow permission'}
+      ]
+    }, []);
+    expect(safeDecision.action, isIn(['wait', 'ask_confirmation']));
   });
   test('phone ChatGPT commands separate app target from query', () {
     for (final entry in {
@@ -98,15 +98,15 @@ void main() {
   }
   test('missing confidence never grants an ambiguous click', () async {
     final g = AgentGoal.parse('open YouTube and search for GTA 6')!;
-    await expectLater(
-        LocalBrain(Output('{"action":"tap"}')).decide(g, {
-          'package': g.package,
-          'elements': [
-            {'contentDescription': 'Search'},
-            {'contentDescription': 'Search'}
-          ]
-        }, []),
-        throwsA(isA<AgentOutputFailure>()));
+    final safeDecision =
+        await LocalBrain(Output('{"action":"tap"}')).decide(g, {
+      'package': g.package,
+      'elements': [
+        {'contentDescription': 'Search'},
+        {'contentDescription': 'Search'}
+      ]
+    }, []);
+    expect(safeDecision.action, isIn(['wait', 'ask_confirmation']));
   });
   test('typed-query recovery keeps exact user words and expected field',
       () async {

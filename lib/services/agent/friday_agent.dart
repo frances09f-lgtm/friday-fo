@@ -40,7 +40,7 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
   @override
   Future<AgentAction> decide(
       AgentGoal goal, Map<String, dynamic> screen, List<String> history) async {
-    if (!goal.settings) {
+    {
       final recipe = WorkflowPlanner.next(goal, screen, history);
       if (goal.package == 'com.whatsapp' &&
           {'contact', 'search'}.contains(goal.workflow)) {
@@ -81,6 +81,17 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
                     : 'WhatsApp search controls or an exact chat result could not be verified. Open its main chat list and retry; no chat was guessed.');
       }
       if (recipe != null) return recipe;
+      // All currently exposed task types have bounded deterministic routes.
+      // A missing control is not authority to improvise model navigation.
+      if (goal.noPlanner && screen['package'] != null) {
+        final waits = history.where((h) => h.contains('wait: verified')).length;
+        return AgentAction(
+            action: waits < 2 ? 'wait' : 'ask_confirmation',
+            confidence: 1,
+            reason: waits < 2
+                ? 'Wait for supported task controls to load'
+                : 'The required controls are missing or ambiguous. No control was guessed; inspect the app screen.');
+      }
     }
     // The installed local engine has a small context window. Rank the whole
     // observation, but bound serialized screen data instead of overflowing it.
@@ -479,6 +490,22 @@ class FridayAgent extends ChangeNotifier {
   static AgentAction commandAction(
       AgentAction command, Map<String, dynamic> screen, String pkg) {
     var target = command.target;
+    if (command.action == 'scroll' || command.action == 'swipe') {
+      final containers = ((screen['elements'] as List?) ?? [])
+          .where((e) => e['scrollable'] == true && e['bounds'] is List)
+          .toList();
+      if (containers.length != 1)
+        return AgentAction(
+            action: 'ask_confirmation',
+            confidence: 1,
+            reason: 'Choose one unambiguous scrollable area');
+      final e = containers.single;
+      target = {
+        'bounds': e['bounds'],
+        if ((e['resourceId'] ?? '').toString().isNotEmpty)
+          'resourceId': e['resourceId']
+      };
+    }
     if (command.action == 'type') {
       final fields = ((screen['elements'] as List?) ?? [])
           .where((e) => e['editable'] == true && e['password'] != true)
@@ -520,6 +547,11 @@ class FridayAgent extends ChangeNotifier {
     if (a.action == 'tap' &&
         before != null &&
         screen['token'] == before['token']) return false;
+    if (a.expect['settingsPage'] == true) {
+      return complete(
+          AgentGoal('', 'com.android.settings', 'Bluetooth', settings: true),
+          screen);
+    }
     if (a.expect['workflowResult'] is String) {
       return complete(
           AgentGoal('', a.expect['package']?.toString() ?? '',
@@ -604,7 +636,9 @@ class FridayAgent extends ChangeNotifier {
   }
 
   static bool complete(AgentGoal g, Map<String, dynamic> screen) {
-    if (screen['package'] != g.package) return false;
+    if (screen['success'] == false ||
+        screen['blocked'] == true ||
+        screen['package'] != g.package) return false;
     if (g.workflow == 'commands' || g.workflow == 'read') return false;
     if (g.package == 'com.android.chrome')
       return chromeSearchResult(g.query, screen);
@@ -649,8 +683,10 @@ class FridayAgent extends ChangeNotifier {
       return header &&
           es.any((e) =>
               e['editable'] == true &&
-              RegExp(r'entry|message|edit', caseSensitive: false).hasMatch(
-                  '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''}'));
+              RegExp(r'(?:^|[/_:])entry$|message', caseSensitive: false)
+                  .hasMatch(
+                      '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''}'
+                          .trim()));
     }
     if (g.workflow == 'question') {
       final sent = es.any((e) => e['editable'] != true && e['text'] == g.query);

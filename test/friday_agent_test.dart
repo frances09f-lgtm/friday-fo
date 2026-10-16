@@ -193,15 +193,17 @@ void main() {
           true);
     });
   }
-  test('rejected raw output stays local and dispatches no action', () async {
+  test('known navigation waits safely instead of invoking malformed model',
+      () async {
     final l = OutputLocal(
         List.filled(3, '{"action":"invalid_format"}', growable: true));
     final d = Device(screen('com.google.android.youtube'));
     final a = FridayAgent(brain: LocalBrain(l), device: d);
     await a.start('Open YouTube and search for GTA 6');
-    expect(d.acts, 0);
-    expect(a.rejectedOutput, contains('invalid_format'));
-    expect(a.log, isEmpty);
+    expect(l.calls, 0);
+    expect(d.acts, 2); // Read-only waits, not taps or writes.
+    expect(a.result, contains('missing or ambiguous'));
+    expect(a.rejectedOutput, isEmpty);
     a.clearRejectedOutput();
     expect(a.rejectedOutput, isEmpty);
   });
