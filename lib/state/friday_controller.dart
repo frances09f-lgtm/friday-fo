@@ -129,7 +129,12 @@ class FridayController extends ChangeNotifier {
   }
 
   Future<void> _send(String text) async {
-    final original = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final literalMessage = const OfflineEngine().handle(text);
+    final isLiteralWhatsApp =
+        literalMessage.action.type == FridayActionType.sendWhatsApp &&
+            literalMessage.extraActions.isEmpty;
+    final original =
+        isLiteralWhatsApp ? text : text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (original.isEmpty || busy) return;
     final clean = oroContext.resolve(original, DateTime.now()) ?? original;
 
@@ -143,6 +148,30 @@ class FridayController extends ChangeNotifier {
     busy = true;
     phase = 'Thinking';
     notifyListeners();
+
+    // An explicit WhatsApp body is literal data, not device-routing syntax or
+    // another command. Parse the untouched input before whitespace cleanup or
+    // task/agent routing; keep the normal native recipient confirmation path.
+    if (isLiteralWhatsApp) {
+      oroContext.clear();
+      phase = 'Doing';
+      notifyListeners();
+      final outcome = await router.executeAll([literalMessage.action]);
+      final reply = actionResultReply(outcome);
+      messages.add(ChatMessage(
+        id: '${DateTime.now().microsecondsSinceEpoch}wa',
+        role: MessageRole.friday,
+        text: reply,
+        at: DateTime.now(),
+      ));
+      busy = false;
+      partialHeard = '';
+      phase = 'Ready';
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) await speech.speak(spokenActionReply(reply));
+      return;
+    }
 
     final remote = RegExp(
       r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
