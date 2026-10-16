@@ -267,7 +267,7 @@ class AgentGoal {
     if (a.action == 'scroll' || a.action == 'swipe') return !settings;
     if (a.action == 'tap') {
       final value =
-          '${a.target['text'] ?? ''} ${a.target['contentDescription'] ?? ''} ${a.target['resourceId'] ?? ''}'
+          '${a.target['text'] ?? ''} ${a.target['contentDescription'] ?? ''} ${a.target['resourceId'] ?? ''} ${a.target['hintText'] ?? ''}'
               .trim()
               .toLowerCase();
       if (settings)

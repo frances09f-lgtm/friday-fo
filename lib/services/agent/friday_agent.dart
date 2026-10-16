@@ -55,9 +55,9 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
         final searchControls = elements.where((e) =>
             (e['editable'] == true || e['clickable'] == true) &&
             RegExp(r'search', caseSensitive: false).hasMatch(
-                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''}') &&
+                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['hintText'] ?? ''}') &&
             !WorkflowPlanner.clearControl(
-                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''}'));
+                '${e['resourceId'] ?? ''} ${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['hintText'] ?? ''}'));
         final fields = searchControls.where((e) => e['editable'] == true);
         final ambiguous =
             fields.length > 1 || (fields.isEmpty && searchControls.length > 1);
@@ -521,6 +521,8 @@ class FridayAgent extends ChangeNotifier {
           'resourceId': f['resourceId']
         else if ((f['contentDescription'] ?? '').toString().isNotEmpty)
           'contentDescription': f['contentDescription']
+        else if ((f['hintText'] ?? '').toString().isNotEmpty)
+          'hintText': f['hintText']
         else
           'text': f['text']
       };
@@ -576,33 +578,42 @@ class FridayAgent extends ChangeNotifier {
       return ((screen['elements'] as List?) ?? [])
           .any((e) => e['editable'] != true && e['text'] == a.text);
     if (a.action == 'open_app') return screen['package'] == a.target['package'];
-    if (a.action == 'type')
+    if (a.action == 'type') {
+      // Descriptions may change from a placeholder to the entered value.
+      // A stable ID is useful only if it still names one unique editable field.
+      final candidates = ((screen['elements'] as List?) ?? [])
+          .where((e) =>
+              e['editable'] == true &&
+              (a.target['resourceId']?.toString().isNotEmpty == true
+                  ? e['resourceId'] == a.target['resourceId']
+                  : a.target.entries
+                      .where((entry) => {'contentDescription', 'hintText'}
+                          .contains(entry.key))
+                      .every((entry) => e[entry.key] == entry.value)))
+          .toList();
       return a.expect['textEquals'] == a.text &&
-          ((screen['elements'] as List?) ?? [])
-                  .where((e) =>
-                      e['editable'] == true &&
-                      e['text'] == a.text &&
-                      a.target.entries
-                          .where((entry) => {'resourceId', 'contentDescription'}
-                              .contains(entry.key))
-                          .every((entry) => e[entry.key] == entry.value))
-                  .length ==
-              1;
+          candidates.length == 1 &&
+          candidates.single['text'] == a.text;
+    }
     if (a.expect['searchFieldFocused'] == true) {
       final fields = ((screen['elements'] as List?) ?? []).where((e) =>
           e['editable'] == true &&
           e['focused'] == true &&
           RegExp(r'search|url_bar|omnibox', caseSensitive: false).hasMatch(
-              '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''} ${e['text'] ?? ''}'));
+              '${e['resourceId'] ?? ''} ${e['contentDescription'] ?? ''} ${e['text'] ?? ''} ${e['hintText'] ?? ''}'));
       return fields.length == 1;
     }
     if (a.expect['editable'] == true) {
-      final keys = a.target.keys.where(
-          (k) => {'resourceId', 'contentDescription', 'text'}.contains(k));
-      return ((screen['elements'] as List?) ?? []).any((e) =>
-          e['editable'] == true &&
-          (a.expect['focused'] != true || e['focused'] == true) &&
-          keys.where((k) => k != 'text').every((k) => e[k] == a.target[k]));
+      final keys = a.target['resourceId']?.toString().isNotEmpty == true
+          ? ['resourceId']
+          : a.target.keys
+              .where((k) => {'contentDescription', 'hintText'}.contains(k));
+      final fields = ((screen['elements'] as List?) ?? [])
+          .where((e) =>
+              e['editable'] == true && keys.every((k) => e[k] == a.target[k]))
+          .toList();
+      return fields.length == 1 &&
+          (a.expect['focused'] != true || fields.single['focused'] == true);
     }
     final contains = a.expect['contains']?.toString();
     final equals = a.expect['textEquals']?.toString();

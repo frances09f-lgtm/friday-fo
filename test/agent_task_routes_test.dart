@@ -149,12 +149,14 @@ void main() {
       'ChatGPT exact prompt submits once and verifies generating',
       () async => route('Open ChatGPT and search for explain gravity', gpt, [
             [n('', 'composer', edit: true)],
+            [n('', 'composer', edit: true, focus: true)],
             [
               n('explain gravity', 'composer', edit: true),
               n('', 'send', desc: 'Send prompt')
             ],
             [n('explain gravity', 'user_message'), n('Thinking', 'status')]
           ], [
+            'tap',
             'type',
             'submit'
           ]));

@@ -45,7 +45,12 @@ class WorkflowPlanner {
       if (candidates.length != 1) return null;
       final e = candidates.single;
       final target = <String, dynamic>{};
-      for (final key in ['resourceId', 'contentDescription', 'text']) {
+      for (final key in [
+        'resourceId',
+        'contentDescription',
+        'text',
+        'hintText'
+      ]) {
         final value = e[key]?.toString() ?? '';
         if (value.isNotEmpty) {
           target[key] = value;
@@ -80,7 +85,7 @@ class WorkflowPlanner {
     }
 
     String label(Map<String, dynamic> e) =>
-        '${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['resourceId'] ?? ''}';
+        '${e['text'] ?? ''} ${e['contentDescription'] ?? ''} ${e['resourceId'] ?? ''} ${e['hintText'] ?? ''}';
     bool search(Map<String, dynamic> e) =>
         !clearControl(label(e)) &&
         RegExp(r'search|url_bar|omnibox', caseSensitive: false)
@@ -166,11 +171,19 @@ class WorkflowPlanner {
                 .where((e) => RegExp(
                         r'^(send|send prompt|send message|submit)$',
                         caseSensitive: false)
-                    .hasMatch((e['contentDescription'] ?? e['text'] ?? '')
-                        .toString()))
+                    .hasMatch((e['contentDescription']
+                                    ?.toString()
+                                    .trim()
+                                    .isNotEmpty ==
+                                true
+                            ? e['contentDescription']
+                            : e['text'] ?? '')
+                        .toString()
+                        .trim()))
                 .toList(),
             text: g.query);
       }
+      if (fields.single['focused'] != true) return choose('tap', fields);
       return choose('type', fields, text: g.query);
     }
     if (g.package == 'com.whatsapp' &&
@@ -205,17 +218,16 @@ class WorkflowPlanner {
     }
     final fields = es.where((e) => e['editable'] == true && search(e)).toList();
     if (fields.length == 1) {
-      // YouTube may retain an editable but unfocused field after a previous
+      // Search apps may retain an editable but unfocused field after a previous
       // search. Restore focus before typing or submitting, then re-observe.
-      if (g.package == 'com.google.android.youtube' &&
-          fields.single['focused'] != true) {
+      if (fields.single['focused'] != true) {
         final a = choose('tap', fields);
         if (a == null) return null;
         return AgentAction(
             action: a.action,
             target: a.target,
             confidence: 1,
-            reason: 'Focus the unique observed YouTube search field',
+            reason: 'Focus the unique observed search field',
             expect: {'package': g.package, 'editable': true, 'focused': true});
       }
       if (fields.single['text'] != g.query) {

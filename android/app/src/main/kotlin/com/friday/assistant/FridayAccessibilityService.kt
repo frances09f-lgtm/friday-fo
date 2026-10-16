@@ -51,7 +51,7 @@ class FridayAccessibilityService : AccessibilityService() {
      "log" -> {val line=call.argument<String>("line")?:"";if(Regex("Step [0-9]+ [a-z_]+: (verified|not verified)|Check [0-9]+: (protected_screen|action_refused|screen_loading|expected_result|wrong_or_missing_result); [0-9]+ ms").matches(line)){val p=c.getSharedPreferences("agent_debug",0);p.edit().putString("log",((p.getString("log","")?:"")+"\n"+line).lines().takeLast(60).joinToString("\n")).apply()};result.success(mapOf("success" to true))}
      "logs" -> result.success(mapOf("log" to c.getSharedPreferences("agent_debug",0).getString("log","")))
      else -> result.notImplemented()
-    }}catch(e:Exception){result.success(mapOf("success" to false,"error" to "Native screen operation failed; no completion claimed"))}
+    }}catch(e:Exception){result.success(mapOf("success" to false,"error" to "Native ${call.method} failed (${e.javaClass.simpleName}); no completion claimed"))}
    }
   }
  }
@@ -165,7 +165,7 @@ class FridayAccessibilityService : AccessibilityService() {
     if(visits++>=600||depth>22||elements.size>=100)return
     if(n.isVisibleToUser&&!n.isPassword&&(n.text!=null||n.contentDescription!=null||n.isEditable||n.isClickable||n.isScrollable)){
      val b=Rect();n.getBoundsInScreen(b);nodes.add(AccessibilityNodeInfo.obtain(n))
-     elements.add(mapOf("id" to path,"parentContext" to parentContext,"text" to (n.text?.toString()?.take(250)?:""),"contentDescription" to (n.contentDescription?.toString()?.take(180)?:""),"resourceId" to (n.viewIdResourceName?:""),"class" to (n.className?.toString()?:""),"clickable" to n.isClickable,"editable" to n.isEditable,"scrollable" to n.isScrollable,"focused" to n.isFocused,"bounds" to listOf(b.left,b.top,b.right,b.bottom)))
+     elements.add(mapOf("id" to path,"parentContext" to parentContext,"text" to (n.text?.toString()?.take(250)?:""),"contentDescription" to (n.contentDescription?.toString()?.take(180)?:""),"resourceId" to (n.viewIdResourceName?:""),"hintText" to (if(android.os.Build.VERSION.SDK_INT>=26)n.hintText?.toString()?.take(180)?:"" else ""),"class" to (n.className?.toString()?:""),"clickable" to n.isClickable,"editable" to n.isEditable,"scrollable" to n.isScrollable,"focused" to n.isFocused,"bounds" to listOf(b.left,b.top,b.right,b.bottom)))
     }
     val context=if(n.isPassword)"" else (n.contentDescription?.toString()?:n.viewIdResourceName?:n.className?.toString()?:"").take(180)
     for(i in 0 until n.childCount)n.getChild(i)?.let{walk(it,depth+1,"$path/$i",context)}
@@ -178,7 +178,7 @@ class FridayAccessibilityService : AccessibilityService() {
   val audioActive=(getSystemService(AUDIO_SERVICE)as android.media.AudioManager).isMusicActive
   return mapOf("eventRevision" to eventRevision,"scrollEvent" to scrollEvent,"audioActive" to audioActive,"success" to true,"package" to observedPackage,"screen" to rootClass,"elements" to elements,"token" to token,"truncated" to (visits>=600||elements.size>=100))
  }
- private fun label(n:AccessibilityNodeInfo)="${n.text?:""} ${n.contentDescription?:""} ${n.viewIdResourceName?:""}"
+ private fun label(n:AccessibilityNodeInfo)="${n.text?:""} ${n.contentDescription?:""} ${n.viewIdResourceName?:""} ${if(android.os.Build.VERSION.SDK_INT>=26)n.hintText?:"" else ""}"
  private fun protected(label:String)=Regex("\\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\\b",RegexOption.IGNORE_CASE).containsMatchIn(label)
  private fun search(label:String)=Regex("search|검색|url_bar|address|omnibox",RegexOption.IGNORE_CASE).containsMatchIn(label)
  private fun resultAnswer(result:MethodChannel.Result,success:Boolean)=result.success(if(success)ok()else fail("Android refused the action; inspect screen before retrying"))
@@ -206,8 +206,8 @@ class FridayAccessibilityService : AccessibilityService() {
    searchIntentAttempted=true
    resultAnswer(result,DeviceBridge.searchApp(this,if(allowed=="com.google.android.youtube")"youtube" else "chrome",query));return
   }
-  val fields=listOf("text","contentDescription","resourceId").filter{(target[it]?.toString()?:"").isNotBlank()}
-  var matches=nodes.filter{n->fields.isNotEmpty()&&fields.all{f->val actual=when(f){"text"->n.text?.toString();"contentDescription"->n.contentDescription?.toString();else->n.viewIdResourceName};actual.equals(target[f]?.toString(),true)}}
+  val fields=listOf("text","contentDescription","resourceId","hintText").filter{(target[it]?.toString()?:"").isNotBlank()}
+  var matches=nodes.filter{n->fields.isNotEmpty()&&fields.all{f->val actual=when(f){"text"->n.text?.toString();"contentDescription"->n.contentDescription?.toString();"hintText"->if(android.os.Build.VERSION.SDK_INT>=26)n.hintText?.toString() else null;else->n.viewIdResourceName};actual.equals(target[f]?.toString(),true)}}
   if(action in setOf("scroll","swipe")&&fields.isEmpty())matches=nodes.filter{it.isScrollable}
   val wantedBounds=target["bounds"] as? List<*>
   if(wantedBounds!=null && wantedBounds.size==4){matches=matches.filter{n->val b=Rect();n.getBoundsInScreen(b);wantedBounds==listOf(b.left,b.top,b.right,b.bottom)}}
@@ -215,7 +215,7 @@ class FridayAccessibilityService : AccessibilityService() {
   val node=matches.single();val labels=label(node)
   if(action=="tap"&&workflow!="commands"&&Regex("clear|dismiss|close|reset",RegexOption.IGNORE_CASE).containsMatchIn(labels)){result.success(fail("Clear or dismiss is not a search-opening action",true));return}
   if(node.isPassword||!node.isEnabled){result.success(fail("Protected or disabled target",true));return}
-  if(protected(labels)&&!(workflow=="question"&&action=="submit"&&allowed=="com.openai.chatgpt"&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim()))){result.success(fail("Action needs review or is outside task scope",true));return}
+  if(protected(labels)&&!(workflow=="question"&&action=="submit"&&allowed=="com.openai.chatgpt"&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString())))){result.success(fail("Action needs review or is outside task scope",true));return}
   if(action=="type"){
    val exact=if(workflow=="commands")commands.any{it["action"]=="type"&&it["text"]==text}else text==query
    val fieldSafe=when(workflow){"commands"-> !protected(labels);"question"->allowed=="com.openai.chatgpt";else->search(labels)}
@@ -224,8 +224,8 @@ class FridayAccessibilityService : AccessibilityService() {
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)}));return
   }
   if(action=="submit"||(action=="tap"&&node.isEditable&&node.isFocused&&node.text?.toString()==query)){
-   if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
-   if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches((node.contentDescription?:node.text?:"").toString().trim())&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
+   if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString()))) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
+   if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString()))&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable||!search(labels)||node.text?.toString()!=query){result.success(fail("Submit limited to the exact requested search",true));return}
    val youtube=allowed=="com.google.android.youtube" && workflow in setOf("search","play")
    if(youtube){
