@@ -47,8 +47,22 @@ class FridayAction {
   final String body;
   final String target;
 
+  /// Small models drift on the action name: "OpenApp", "Open App",
+  /// "TORCH-ON". Normalize to lower_snake before matching (forgiving
+  /// handling adapted from OpenJarvis, Apache-2.0).
+  static String _normalizeType(String raw) {
+    final camel = raw
+        .trim()
+        .replaceAllMapped(
+          RegExp(r'(?<=[a-z0-9])(?=[A-Z])'),
+          (m) => '_',
+        )
+        .toLowerCase();
+    return camel.replaceAll(RegExp(r'[\s\-]+'), '_');
+  }
+
   static FridayActionType _typeFrom(String? raw) {
-    switch (raw) {
+    switch (raw == null ? null : _normalizeType(raw)) {
       case 'next_music':
         return FridayActionType.nextMusic;
       case 'previous_music':
@@ -98,15 +112,37 @@ class FridayAction {
     }
   }
 
-  factory FridayAction.fromJson(Map<String, dynamic> json) => FridayAction(
-        type: _typeFrom(json['type'] as String?),
-        app: json['app'] as String? ?? '',
-        query: json['query'] as String? ?? '',
-        afterMinutes: (json['after_minutes'] as num?)?.toInt() ?? 0,
-        title: json['title'] as String? ?? '',
-        body: json['body'] as String? ?? '',
-        target: json['target'] as String? ?? '',
+  /// Field lookup forgiving case, spaces, underscores, hyphens and camelCase
+  /// ("App", " after_minutes ", "afterMinutes" all match).
+  static Map<String, dynamic> _forgivingKeys(Map<String, dynamic> json) {
+    final out = <String, dynamic>{};
+    json.forEach((key, value) {
+      out.putIfAbsent(
+        key.trim().toLowerCase().replaceAll(RegExp(r'[-_\s]'), ''),
+        () => value,
       );
+    });
+    return out;
+  }
+
+  factory FridayAction.fromJson(Map<String, dynamic> json) {
+    final j = _forgivingKeys(json);
+    // after_minutes can arrive as a number or a numeric string.
+    final rawMinutes = j['afterminutes'];
+    final minutes = rawMinutes is num
+        ? rawMinutes.toInt()
+        : int.tryParse('${rawMinutes ?? ''}') ?? 0;
+    final rawTarget = j['target'];
+    return FridayAction(
+      type: _typeFrom(j['type'] as String?),
+      app: j['app'] as String? ?? '',
+      query: j['query'] as String? ?? '',
+      afterMinutes: minutes,
+      title: j['title'] as String? ?? '',
+      body: j['body'] as String? ?? '',
+      target: rawTarget is String ? rawTarget : '${rawTarget ?? ''}',
+    );
+  }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'type': type.name,

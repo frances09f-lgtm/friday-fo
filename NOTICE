@@ -1,0 +1,20 @@
+Friday
+======
+
+This project includes design adaptations from the following open-source
+projects:
+
+OpenJarvis (https://github.com/open-jarvis/OpenJarvis)
+  Copyright Stanford Hazy Research / SAIL
+  License: Apache License 2.0
+  Used for: the forgiving small-model output parser
+  (lib/services/ai/friday_parser.dart, key/value normalization and
+  no-salvage handling adapted from src/openjarvis/agents/native_react.py)
+  and the plain-Markdown SOUL.md / MEMORY.md / USER.md memory design
+  (lib/services/storage/memory_store.dart).
+
+Closepaw (https://github.com/imoonkey/closepaw)
+  License: Apache License 2.0
+  Used for: design ideas only (on-device agent structure); no code copied.
+
+Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0

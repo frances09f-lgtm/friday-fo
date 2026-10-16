@@ -1,5 +1,6 @@
 import '../../models/chat_message.dart';
 import '../../models/friday_response.dart';
+import '../storage/memory_store.dart';
 import '../storage/settings_store.dart';
 import 'friday_parser.dart';
 import 'local_model_service.dart';
@@ -16,12 +17,90 @@ class AIBrain {
     required this.local,
     OfflineEngine? offline,
     this.parser = const FridayParser(),
+    this.memory,
   }) : offline = offline ?? const OfflineEngine();
 
   final SettingsStore settings;
   final LocalModelService local;
   final OfflineEngine offline;
   final FridayParser parser;
+
+  /// Plain-Markdown long-term memory (SOUL/MEMORY/USER.md). Optional: when
+  /// null or unavailable the brain behaves exactly as before.
+  final MemoryStore? memory;
+
+  DateTime _memoryPrimedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  static final _rememberCmd = RegExp(
+    r'^remember(?:\s+that)?\s+(.+?)[.!]?\s*$',
+    caseSensitive: false,
+  );
+  static final _forgetCmd = RegExp(
+    r'^forget(?:\s+that)?\s+(.+?)[.!]?\s*$',
+    caseSensitive: false,
+  );
+  static final _recallCmd = RegExp(
+    r'^what do you remember(?:\s+about)?\s*(.*?)[.?]*$',
+    caseSensitive: false,
+  );
+
+  /// Memory commands are answered locally, never sent to a cloud model.
+  Future<FridayResponse?> _handleMemory(String userText) async {
+    final store = memory;
+    if (store == null) return null;
+    final remember = _rememberCmd.firstMatch(userText.trim());
+    if (remember != null) {
+      final fact = remember.group(1)!;
+      // "remember to call mom" is a reminder request, not a saved fact.
+      if (fact.toLowerCase().startsWith('to ')) return null;
+      final saved = await store.remember(fact);
+      return FridayResponse(
+        reply: saved ? 'Noted. I will remember that.' : 'Could not save that.',
+        source: FridaySource.offline,
+      );
+    }
+    final forget = _forgetCmd.firstMatch(userText.trim());
+    if (forget != null) {
+      final removed = await store.forget(forget.group(1)!);
+      return FridayResponse(
+        reply: removed > 0 ? 'Forgotten.' : 'I do not have that saved.',
+        source: FridaySource.offline,
+      );
+    }
+    final recall = _recallCmd.firstMatch(userText.trim());
+    if (recall != null) {
+      final topic = (recall.group(1) ?? '').trim();
+      final found =
+          topic.isEmpty ? await store.recent() : await store.search(topic);
+      final reply = found.isEmpty
+          ? (topic.isEmpty
+              ? 'I do not have anything saved yet.'
+              : 'I do not have anything saved about that.')
+          : found.map((l) => l.replaceFirst(RegExp(r'^- '), '')).join('\n');
+      return FridayResponse(reply: reply, source: FridaySource.offline);
+    }
+    return null;
+  }
+
+  /// Saved notes join the prompt only when a bullet keyword-matches this
+  /// exact request, capped to a few hundred characters - the on-device
+  /// model pays nothing on ordinary messages. Memory commands above are
+  /// answered locally and never reach a model at all.
+  Future<String> _systemFor(String userText) async {
+    final store = memory;
+    if (store == null) return _system;
+    try {
+      if (DateTime.now().difference(_memoryPrimedAt).inMinutes >= 1) {
+        await store.ensureSeeded();
+        _memoryPrimedAt = DateTime.now();
+      }
+      final section = await store.relevantSection(userText);
+      if (section.isEmpty) return _system;
+      return '$_system$section';
+    } catch (_) {
+      return _system;
+    }
+  }
 
   static const _systemRaw = '''
 You are Friday, the user's phone assistant on an Android phone. Answer briefly and helpfully.
@@ -36,6 +115,10 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
     String userText, {
     List<ChatMessage> history = const [],
   }) async {
+    // Memory commands are local reads/writes, not model calls.
+    final memoryReply = await _handleMemory(userText);
+    if (memoryReply != null) return memoryReply;
+    final system = await _systemFor(userText);
     // Device actions and Oro reads must not go through cloud guessing.
     final command = offline.handle(userText);
     if (GoldTaskRequest.isAlertRequest(userText) ||
@@ -45,7 +128,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
     for (final provider in settings.buildProviders()) {
       try {
         final raw = await provider.complete(
-          system: _system,
+          system: system,
           history: history.where((m) => !m.localOnly).take(12).toList(),
           userText: userText,
         );
@@ -62,7 +145,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
     if (settings.localFallbackEnabled) {
       try {
         final raw = await local.generate(
-          system: _system,
+          system: system,
           userText: userText,
           history: history.where((m) => !m.localOnly).take(8).toList(),
         );

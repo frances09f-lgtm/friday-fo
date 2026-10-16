@@ -15,6 +15,7 @@ import 'services/intent_router.dart';
 import 'services/link/device_link.dart';
 import 'services/speech/speech_service.dart';
 import 'services/storage/chat_store.dart';
+import 'services/storage/memory_store.dart';
 import 'services/storage/settings_store.dart';
 import 'services/usage_reporter.dart';
 import 'state/friday_controller.dart';
@@ -67,7 +68,8 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     groqKeyProvider: () async => settings.groqKey,
   );
   final local = LocalModelService();
-  final brain = AIBrain(settings: settings, local: local);
+  final brain =
+      AIBrain(settings: settings, local: local, memory: MemoryStore());
   final agent =
       FridayAgent(brain: LocalBrain(local), device: NativeAgentDevice());
   final link = DeviceLink();

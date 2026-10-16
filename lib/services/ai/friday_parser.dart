@@ -5,13 +5,36 @@ import '../../models/friday_response.dart';
 /// Parses Friday's model output into a [FridayResponse].
 ///
 /// Cloud and local models are asked to answer with a strict JSON envelope, but
-/// models drift, wrap JSON in markdown fences, or prepend prose. This parser
-/// survives all of that: it hunts for the outermost JSON object and falls back
-/// to treating the whole text as the reply.
+/// models drift, wrap JSON in markdown fences, change key casing, or prepend
+/// prose. This parser survives all of that. The forgiving key/value handling
+/// is adapted from OpenJarvis's NativeReActAgent parser
+/// (github.com/open-jarvis/OpenJarvis, Apache-2.0): field names are matched
+/// case-insensitively with separators ignored, and a malformed action is never
+/// salvaged or executed - a broken envelope falls back to plain reply text.
 class FridayParser {
   const FridayParser();
 
   static final RegExp _jsonObject = RegExp(r'\{.*\}', dotAll: true);
+
+  // ReAct-style small-model drift: "Thought: ... Final Answer: <text>".
+  static final RegExp _finalAnswer = RegExp(
+    r'final\s*answer\s*:\s*(.+)$',
+    dotAll: true,
+    caseSensitive: false,
+  );
+
+  /// Field-name matching that forgives case, spaces, underscores, hyphens and
+  /// camelCase: "Reply", " after_minutes ", "afterMinutes" all match.
+  static String _key(String raw) =>
+      raw.trim().toLowerCase().replaceAll(RegExp(r'[-_\s]'), '');
+
+  static Map<String, dynamic> _normalizeKeys(Map<String, dynamic> json) {
+    final out = <String, dynamic>{};
+    json.forEach((key, value) {
+      out.putIfAbsent(_key(key), () => value);
+    });
+    return out;
+  }
 
   FridayResponse parse(String raw, {FridaySource source = FridaySource.cloud}) {
     final cleaned = raw.replaceAll('```', '').trim();
@@ -21,12 +44,22 @@ class FridayParser {
 
     final match = _jsonObject.firstMatch(cleaned);
     if (match == null) {
+      // A small model may answer ReAct-style instead of JSON. Take its final
+      // answer as the reply; never treat "Action:" text as an action.
+      final fa = _finalAnswer.firstMatch(cleaned);
+      if (fa != null && fa.group(1)!.trim().isNotEmpty) {
+        return FridayResponse(reply: fa.group(1)!.trim(), source: source);
+      }
       return FridayResponse(reply: cleaned, source: source);
     }
 
     try {
-      final decoded = jsonDecode(match.group(0)!) as Map<String, dynamic>;
-      final reply = (decoded['reply'] as String?)?.trim();
+      final decoded = _normalizeKeys(
+          jsonDecode(match.group(0)!) as Map<String, dynamic>);
+      final reply = (decoded['reply'] as String?)?.trim() ??
+          (decoded['response'] as String?)?.trim() ??
+          (decoded['answer'] as String?)?.trim() ??
+          (decoded['finalanswer'] as String?)?.trim();
       // Multi-part commands arrive as "actions":[...]; a single request
       // still arrives as "action":{...}. "actions" wins when both appear.
       final parsed = <FridayAction>[
@@ -45,6 +78,7 @@ class FridayParser {
         source: source,
       );
     } on FormatException {
+      // Broken JSON is never salvaged for actions; the raw text stands.
       return FridayResponse(reply: cleaned, source: source);
     }
   }

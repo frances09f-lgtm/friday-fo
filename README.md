@@ -83,13 +83,32 @@ lib/
     device/        DeviceHub (method channel), ReminderService
     intent_router  Executes FridayAction on the phone
     speech/        SpeechService (STT + TTS)
-    storage/       SettingsStore (secure keys), ChatStore (history)
+    storage/       SettingsStore (secure keys), ChatStore (history),
+                   MemoryStore (SOUL/MEMORY/USER.md long-term memory)
   state/           FridayController (one turn end to end)
   ui/              Home (chat), Settings
 android/
   app/src/main/kotlin/com/friday/assistant/MainActivity.kt   (device bridge)
 test/              Offline engine + parser unit tests
 ```
+
+## Memory and parser notes
+
+Friday keeps a plain-Markdown long-term memory in app storage: SOUL.md
+(persona), MEMORY.md (facts the user asked it to remember), USER.md (lasting
+user facts). Say "remember ...", "forget ...", or "what do you remember" in
+chat - those are answered locally, with no model call at all. To protect the
+on-device model's small context, memory is retrieval-only: a saved fact joins
+the prompt only when it keyword-matches the current request, capped to a few
+hundred characters, so ordinary messages carry zero added tokens. The model
+output parser forgives small-model drift (key casing, camelCase fields,
+fences, ReAct-style text) and never executes a malformed action.
+
+## Credits
+
+Parser and memory design adapted from
+[OpenJarvis](https://github.com/open-jarvis/OpenJarvis) (Stanford Hazy
+Research, Apache-2.0). See NOTICE.
 
 ## Roadmap
 
