@@ -281,4 +281,61 @@ void main() {
     expect(speech.starts, 0);
     await unmount(t);
   });
+  Future<void> submit(WidgetTester t) async {
+    await t.enterText(find.byType(TextField), 'open camera');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await t.pump();
+  }
+
+  testWidgets(
+      'terminal command hides within one frame before slow speech finishes',
+      (t) async {
+    await mount(t, voice: false);
+    controller.sendGate = Completer<void>();
+    await submit(t);
+    controller.busy = true;
+    controller.setPartialHeard('working');
+    await t.pump(const Duration(seconds: 5));
+    expect(platformCalls, isNot(contains('hidePanelWhileBusy')));
+    controller.completedCommandRevision++;
+    controller.busy = false;
+    controller.setPartialHeard('');
+    await t.pump();
+    expect(platformCalls.where((v) => v == 'hidePanelWhileBusy'), hasLength(1));
+    expect(platformCalls, isNot(contains('dismiss')));
+    controller.setPartialHeard(''); // duplicate terminal notification
+    await t.pump();
+    expect(platformCalls.where((v) => v == 'hidePanelWhileBusy'), hasLength(1));
+    controller.sendGate!.complete();
+    await t.pump();
+    expect(platformCalls, contains('dismiss'));
+    await unmount(t);
+  });
+  testWidgets(
+      'error and unanswered confirmation stay visible with no close timer',
+      (t) async {
+    await mount(t, voice: false);
+    await submit(t);
+    await t.pump(const Duration(seconds: 95));
+    expect(platformCalls, isNot(contains('hidePanelWhileBusy')));
+    expect(platformCalls, isNot(contains('dismiss')));
+    await unmount(t);
+  });
+  testWidgets('old completion after panel replacement cannot dismiss new panel',
+      (t) async {
+    await mount(t, voice: false);
+    final old = controller;
+    old.sendGate = Completer<void>();
+    await submit(t);
+    await unmount(t);
+    await mount(t, voice: false);
+    old.completedCommandRevision++;
+    old.sendGate!.complete();
+    old.setPartialHeard('');
+    await t.pump();
+    expect(platformCalls, isNot(contains('dismiss')));
+    expect(platformCalls, isNot(contains('hidePanelWhileBusy')));
+    expect(t.takeException(), isNull);
+    await unmount(t);
+  });
 }

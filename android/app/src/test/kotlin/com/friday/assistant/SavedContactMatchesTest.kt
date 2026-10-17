@@ -102,4 +102,51 @@ class SavedContactMatchesTest {
         assertFalse(sut.remember(alias,aditya,rows,RecipientOperation.CALL,true,true))
         assertNull(sut.resolve(alias,rows,RecipientOperation.CALL))
     }
+    @Test fun arbitraryManualNicknameUsesExactNormalizedAliasOnly() {
+        val st=Store();val sut=SavedContactMatches(st)
+        assertTrue(sut.remember(" Appa ",aditya,rows,RecipientOperation.CALL,true,true))
+        assertEquals(aditya,sut.resolve("APPA!",rows,RecipientOperation.CALL))
+        assertNull(sut.resolve("Apa",rows,RecipientOperation.CALL))
+        assertNull(sut.resolve("Appa",rows,RecipientOperation.WHATSAPP_DRAFT))
+    }
+    @Test fun explicitEditRenamesAndChangesSelectedContactAtomically() {
+        val (_,sut)=saved()
+        val original=sut.all().single()
+        val other=aditya.copy(contactId="70",lookupKey="70",name="Chosen Contact",number="+919000000002")
+        assertTrue(sut.edit(original,"Appa",other,rows+other,true))
+        assertNull(sut.resolve(alias,rows+other,RecipientOperation.CALL))
+        assertEquals(other,sut.resolve("Appa",rows+other,RecipientOperation.CALL))
+        assertTrue(sut.forget("Appa"));assertTrue(sut.all().isEmpty())
+    }
+    @Test fun cancelledEditDoesNotWrite() {
+        val (st,sut)=saved();val original=sut.all().single()
+        assertFalse(sut.edit(original,"Appa",aditya,rows,false))
+        assertEquals(1,st.writes);assertEquals(listOf(original),sut.all())
+    }
+    @Test fun editCannotOverwriteAnotherAliasEvenWhenSamePerson() {
+        val (_,sut)=saved();val original=sut.all().single()
+        assertTrue(sut.remember("Appa",aditya,rows,RecipientOperation.CALL,true,true))
+        assertFalse(sut.edit(original,"APPA!",aditya,rows,true))
+        assertEquals(2,sut.all().size)
+    }
+    @Test fun concurrentEditAndDeletedOriginalCannotBeOverwritten() {
+        val (_,sut)=saved();val original=sut.all().single()
+        assertTrue(sut.edit(original,"Mimi",aditya,rows,true))
+        assertFalse(sut.edit(original,"Bro",aditya,rows,true))
+        assertEquals("mimi",sut.all().single().alias)
+    }
+    @Test fun editedEndpointMustStillExistAndBeUnambiguous() {
+        val (_,sut)=saved();val original=sut.all().single()
+        assertFalse(sut.edit(original,"Appa",aditya,emptyList(),true))
+        assertFalse(sut.edit(original,"Appa",aditya,rows+aditya.copy(number="+919000000002"),true))
+        assertFalse(sut.edit(original,"Appa",aditya,rows+aditya.copy(contactId="70",lookupKey="70"),true))
+        assertFalse(sut.edit(original,"Appa",aditya,rows+aditya.copy(contactId="70",lookupKey="70",name="Appa",number="+919000000002"),true))
+        assertEquals(original,sut.all().single())
+    }
+    @Test fun persistenceFailureLeavesOldAliasUntouchedDuringEdit() {
+        val (st,sut)=saved();val original=sut.all().single();st.available=false
+        assertFalse(sut.edit(original,"Appa",aditya,rows,true))
+        assertEquals(original,sut.all().single())
+    }
+
 }

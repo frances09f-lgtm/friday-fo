@@ -91,25 +91,108 @@ class RecipientConfirmationActivity : Activity() {
             return rows
         }
         fun manageSavedMatches(activity: Activity) {
-            if (locked(activity) || FridayAccessibilityService.current?.isRunning == true) return
+            fun usable() = !activity.isFinishing && !activity.isDestroyed &&
+                !locked(activity) && FridayAccessibilityService.current?.isRunning != true
+            if (!usable()) return
             val matches = SavedContactMatches(ContactMatchPreferences(activity))
-            fun show() {
-                val saved=matches.all()
-                if (saved.isEmpty()) {
-                    AlertDialog.Builder(activity).setTitle("Saved call name matches")
-                        .setMessage("No saved matches. These stay on this phone and only apply to calls.")
-                        .setPositiveButton("Close", null).show(); return
+            lateinit var show: () -> Unit
+            fun message(text: String) { Toast.makeText(activity,text,Toast.LENGTH_LONG).show() }
+            fun chooseContact(alias: String, original: SavedContactMatch?) {
+                if (!usable()) return
+                if (!permitted(activity, Manifest.permission.READ_CONTACTS)) {
+                    ActivityCompat.requestPermissions(activity,arrayOf(Manifest.permission.READ_CONTACTS),4242)
+                    message("Allow Contacts access, then add or edit the nickname again. Nothing saved.")
+                    return
                 }
-                AlertDialog.Builder(activity).setTitle("Saved call name matches · tap to forget")
-                    .setItems(saved.map { "${it.alias} → ${it.endpoint.name}\n${it.endpoint.number}" }.toTypedArray()) { _, index ->
-                        val selected=saved[index]
-                        AlertDialog.Builder(activity).setTitle("Forget this name match?")
-                            .setMessage("${selected.alias} → ${selected.endpoint.name}\n${selected.endpoint.number}")
-                            .setPositiveButton("Forget") { _, _ ->
-                                if (!matches.forget(selected.alias)) Toast.makeText(activity,"Could not forget match",Toast.LENGTH_LONG).show()
-                                show()
-                            }.setNegativeButton("Keep", null).show()
-                    }.setNegativeButton("Close", null).show()
+                val rows = try { contactRows(activity).distinct().sortedWith(compareBy({ it.name.lowercase() },{ it.number })) }
+                    catch (_: Exception) { message("Contacts unavailable. Nothing saved."); return }
+                if (rows.isEmpty()) { message("No phone contacts available. Nothing saved."); return }
+                // A search filters real contact rows; it never proposes a person or number.
+                val search = android.widget.EditText(activity).apply { hint="Search contacts"; isSingleLine=true }
+                val list = android.widget.ListView(activity)
+                var filtered = rows
+                val adapter = android.widget.ArrayAdapter(activity,android.R.layout.simple_list_item_1,
+                    filtered.map { "${it.name}\n${it.number}" }.toMutableList())
+                list.adapter=adapter
+                val layout=android.widget.LinearLayout(activity).apply {
+                    orientation=android.widget.LinearLayout.VERTICAL
+                    addView(search); addView(list,android.widget.LinearLayout.LayoutParams(-1,(300*activity.resources.displayMetrics.density).toInt()))
+                }
+                search.addTextChangedListener(object: android.text.TextWatcher {
+                    override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int) {}
+                    override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) {
+                        val term=s?.toString()?.trim().orEmpty()
+                        filtered=rows.filter { it.name.contains(term,true) || it.number.contains(term) }
+                        adapter.clear();adapter.addAll(filtered.map { "${it.name}\n${it.number}" });adapter.notifyDataSetChanged()
+                    }
+                    override fun afterTextChanged(s:android.text.Editable?) {}
+                })
+                val picker=AlertDialog.Builder(activity).setTitle("Choose contact for “$alias”")
+                    .setView(layout).setNegativeButton("Cancel",null).create()
+                list.setOnItemClickListener { _,_,index,_ ->
+                    val selected=filtered.getOrNull(index)?:return@setOnItemClickListener
+                    picker.dismiss()
+                    if (!usable()) return@setOnItemClickListener
+                    AlertDialog.Builder(activity).setTitle("Save call nickname?")
+                        .setMessage("$alias → ${selected.name}\n${selected.number}\n\nSaying or typing ‘call $alias’ will call this contact directly. Only on this phone; not used for WhatsApp. A changed or ambiguous contact must be chosen again.")
+                        .setPositiveButton("Save nickname") { _,_ ->
+                            if (!usable()) return@setPositiveButton
+                            val fresh=try { contactRows(activity) } catch (_:Exception) { null }
+                            val saved= fresh != null && if (original == null)
+                                matches.remember(alias,selected,fresh,RecipientOperation.CALL,true,true)
+                            else matches.edit(original,alias,selected,fresh,true)
+                            if (!saved) message("Not saved: contact changed, has multiple/shared numbers, or nickname conflicts. Review existing matches first.")
+                            show()
+                        }.setNegativeButton("Cancel",null).show()
+                }
+                picker.show()
+            }
+            fun editAlias(original: SavedContactMatch?) {
+                if (!usable()) return
+                val input=android.widget.EditText(activity).apply {
+                    hint="Nickname, e.g. Appa";isSingleLine=true;setText(original?.alias.orEmpty())
+                }
+                val dialog=AlertDialog.Builder(activity).setTitle(if(original==null) "Add call nickname" else "Edit call nickname")
+                    .setMessage("Enter the name you will say after ‘call’, then choose a real contact. Existing saved matches are not silently replaced.")
+                    .setView(input).setPositiveButton("Choose contact",null).setNegativeButton("Cancel",null).create()
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val alias=input.text.toString().trim()
+                        val key=ContactNameMatcher.normalize(alias)
+                        if (key.isBlank() || alias.length>80 || key.matches(Regex("[0-9 +()-]+"))) {
+                            input.error="Enter a name, not a phone number (up to 80 characters)";return@setOnClickListener
+                        }
+                        if (matches.all().any { it.alias==key && it != original }) {
+                            input.error="This nickname already exists. Edit or forget that match first.";return@setOnClickListener
+                        }
+                        dialog.dismiss();chooseContact(alias,original)
+                    }
+                }
+                dialog.show()
+            }
+            show = show@{
+                if (!usable()) return@show
+                val saved=matches.all()
+                val builder=AlertDialog.Builder(activity).setTitle("Contact nicknames & saved matches")
+                    .setPositiveButton("Add nickname") { _,_ -> editAlias(null) }.setNegativeButton("Close", null)
+                if (saved.isEmpty()) builder.setMessage("No saved matches. Add your own call nickname or tick ‘Always use’ when confirming a suggested contact. Saved only on this phone; calls only.")
+                else builder.setItems(saved.map { "${it.alias} → ${it.endpoint.name}\n${it.endpoint.number}" }.toTypedArray()) { _,index ->
+                    val selected=saved[index]
+                    AlertDialog.Builder(activity).setTitle("${selected.alias} → ${selected.endpoint.name}")
+                        .setMessage("${selected.endpoint.number}\nCall nickname saved on this phone.")
+                        .setPositiveButton("Edit") { _,_ -> editAlias(selected) }
+                        .setNeutralButton("Forget") { _,_ ->
+                            if (!usable()) return@setNeutralButton
+                            AlertDialog.Builder(activity).setTitle("Forget this name match?")
+                                .setMessage("${selected.alias} → ${selected.endpoint.name}\n${selected.endpoint.number}")
+                                .setPositiveButton("Forget") { _,_ ->
+                                    if (!usable()) return@setPositiveButton
+                                    if (!matches.forget(selected.alias)) message("Could not forget match")
+                                    show()
+                                }.setNegativeButton("Keep",null).show()
+                        }.setNegativeButton("Close",null).show()
+                }
+                builder.show()
             }
             show()
         }

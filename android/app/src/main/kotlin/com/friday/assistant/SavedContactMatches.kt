@@ -32,6 +32,17 @@ class SavedContactMatches(private val storage: ContactMatchStorage) {
         return rows.none { ContactNameMatcher.numberKey(it.number) == ContactNameMatcher.numberKey(endpoint.number) &&
             (it.contactId != endpoint.contactId || it.lookupKey != endpoint.lookupKey) }
     }
+    fun edit(original: SavedContactMatch, query: String, endpoint: ContactEndpoint,
+             rows: List<ContactEndpoint>, confirmed: Boolean): Boolean {
+        if (!confirmed) return false
+        val saved = all()
+        // Do not overwrite another dialog's concurrent edit or repair corruption.
+        if (saved.filter { it.alias == original.alias } != listOf(original)) return false
+        val key = ContactNameMatcher.normalize(query)
+        if (!valid(key,endpoint,rows)) return false
+        if (saved.any { it.alias == key && it != original }) return false
+        return storage.write(saved.filterNot { it == original } + SavedContactMatch(key,endpoint))
+    }
     fun remember(query: String, endpoint: ContactEndpoint, rows: List<ContactEndpoint>,
                  operation: RecipientOperation, explicitlyChecked: Boolean, confirmed: Boolean): Boolean {
         if (!explicitlyChecked || !confirmed || operation != RecipientOperation.CALL) return false

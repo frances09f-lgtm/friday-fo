@@ -90,6 +90,16 @@ class FridayController extends ChangeNotifier {
 
   final List<ChatMessage> messages = [];
   bool busy = false;
+
+  /// Changes only after an executed command returns a terminal result suitable
+  /// for clearing the floating panel. Speech/history persistence may still run.
+  int completedCommandRevision = 0;
+  void _commandFinished(String outcome) {
+    if (IntentRouter.completedCommandOutcome(outcome)) {
+      completedCommandRevision++;
+    }
+  }
+
   String phase = 'Ready';
   String partialHeard = '';
   final oroContext = OroContext();
@@ -157,6 +167,7 @@ class FridayController extends ChangeNotifier {
       phase = 'Doing';
       notifyListeners();
       final outcome = await router.executeAll([literalMessage.action]);
+      _commandFinished(outcome);
       final reply = actionResultReply(outcome);
       messages.add(ChatMessage(
         id: '${DateTime.now().microsecondsSinceEpoch}wa',
@@ -224,6 +235,11 @@ class FridayController extends ChangeNotifier {
       if (screenAgent != null && query.isNotEmpty && query.length <= 250) {
         await screenAgent!.start('open whatsapp and search for $query');
         reply = 'Friday v61 WhatsApp search: ${screenAgent!.result}';
+        if (screenAgent!.result == 'Done' ||
+            screenAgent!.result ==
+                'Requested controls executed with observed screen changes. Check the final screen.') {
+          completedCommandRevision++;
+        }
       }
       messages.add(ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}wasearch',
@@ -288,6 +304,11 @@ class FridayController extends ChangeNotifier {
       notifyListeners();
       await screenAgent!.start(localText);
       final reply = screenAgent!.result;
+      if (screenAgent!.result == 'Done' ||
+          screenAgent!.result ==
+              'Requested controls executed with observed screen changes. Check the final screen.') {
+        completedCommandRevision++;
+      }
       final privateScreen = screenAgent!.goal?.workflow == 'read';
       messages.add(ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}agent',
@@ -404,6 +425,7 @@ class FridayController extends ChangeNotifier {
       final outcome = await router.executeAll(actions);
       // The router's outcome is the truth - the brain's reply only guessed
       // at the result ("Reminder set" before it was).
+      _commandFinished(outcome);
       reply = actionResultReply(outcome);
     }
 

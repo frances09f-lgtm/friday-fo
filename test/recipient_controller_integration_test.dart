@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:friday/services/device/device_hub.dart';
@@ -22,10 +23,11 @@ class NoBrain implements AIBrain {
 
 class RecordingRouter implements IntentRouter {
   final received = <FridayAction>[];
+  String outcome = 'Recipient confirmation cancelled. No message sent.';
   @override
   Future<String> executeAll(List<FridayAction> actions) async {
     received.addAll(actions);
-    return 'Recipient confirmation cancelled. No message sent.';
+    return outcome;
   }
 
   @override
@@ -49,6 +51,21 @@ class Muted implements SettingsStore {
 class NoSpeech implements SpeechService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class DelayedSpeech extends NoSpeech {
+  final done = Completer<void>();
+  bool started = false;
+  @override
+  Future<void> speak(String text, {String locale = 'en-IN'}) async {
+    started = true;
+    await done.future;
+  }
+}
+
+class SpokenSettings extends Muted {
+  @override
+  bool get speakReplies => true;
 }
 
 void main() {
@@ -99,4 +116,85 @@ void main() {
       controller.dispose();
     });
   }
+  test('real controller signals command before trailing TTS settles', () async {
+    final router = RecordingRouter()..outcome = '';
+    final speech = DelayedSpeech();
+    final c = FridayController(
+        brain: NoBrain(),
+        router: router,
+        chatStore: MemoryStore(),
+        speech: speech,
+        settings: SpokenSettings());
+    var finished = false;
+    final send = c.send('call Aditya Suthar').then((_) {
+      finished = true;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(c.busy, false);
+    expect(c.completedCommandRevision, 1);
+    expect(speech.started, true);
+    expect(finished, false);
+    speech.done.complete();
+    await send;
+    c.dispose();
+  });
+  test(
+      'native calls retain exact configured alias for manual and voice transcripts',
+      () async {
+    final calls = <MethodCall>[];
+    const channel = MethodChannel('friday/device');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (c) async {
+      calls.add(c);
+      return 'calling';
+    });
+    for (final alias in ['Mimi', 'Appa', 'Aditya']) {
+      await DeviceHub().callContact(alias);
+      expect(calls.last.method, 'callContact');
+      expect(calls.last.arguments, {'who': alias});
+    }
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+  test(
+      'completion allowlist keeps failures, recipient questions and mixed outcomes',
+      () {
+    for (final outcome in [
+      "I couldn't place the call.",
+      'Who should I call?',
+      'Recipient confirmation cancelled. No call or WhatsApp draft was opened.',
+      'Done.',
+      'Media volume verified by two readbacks. 30%\nFailed',
+      'Unknown response'
+    ]) {
+      expect(IntentRouter.completedCommandOutcome(outcome), false,
+          reason: outcome);
+    }
+    expect(IntentRouter.completedCommandOutcome(''), true);
+    expect(
+        IntentRouter.completedCommandOutcome(
+            'Opened the WhatsApp draft. Review the recipient and message, then tap Send in WhatsApp yourself.'),
+        true);
+    expect(
+        IntentRouter.completedCommandOutcome(
+            'Media volume verified by two readbacks. 30%'),
+        true);
+  });
+  test('voice transcripts and typed call commands preserve custom nicknames',
+      () async {
+    for (final nickname in ['Mimi', 'Appa', 'Bro']) {
+      final router = RecordingRouter()..outcome = '';
+      final controller = FridayController(
+          brain: NoBrain(),
+          router: router,
+          chatStore: MemoryStore(),
+          speech: NoSpeech(),
+          settings: Muted());
+      await controller.send('call $nickname');
+      expect(router.received.single.type, FridayActionType.callContact);
+      expect(
+          router.received.single.target.toLowerCase(), nickname.toLowerCase());
+      controller.dispose();
+    }
+  });
 }

@@ -122,6 +122,7 @@ class AssistantOverlayService : Service() {
         val loader=FlutterInjector.instance().flutterLoader();loader.startInitialization(applicationContext);loader.ensureInitializationComplete(applicationContext,null)
         val e=FlutterEngine(this)
         MethodChannel(e.dartExecutor.binaryMessenger,CHANNEL).setMethodCallHandler{call,result->
+            if(engine !== e){result.error("stale_panel","Panel invocation has ended",null);return@setMethodCallHandler}
             when(call.method){
                 "hidePanelWhileBusy"->{hidePanelImmediately();result.success(null)}
                 "panelExpanded"->{
@@ -131,9 +132,9 @@ class AssistantOverlayService : Service() {
                     };result.success(null)
                 }
                 "launchMode"->result.success(mapOf("voice" to voice))
-                "dismiss"->{result.success(null);handler.post{if(persistent)showBubble()else stopSelf()}}
+                "dismiss"->{hidePanelImmediately();result.success(null);handler.post{if(engine === e){if(persistent)showBubble()else stopSelf()}}}
                 "hideBubble"->{result.success(null);stopSelf()}
-                "openFriday"->{openFriday();result.success(null);handler.post{if(persistent)showBubble()else stopSelf()}}
+                "openFriday"->{openFriday();hidePanelImmediately();result.success(null);handler.post{if(engine === e){if(persistent)showBubble()else stopSelf()}}}
                 else->result.notImplemented()
             }
         }

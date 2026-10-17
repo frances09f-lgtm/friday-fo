@@ -43,7 +43,7 @@ class VolumeControlActivity:Activity() {
   title="Friday volume control"
   window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
   val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(32,28,32,24)}
-  box.addView(TextView(this).apply{text="Changing phone media volume ${p.percent?.let{"to $it%"}?:if(p.up==true)"up"else "down"}.\n\nFriday shows this window because some phones reject volume changes from an overlay. The result is read back twice and will remain in the bar.";textSize=17f})
+  box.addView(TextView(this).apply{text="Changing phone media volume ${p.percent?.let{"to $it%"}?:if(p.up==true)"up"else "down"}.\n\nFriday shows this window because some phones reject volume changes from an overlay. The result is read back twice. The bar closes after a verified change.";textSize=17f})
   box.addView(Button(this).apply{text="Cancel";setOnClickListener{complete(requestId,"Volume control cancelled. A started write may already have happened; check current volume.");finish()}})
   setContentView(box)
  }

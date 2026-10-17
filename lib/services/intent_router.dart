@@ -100,6 +100,23 @@ class IntentRouter {
     return null;
   }
 
+  /// Only router-owned terminal execution results may clear the panel early.
+  /// Unknown results, failed actions and permission/recipient questions stay visible.
+  /// A launch/draft result means dispatch finished, not verified app visibility
+  /// or a sent WhatsApp message.
+  static bool completedCommandOutcome(String outcome) {
+    if (outcome.isEmpty) return true;
+    return outcome.split('\n').every((line) =>
+        line.startsWith('Media volume verified by two readbacks.') ||
+        line.startsWith('Spotify ') &&
+            line.endsWith(' verified from playback or track state.') ||
+        line.startsWith('Reminder registered for ') ||
+        line.startsWith('Launch requested for ') &&
+            line.endsWith('. I cannot verify it became visible.') ||
+        line ==
+            'Opened the WhatsApp draft. Review the recipient and message, then tap Send in WhatsApp yourself.');
+  }
+
   Future<String> execute(FridayAction action) async {
     if (action.type != FridayActionType.none &&
         action.type != FridayActionType.oroStatus &&

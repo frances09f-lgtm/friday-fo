@@ -131,9 +131,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ListTile(
                       leading: const Icon(Icons.contact_phone_outlined,
                           color: Stitch.cyan),
-                      title: const Text('Saved call name matches'),
+                      title: const Text('Contact nicknames & saved matches'),
                       subtitle: const Text(
-                          'Review or forget names you chose to remember on this phone'),
+                          'Add, edit or forget call nicknames and remembered name matches'),
                       onTap: () async {
                         try {
                           await const MethodChannel('friday/device')

@@ -161,33 +161,34 @@ class _AssistantPanelState extends State<AssistantPanel> {
     if (!mounted || _closeRequested || text.trim().isEmpty) return;
     final controller = context.read<FridayController>();
     if (_sending || controller.busy) return;
-    final before = controller.messages.length;
+    final revision = controller.completedCommandRevision;
     _sending = true;
     _invalidateListening();
-    try {
-      // Recognition/audio teardown must settle before Android volume writes.
-      await context.read<SpeechService>().stopListening();
-      await controller.send(text);
-      // Give the finished response a short reading window. Failed requests and
-      // questions also end this invocation; this never claims task success.
-      if (mounted && controller.messages.length > before) {
-        final volumeCommand = RegExp(
-          r'\bvolume\b|\blouder\b|\bquieter\b',
-          caseSensitive: false,
-        ).hasMatch(text);
-        // Leave measured volume evidence on screen for a screenshot/retry.
-        if (volumeCommand && !_closeRequested) {
-          _sending = false;
-          return;
-        }
-        if (!_closeRequested)
-          await Future<void>.delayed(const Duration(milliseconds: 1500));
-        if (mounted) {
-          _sending = false;
-          await _dismiss();
-        }
+    // Execution completion is earlier than send() completion: send also waits
+    // for history writes and up to 90 seconds of TTS. Remove only the window
+    // now; keep the engine alive until that trailing work finishes.
+    var hiddenForCompletion = false;
+    void completed() {
+      if (!mounted ||
+          _closeRequested ||
+          hiddenForCompletion ||
+          controller.busy ||
+          controller.completedCommandRevision == revision) {
+        return;
       }
+      hiddenForCompletion = true;
+      unawaited(_dismiss());
+    }
+
+    controller.addListener(completed);
+    try {
+      await _speech.stopListening();
+      await controller.send(text);
+      completed();
+      // Errors, questions and informational answers remain readable; an
+      // unverified reply must not be mistaken for a completed device command.
     } finally {
+      controller.removeListener(completed);
       _sending = false;
       if (mounted && _closeRequested) {
         try {
