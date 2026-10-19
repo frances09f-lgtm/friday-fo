@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../update/app_update.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/speech/speech_service.dart';
@@ -24,6 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // In-app self-update: check the latest release once after first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybePromptUpdate(context);
+    });
     context.read<SpeechService>().initSpeech().then((ok) {
       if (mounted) setState(() => _speechReady = ok);
     });
