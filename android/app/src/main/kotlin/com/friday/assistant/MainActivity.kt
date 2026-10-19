@@ -9,6 +9,7 @@ import java.io.File
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 /**
  * Full-app entry point. All phone bridges live in DeviceBridge so the
