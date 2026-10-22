@@ -1,0 +1,632 @@
+<html lang="en" data-theme="light"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Friday UI draft v2</title>
+  <meta name="description" content="A clickable phone-sized UI draft for the Friday on-device Android assistant. Sample data only.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Friday UI draft">
+  <meta property="og:description" content="A clickable phone-sized UI draft for the Friday on-device Android assistant. Sample data only.">
+  <meta property="og:image" content="https://p-qcw5b7icncm2sqeggzkltha2la.pally.site/_pally/og?v=etl2g1">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Friday UI draft">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Friday UI draft">
+  <meta name="twitter:description" content="A clickable phone-sized UI draft for the Friday on-device Android assistant. Sample data only.">
+  <meta name="twitter:image" content="https://p-qcw5b7icncm2sqeggzkltha2la.pally.site/_pally/og?v=etl2g1">
+  <style>:root {
+  color-scheme: light;
+  --color-bg: #f2f8f5; --color-surface: #ffffff;
+  --color-text: #0e1f1a; --color-muted: #475d56;
+  --color-accent: #00695a; --color-accent-alt: #00897b;
+  --color-accent-text: var(--color-accent);
+  --color-accent-text-hover: var(--color-accent-alt);
+  --color-on-accent: #ffffff;
+  --color-border: rgba(14, 40, 32, 0.14); --color-danger: #ba1a1a;
+  --font-body: "Figtree", "Segoe UI", Roboto, Arial, sans-serif; --font-display: "Outfit", "Figtree", "Segoe UI", Roboto, Arial, sans-serif; --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --radius-sm: 0.75rem; --radius-md: 1.25rem;
+  --radius-lg: 1.75rem; --radius-pill: 999px;
+  --space-xs: 0.25rem; --space-sm: 0.5rem; --space-md: 1rem;
+  --space-lg: 1.5rem; --space-xl: 2.5rem;
+  --card-shadow: none; --card-border-width: 0px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #0c1411; --color-surface: #17221e;
+    --color-text: #e2efe9; --color-muted: #a3b8af;
+    --color-accent: #4fd8b8; --color-accent-alt: #7ae6cc;
+    --color-on-accent: #00382d;
+    --color-border: rgba(226, 239, 233, 0.16); --color-danger: #ffb4a8;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { min-width: 20rem; background: var(--color-bg); overflow-x: clip; }
+/* Overscroll shows this viewport-sized canvas copy. The opaque body hides it inside the page. */
+html::before { content: ""; position: fixed; inset: 0; z-index: -1; background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg) 100%); }
+body {
+  min-height: 100vh; margin: 0; color: var(--color-text);
+  background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg) 100%); background-color: var(--color-bg); background-attachment: scroll;
+  font-family: var(--font-body); font-size: 1rem; line-height: 1.55; text-rendering: optimizeLegibility;
+  
+  overflow-x: clip;
+}
+button, input, textarea, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: var(--color-accent-text); text-underline-offset: 0.18em; }
+a:hover { color: var(--color-accent-text-hover); }
+a:not(.pally-button):active { color: var(--color-text); }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid var(--color-accent); outline-offset: 3px;
+}
+img, svg { display: block; max-width: 100%; }
+h1, h2, h3, p { margin-block-start: 0; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.05; letter-spacing: -0.025em; }
+h1 { font-size: clamp(2.25rem, 12vw, 5.75rem); }
+h2 { font-size: clamp(1.4rem, 7vw, 2.2rem); }
+.pally-shell { width: min(100% - 2rem, 68rem); margin-inline: auto; }
+.pally-main { padding-block: var(--space-xl); }
+.pally-card {
+  border: var(--card-border-width) solid var(--color-border); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: var(--card-shadow);
+}
+.pally-button {
+  display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--radius-pill); padding: var(--space-sm) var(--space-lg);
+  color: var(--color-on-accent); background: var(--color-accent); font-family: var(--font-display);
+  font-weight: 800; text-decoration: none; cursor: pointer; white-space: nowrap;
+  
+}
+.pally-button:hover { color: var(--color-on-accent); filter: brightness(1.06); }
+.pally-button:disabled, .pally-button[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.pally-footer {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-sm) var(--space-lg);
+  border-top: 1px solid var(--color-border); padding-block: var(--space-lg);
+  color: var(--color-muted); font-size: 0.88rem;
+}
+.pally-footer p { margin: 0; }
+.pally-footer a { display: inline-flex; align-items: center; gap: 0.45rem; color: inherit; }
+.pally-footer a:hover { color: var(--color-accent-text-hover); }
+.pally-emblem { display: inline-block; width: 1.25rem; height: 1.25rem; background: currentColor; -webkit-mask: url("/_pally/brand/emblem.svg") center / contain no-repeat; mask: url("/_pally/brand/emblem.svg") center / contain no-repeat; }
+@media (min-width: 40rem) {
+  .pally-shell { width: min(100% - 3rem, 68rem); }
+  .pally-main { padding-block: 4rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pally-button { transition: transform 140ms ease, filter 140ms ease; }
+  .pally-button:hover { transform: translateY(-1px); }
+  .pally-button:active { transform: translateY(1px); }
+}
+.pally-button:active { filter: brightness(0.96); }
+
+:root {
+  color-scheme: light;
+  --color-bg: #f2f8f5; --color-surface: #ffffff; --color-text: #0e1f1a; --color-muted: #475d56;
+  --color-accent: #00695a; --color-accent-alt: #00897b; --color-on-accent: #ffffff;
+  --color-accent-text: #00695a; --color-accent-text-hover: #00897b;
+  --color-border: rgba(14,40,32,.14); --color-danger: #ba1a1a;
+  --pc: #b9f0df; --onpc: #00201a; --sc: #d4e8e0; --onsc: #0e1f1a; --tc: #d3e4f7; --ontc: #0b1d33;
+  --ec: #ffdad4; --onec: #410002; --sv: #e8f1ed; --sh: #dbe8e2;
+  --stop: #ba1a1a; --onstop: #ffffff; --scan-bg: #0b1210; --scan-fg: #e2efe9;
+  --spring: cubic-bezier(.34,1.56,.64,1); --out: cubic-bezier(.22,1,.36,1);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0c1411; --color-surface: #17221e; --color-text: #e2efe9; --color-muted: #a3b8af;
+  --color-accent: #4fd8b8; --color-accent-alt: #7ae6cc; --color-on-accent: #00382d;
+  --color-accent-text: #4fd8b8; --color-accent-text-hover: #7ae6cc;
+  --color-border: rgba(226,239,233,.16); --color-danger: #ffb4a8;
+  --pc: #00503f; --onpc: #b9f0df; --sc: #2b3d36; --onsc: #d4e8e0; --tc: #2e4057; --ontc: #d3e4f7;
+  --ec: #7a2a22; --onec: #ffdad4; --sv: #1d2b26; --sh: #26362f;
+  --stop: #ffb4a8; --onstop: #561e18;
+}
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pally-main { width: min(100%, 26.25rem); padding: .5rem 0; }
+.phone {
+  position: relative; display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
+  height: calc(100dvh - 1rem); min-height: 38rem; max-height: 56rem;
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 2rem;
+}
+.blob { position: absolute; z-index: -1; pointer-events: none; transition: transform .8s var(--spring); }
+.b1 { width: 15rem; height: 14rem; top: -4rem; right: -4.5rem; background: var(--pc); opacity: .7; border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%; }
+.b2 { width: 12rem; height: 12rem; bottom: 5rem; left: -5rem; background: var(--tc); opacity: .6; border-radius: 42% 58% 38% 62% / 55% 45% 55% 45%; }
+.b3 { width: 8rem; height: 8rem; top: 45%; right: -3rem; background: var(--sc); opacity: .6; border-radius: 50% 50% 35% 65% / 60% 40% 60% 40%; }
+.phone[data-tab="chat"] .b1 { transform: rotate(0) scale(1); }
+.phone[data-tab="agent"] .b1 { transform: rotate(50deg) scale(1.2) translate(-1rem, 2rem); }
+.phone[data-tab="tasks"] .b1 { transform: rotate(110deg) scale(.9) translate(-2rem, 1rem); }
+.phone[data-tab="alerts"] .b1 { transform: rotate(170deg) scale(1.15); }
+.phone[data-tab="devices"] .b1 { transform: rotate(230deg) scale(1); }
+.phone[data-tab="agent"] .b2 { transform: translate(4rem, -3rem) rotate(40deg) scale(1.1); }
+.phone[data-tab="tasks"] .b2 { transform: translate(1rem, 2rem) rotate(90deg); }
+.phone[data-tab="alerts"] .b2 { transform: translate(5rem, -1rem) rotate(150deg) scale(.9); }
+.phone[data-tab="devices"] .b2 { transform: translate(2rem, -4rem) rotate(210deg) scale(1.2); }
+.phone[data-tab="tasks"] .b3 { transform: translate(-3rem, 4rem) rotate(80deg) scale(1.3); }
+.phone[data-tab="alerts"] .b3 { transform: translate(-1rem, -6rem) rotate(160deg); }
+.phone[data-tab="devices"] .b3 { transform: translate(-4rem, 2rem) rotate(-80deg) scale(1.2); }
+
+.top { display: flex; align-items: center; gap: .25rem; padding: .875rem .75rem .25rem 1.125rem; }
+.top .ttl { flex: 1; min-width: 0; }
+.top h1 { margin: 0; font-size: 1.85rem; line-height: 1.1; }
+.top .sub { margin: 0; font-size: .85rem; color: var(--color-muted); }
+.ib {
+  display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; flex: none;
+  border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--color-text); cursor: pointer;
+  transition: background-color 150ms ease, transform 300ms var(--spring);
+}
+.ib:hover { background: color-mix(in srgb, var(--color-text) 9%, transparent); }
+.ib:active { background: color-mix(in srgb, var(--color-text) 16%, transparent); transform: scale(.88); }
+.ico { width: 1.5rem; height: 1.5rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.i-moon { display: none; }
+:root[data-theme="dark"] .i-sun { display: none; }
+:root[data-theme="dark"] .i-moon { display: block; }
+
+.searchrow { padding: .25rem 1rem .5rem; }
+.search { display: flex; align-items: center; gap: .5rem; min-height: 3rem; padding: 0 1rem; border-radius: var(--radius-pill); background: var(--sh); color: var(--color-muted); }
+.search input { flex: 1; min-width: 0; min-height: 2.75rem; border: 0; background: transparent; color: var(--color-text); font-size: 1rem; outline: none; }
+.search:focus-within { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.search input::placeholder { color: var(--color-muted); }
+
+.screens { position: relative; flex: 1; min-height: 0; }
+.screen { position: absolute; inset: 0; overflow-y: auto; padding: .5rem 1rem 6.75rem; display: flex; flex-direction: column; gap: .75rem; }
+.screen.enter { animation: enter 480ms var(--spring) forwards; }
+@keyframes enter { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+.screen h2 { margin: 0 0 .25rem; font-size: 1.6rem; }
+.lab { margin: 0 0 .25rem; font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.card { padding: 1.125rem; border-radius: 1.75rem; background: var(--sv); color: var(--color-text); }
+.card.pc { background: var(--pc); color: var(--onpc); }
+.card.sc { background: var(--sc); color: var(--onsc); }
+.card.tc { background: var(--tc); color: var(--ontc); }
+.card.ec { background: var(--ec); color: var(--onec); }
+.card p { margin-bottom: .5rem; }
+.muted { color: var(--color-muted); }
+.pc .muted, .sc .muted, .tc .muted, .ec .muted { color: inherit; opacity: .85; }
+.small { font-size: .875rem; }
+.big { font-family: var(--font-display); font-size: 2.1rem; font-weight: 700; letter-spacing: .06em; font-variant-numeric: tabular-nums; margin: .25rem 0 .75rem; overflow-wrap: anywhere; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .5rem 1.25rem;
+  border: 0; border-radius: var(--radius-pill); background: var(--sh); color: var(--color-text); font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: transform 300ms var(--spring), filter 150ms ease, opacity 150ms ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: scale(.94); filter: brightness(.95); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--color-accent); color: var(--color-on-accent); }
+.btn.stop { background: var(--stop); color: var(--onstop); }
+.btn.tonal { background: var(--pc); color: var(--onpc); }
+.btn.xl { min-height: 3.5rem; font-size: 1.1rem; flex: 1; }
+.btn.link { background: transparent; color: var(--color-accent-text); padding-inline: .75rem; }
+.row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; padding: 0 1rem; border: 0; border-radius: var(--radius-pill);
+  background: var(--sh); color: var(--color-text); font-size: .9rem; font-weight: 500; cursor: pointer; white-space: nowrap; flex: none;
+  transition: transform 300ms var(--spring), background-color 150ms ease;
+}
+.chip:active { transform: scale(.93); }
+.chip[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.chip .tick { display: none; }
+.chip[aria-pressed="true"] .tick { display: inline; }
+.tag { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .75rem; border-radius: var(--radius-pill); font-size: .8rem; font-weight: 700; letter-spacing: .02em; background: var(--sh); color: var(--color-text); }
+.st-running { background: var(--tc); color: var(--ontc); }
+.st-done { background: var(--pc); color: var(--onpc); }
+.st-failed { background: var(--ec); color: var(--onec); }
+
+/* chat */
+#s-chat { padding-bottom: 6.5rem; gap: .5rem; overflow: hidden; }
+.msgs { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--color-muted) 45%, transparent) transparent; padding-right: .25rem !important; display: flex; flex-direction: column; gap: .625rem; padding: .25rem 0; scroll-behavior: smooth; }
+.msg { max-width: 86%; padding: .75rem 1rem; border-radius: 1.5rem; animation: pop 400ms var(--spring) both; }
+.msg p { margin: 0; }
+.msg.user { align-self: flex-end; background: var(--color-accent); color: var(--color-on-accent); border-bottom-right-radius: .4rem; }
+.msg.bot { align-self: flex-start; background: var(--sv); border-bottom-left-radius: .4rem; }
+.brain { display: inline-flex; margin-top: .5rem; padding: .125rem .625rem; border-radius: var(--radius-pill); background: var(--tc); color: var(--ontc); font-size: .78rem; font-weight: 700; }
+@keyframes pop { from { opacity: 0; transform: scale(.88) translateY(8px); } to { opacity: 1; transform: none; } }
+.chips { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .125rem; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.composer { display: flex; gap: .5rem; align-items: center; }
+.composer input[type="text"] { flex: 1; min-width: 0; min-height: 3rem; padding: 0 1.125rem; border: 2px solid transparent; border-radius: var(--radius-pill); background: var(--sh); color: var(--color-text); font-size: 1rem; }
+.composer input::placeholder, .field::placeholder { color: var(--color-muted); opacity: 1; }
+.composer input:hover { border-color: var(--color-border); }
+.composer input:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.rb { width: 3rem; height: 3rem; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--pc); color: var(--onpc); cursor: pointer; flex: none; transition: transform 300ms var(--spring); }
+.rb:active { transform: scale(.88); }
+.rb.send { background: var(--color-accent); color: var(--color-on-accent); }
+.rb[aria-pressed="true"] { background: var(--stop); color: var(--onstop); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.1); } }
+.mictext { font-size: .85rem; color: var(--color-muted); margin: 0; }
+
+/* fields */
+.field { width: 100%; min-height: 3rem; padding: .75rem 1rem; border: 2px solid transparent; border-radius: 1.25rem; background: var(--color-surface); color: var(--color-text); font-size: 1rem; resize: none; }
+.field:hover { border-color: var(--color-border); }
+.field:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.field[aria-invalid="true"] { border-color: var(--color-danger); }
+.field:disabled { opacity: .55; }
+.field:-webkit-autofill { -webkit-text-fill-color: var(--color-text); box-shadow: 0 0 0 40rem var(--color-surface) inset; }
+label.l { display: block; margin: .75rem 0 .25rem; font-size: .9rem; font-weight: 700; }
+.err { color: var(--color-danger); font-size: .9rem; margin: .25rem 0 0; min-height: 0; }
+
+/* switch */
+.sw { position: relative; flex: none; width: 3.25rem; height: 2.75rem; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.sw span { position: absolute; inset: .375rem 0; border-radius: var(--radius-pill); background: var(--sh); border: 2px solid var(--color-muted); transition: background-color 200ms ease, border-color 200ms ease; }
+.sw span::after { content: ""; position: absolute; top: 50%; left: .25rem; width: 1rem; height: 1rem; margin-top: -.5rem; border-radius: 50%; background: var(--color-muted); transition: transform 400ms var(--spring), background-color 200ms ease; }
+.sw[aria-checked="true"] span { background: var(--color-accent); border-color: var(--color-accent); }
+.sw[aria-checked="true"] span::after { transform: translateX(1.25rem) scale(1.35); background: var(--color-on-accent); }
+.sw:active span::after { transform: scale(1.5); }
+.sw[aria-checked="true"]:active span::after { transform: translateX(1.1rem) scale(1.5); }
+
+.line { display: flex; align-items: center; gap: .75rem; }
+.line .grow { flex: 1; min-width: 0; }
+.line h3, .item h3 { margin: 0; font-size: 1.05rem; line-height: 1.2; }
+.line p, .item p { margin: 0; }
+.list { display: flex; flex-direction: column; gap: .75rem; }
+.item .meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .5rem; }
+.time { font-variant-numeric: tabular-nums; font-size: .85rem; color: var(--color-muted); }
+
+details.card summary { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 2.75rem; font-weight: 700; cursor: pointer; list-style: none; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary .ico { transition: transform 400ms var(--spring); }
+details.card[open] summary .ico { transform: rotate(180deg); }
+details.card pre { margin: .5rem 0 0; white-space: pre-wrap; font-family: var(--font-mono); font-size: .85rem; }
+
+/* dock */
+.dock {
+  position: absolute; left: .75rem; right: .75rem; bottom: .75rem; z-index: 10;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .125rem; padding: .375rem;
+  border-radius: var(--radius-pill); background: var(--sh); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / 18%);
+}
+.dock button { display: flex; flex-direction: column; align-items: center; gap: .125rem; min-height: 3.5rem; padding: .25rem 0; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-muted); cursor: pointer; }
+.dock .pill { position: relative; display: grid; place-items: center; width: 3.5rem; height: 2rem; }
+.dock .pill::before { content: ""; position: absolute; inset: 0; border-radius: 1rem; background: var(--pc); opacity: 0; transform: scaleX(.35); transition: transform 500ms var(--spring), opacity 200ms ease; }
+.dock .pill .ico { position: relative; width: 1.5rem; height: 1.5rem; transition: transform 400ms var(--spring); }
+.dock .lbl { font-size: .75rem; font-weight: 500; line-height: 1.2; }
+.dock button[aria-current="page"] { color: var(--color-text); }
+.dock button[aria-current="page"] .lbl { font-weight: 700; }
+.dock button[aria-current="page"] .pill::before { opacity: 1; transform: scaleX(1); }
+.dock button[aria-current="page"] .pill .ico { transform: scale(1.12); color: var(--onpc); }
+.dock button:active .pill .ico { transform: scale(.85); }
+
+/* overlays */
+.overlay { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--color-bg); animation: slide 450ms var(--spring) forwards; }
+@keyframes slide { from { opacity: 0; transform: translateX(28px) scale(.97); } to { opacity: 1; transform: none; } }
+.obar { display: flex; align-items: center; gap: .5rem; padding: .75rem .75rem .25rem; }
+.obar h2 { margin: 0; font-size: 1.6rem; }
+.obody { flex: 1; overflow-y: auto; padding: .5rem 1rem 1.25rem; display: flex; flex-direction: column; gap: .75rem; }
+.obody h3 { margin: 0 0 .5rem; font-size: 1.15rem; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; padding: .25rem; border-radius: var(--radius-pill); background: var(--sh); }
+.seg button { min-height: 2.75rem; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text); font-weight: 700; cursor: pointer; transition: transform 300ms var(--spring), background-color 150ms ease; }
+.seg button[aria-checked="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.seg button:active { transform: scale(.95); }
+.perm { padding: .5rem 0; border-top: 1px solid var(--color-border); }
+.perm:first-of-type { border-top: 0; }
+.perm .nm { font-weight: 500; line-height: 1.3; }
+.foot { text-align: center; font-size: .85rem; color: var(--color-muted); margin: .5rem 0 0; }
+
+.scan { background: var(--scan-bg); color: var(--scan-fg); align-items: center; justify-content: center; gap: 1.25rem; padding: 1.5rem; text-align: center; }
+.vf { position: relative; width: min(15rem, 70%); aspect-ratio: 1; border-radius: 1.75rem; border: 3px solid var(--scan-fg); overflow: hidden; }
+.vf::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: #4fd8b8; animation: scan 2s ease-in-out infinite alternate; }
+@keyframes scan { from { transform: translateY(0); } to { transform: translateY(14rem); } }
+.scan .btn.primary { background: #4fd8b8; color: #00382d; }
+.scan .btn:not(.primary) { background: #26362f; color: var(--scan-fg); }
+
+.bar { height: .9rem; border-radius: 999px; background: color-mix(in srgb, var(--color-muted) 18%, transparent); overflow: hidden; margin-top: .625rem; }
+.bar i { display: block; height: 100%; border-radius: 999px; background: var(--color-accent); }
+.cmd { margin: .35rem 0; font-weight: 600; }
+.cmd span { display: block; font-weight: 400; font-size: .85rem; color: var(--color-muted); }
+.toast { position: absolute; z-index: 40; left: 50%; bottom: 5.75rem; max-width: 90%; padding: .625rem 1.125rem; border-radius: var(--radius-pill); background: var(--color-text); color: var(--color-bg); font-size: .9rem; font-weight: 500; text-align: center; opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity 200ms ease, transform 400ms var(--spring); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+.empty { text-align: center; padding: 1rem; color: var(--color-muted); }
+
+@media (max-width: 22.5rem) {
+  .top h1 { font-size: 1.6rem; }
+  .screen { padding-inline: .75rem; }
+  .big { font-size: 1.8rem; }
+  .btn { padding-inline: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen.enter, .overlay, .msg, .vf::after, .rb[aria-pressed="true"] { animation: none; }
+  .blob, .dock .pill::before, .dock .pill .ico, .sw span::after, .btn, .chip, .ib, .toast, .seg button, .rb, details.card summary .ico { transition: none; }
+}
+</style>
+</head>
+<body>
+  <main class="pally-shell pally-main">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&amp;family=Outfit:wght@600;700&amp;display=swap">
+<script>try{document.documentElement.dataset.theme="light"}catch(e){}</script>
+<div class="phone" id="phone" data-tab="chat">
+  <span class="blob b1" aria-hidden="true"></span><span class="blob b2" aria-hidden="true"></span><span class="blob b3" aria-hidden="true"></span>
+
+  <header class="top">
+    <div class="ttl"><h1>Friday</h1><p class="sub">Draft preview, sample data</p></div>
+    <button type="button" class="ib" id="themeBtn" aria-label="Switch to dark mode"><svg class="ico i-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"></path></svg><svg class="ico i-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"></path></svg></button>
+    <button type="button" class="ib" id="gearBtn" aria-label="Open settings"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 9a3 3 0 100 6 3 3 0 000-6zM19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21h-2.8v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3v-2.8h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3h2.8v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1H21v2.8h-.1a1.7 1.7 0 00-1.5 1z"></path></svg></button>
+  </header>
+
+  <div class="searchrow" id="searchrow" hidden="">
+    <label class="search"><span class="sr-only">Search this tab</span><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5"></path></svg><input id="q" type="search" placeholder="Search this tab" autocomplete="off"></label>
+  </div>
+
+  <div class="screens">
+    <section class="screen enter" id="s-chat" aria-label="Chat">
+      <h2 class="sr-only">Chat with Friday</h2>
+      <div class="card" id="setupCard">
+        <div class="line"><div class="grow"><p class="lab" style="margin:0">Setup</p><h3 style="margin:0" id="setupTxt">3 of 6 steps done</h3></div>
+        <button type="button" class="btn" id="setupBtn">Open setup</button></div>
+        <div class="bar" aria-hidden="true"><i style="width:50%"></i></div>
+      </div>
+      <div class="msgs" id="msgs" role="log" aria-live="polite">
+        <div class="msg user"><p>what is the time</p></div>
+        <div class="msg bot"><p>It's 9:41 AM.</p><span class="brain">Answered by · Offline command</span></div>
+        <div class="msg user"><p>remind me to call shubham at 9</p></div>
+        <div class="msg bot"><p>Done. Reminder set: call Shubham at 9:00.</p><span class="brain">Answered by · On-device</span></div>
+        <div class="msg user"><p>open youtube</p></div>
+        <div class="msg bot"><p>Opening YouTube.</p><span class="brain">Answered by · Offline command</span></div>
+      </div>
+      <div class="chips" role="group" aria-label="Quick commands">
+        <button type="button" class="chip" data-fill="open ">Open app</button>
+        <button type="button" class="chip" data-fill="remind me to ">Set reminder</button>
+        <button type="button" class="chip" data-fill="call ">Call</button>
+        <button type="button" class="chip" data-fill="read my sms">Read SMS</button>
+        <button type="button" class="chip" data-fill="text ravi saying ">Send SMS</button>
+        <button type="button" class="chip" data-fill="send a whatsapp to ">WhatsApp</button>
+        <button type="button" class="chip" data-fill="set volume to 50%">Volume</button>
+        <button type="button" class="chip" data-fill="flashlight on">Flashlight</button>
+        <button type="button" class="chip" data-fill="gold price">Gold price</button>
+        <button type="button" class="chip" id="cmdsBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"></path></svg>All commands</button>
+      </div>
+      <div class="row">
+        <button type="button" class="chip" id="speakChip" aria-pressed="false" data-sync="speak"><svg class="ico tick" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12l5 5 9-10"></path></svg>Speak replies out loud</button>
+        <p class="mictext" id="mictext" role="status"></p>
+      </div>
+      <form class="composer" id="composer" autocomplete="off">
+        <label class="sr-only" for="msgIn">Message Friday</label>
+        <input type="text" id="msgIn" placeholder="Ask Friday…" maxlength="200">
+        <button type="button" class="rb" id="micBtn" aria-pressed="false" aria-label="Voice input"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a3 3 0 013 3v5a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3"></path></svg></button>
+        <button type="submit" class="rb send" aria-label="Send message"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12l16-8-6 17-3-7z"></path></svg></button>
+      </form>
+    </section>
+
+    <section class="screen" id="s-agent" aria-label="Agent" hidden="">
+      <div class="card pc">
+        <p class="lab">Agent mode</p>
+        <h2>Tell Friday what to do on screen.</h2>
+        <label class="l" for="agIn">Task</label>
+        <textarea class="field" id="agIn" rows="2" placeholder="search gta 6 on youtube"></textarea>
+        <p class="err" id="agErr" role="alert"></p>
+        <div class="row" style="margin:.5rem 0"><button type="button" class="chip" id="agEx">Use example</button></div>
+        <div class="row"><button type="button" class="btn primary xl" id="agStart">Start</button><button type="button" class="btn stop xl" id="agStop" disabled="">STOP</button></div>
+        <p class="small" id="agState" role="status" style="margin:.75rem 0 0;font-weight:700">Idle. Nothing is running.</p>
+      </div>
+      <div class="card sc">
+        <p class="lab">Local model</p>
+        <h3 style="margin:0">Qwen2.5-0.5B-Instruct</h3>
+        <p class="small" style="margin:.25rem 0 .75rem">547 MB · <strong id="mdlState">loaded</strong></p>
+        <div class="bar" aria-hidden="true"><i style="width:100%"></i></div>
+        <p class="small muted" style="margin:.5rem 0 .75rem">Guided setup: needs 3 GB RAM, keep Friday open, download resumes if it stops.</p>
+        <button type="button" class="btn primary" id="mdlBtn">Load and test</button>
+      </div>
+      <details class="card">
+        <summary>Last decision · local diagnostic <svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"></path></svg></summary>
+        <pre>goal: search gta 6 on youtube
+step 1: open YouTube
+step 2: tap search, type "gta 6"
+result: model replied OK (sample)</pre>
+      </details>
+      <div class="card tc">
+        <div class="line"><div class="grow"><p class="lab" style="margin:0">Accessibility</p><p class="small" style="margin:0">Needed to tap and type for you.</p></div>
+        <button type="button" class="chip" id="accChip" aria-pressed="true"><svg class="ico tick" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12l5 5 9-10"></path></svg><span id="accTxt">Enabled</span></button></div>
+      </div>
+      <p class="small muted" style="margin:0 .25rem">A model response does not prove every phone task will finish.</p>
+    </section>
+
+    <section class="screen" id="s-tasks" aria-label="Tasks" hidden="">
+      <div class="card pc"><p class="lab">Background tasks</p><h2 style="margin:0">2 active, 1 needs a look.</h2></div>
+      <div class="list"><article class="card item" data-s="gold price watch checks the gold price every hour.">
+      <div class="line"><div class="grow"><h3>Gold price watch</h3><p class="muted small">Checks the gold price every hour.</p></div>
+      <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Enable Gold price watch" data-task="1"><span></span></button></div>
+      <div class="meta"><span class="tag st st-running" data-st="running">running</span><span class="time">Last run 9:30 AM</span></div>
+    </article><article class="card item" data-s="gold rule: alert on 2% drop rule-based. no model needed.">
+      <div class="line"><div class="grow"><h3>Gold rule: alert on 2% drop</h3><p class="muted small">Rule-based. No model needed.</p></div>
+      <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Enable Gold rule: alert on 2% drop" data-task="1"><span></span></button></div>
+      <div class="meta"><span class="tag st st-done" data-st="done">done</span><span class="time">Last run 8:00 AM</span></div>
+    </article><article class="card item" data-s="morning sms digest reads new texts at 7:00.">
+      <div class="line"><div class="grow"><h3>Morning SMS digest</h3><p class="muted small">Reads new texts at 7:00.</p></div>
+      <button type="button" class="sw" role="switch" aria-checked="false" aria-label="Enable Morning SMS digest" data-task="1"><span></span></button></div>
+      <div class="meta"><span class="tag st st-failed" data-st="failed">paused</span><span class="time">Last run yesterday, 7:00 AM</span></div>
+    </article></div>
+    </section>
+
+    <section class="screen" id="s-alerts" aria-label="Alerts" hidden="">
+      <div class="card tc">
+        <div class="line"><div class="grow"><p class="lab" style="margin:0">Notification health</p><h3 id="healthTxt">Listener access is on</h3><p class="small" style="margin:0">Friday can read new notifications.</p></div>
+        <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Listener access" data-health="1"><span></span></button></div>
+      </div>
+      <div class="list" id="alertList"><article class="card item" data-s="whatsapp shubham: are you coming at 9?">
+      <div class="line"><div class="grow"><h3>WhatsApp</h3><p>Shubham: are you coming at 9?</p><span class="time">9:12 AM</span></div>
+      <button type="button" class="btn link" data-clear="1" aria-label="Clear notification from WhatsApp">Clear</button></div>
+    </article><article class="card item" data-s="gmail your invoice is ready to view.">
+      <div class="line"><div class="grow"><h3>Gmail</h3><p>Your invoice is ready to view.</p><span class="time">8:47 AM</span></div>
+      <button type="button" class="btn link" data-clear="1" aria-label="Clear notification from Gmail">Clear</button></div>
+    </article><article class="card item" data-s="spotify now playing: sample track">
+      <div class="line"><div class="grow"><h3>Spotify</h3><p>Now playing: Sample track</p><span class="time">8:30 AM</span></div>
+      <button type="button" class="btn link" data-clear="1" aria-label="Clear notification from Spotify">Clear</button></div>
+    </article><article class="card item" data-s="messages card payment alert from your bank.">
+      <div class="line"><div class="grow"><h3>Messages</h3><p>Card payment alert from your bank.</p><span class="time">Yesterday</span></div>
+      <button type="button" class="btn link" data-clear="1" aria-label="Clear notification from Messages">Clear</button></div>
+    </article></div>
+      <p class="empty" id="alertEmpty" hidden="">No notifications. All clear.</p>
+    </section>
+
+    <section class="screen" id="s-devices" aria-label="Devices" hidden="">
+      <div class="card pc">
+        <p class="lab">Pairing code</p>
+        <p class="big" id="code">4F7K-92QA</p>
+        <div class="row"><button type="button" class="btn primary" id="scanBtn"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 20h2"></path></svg>Scan QR</button><button type="button" class="btn" id="copyBtn">Copy code</button></div>
+      </div>
+      <h3 style="margin:.5rem .25rem 0">Linked devices</h3>
+      <article class="card item" data-s="windows pc">
+        <div class="line"><div class="grow"><h3>Windows PC</h3><p class="muted small">Linked · last seen 9:38 AM</p></div>
+        <span class="tag st st-done" id="pcTag">linked</span></div>
+        <div class="meta"><button type="button" class="btn" id="unlinkBtn">Unlink</button></div>
+      </article>
+    </section>
+  </div>
+
+  <nav class="dock" aria-label="Main"><button type="button" data-tab="chat" aria-current="page"><span class="pill"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"></path></svg></span><span class="lbl">Chat</span></button><button type="button" data-tab="agent"><span class="pill"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z"></path></svg></span><span class="lbl">Agent</span></button><button type="button" data-tab="tasks"><span class="pill"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"></path></svg></span><span class="lbl">Tasks</span></button><button type="button" data-tab="alerts"><span class="pill"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 17v-6a6 6 0 0112 0v6l2 2H4zM10 21h4"></path></svg></span><span class="lbl">Alerts</span></button><button type="button" data-tab="devices"><span class="pill"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h14v10H3zM8 19h4M19 9h2v10h-2z"></path></svg></span><span class="lbl">Devices</span></button></nav>
+
+  <div class="overlay" id="settings" role="dialog" aria-label="Settings" hidden="">
+    <div class="obar"><button type="button" class="ib" id="backBtn" aria-label="Back"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></button><h2>Settings</h2></div>
+    <div class="obody">
+      <section class="card pc"><h3>Appearance</h3>
+        <div class="seg" role="radiogroup" aria-label="Theme"><button type="button" role="radio" aria-checked="true" data-theme-set="light">Light</button><button type="button" role="radio" aria-checked="false" data-theme-set="dark">Dark</button></div>
+      </section>
+      <section class="card"><h3>Cloud fallback keys</h3>
+        <p class="small muted" style="margin:0 0 .5rem">Tried in order: Gemini, then Groq, then OpenRouter. Any one is enough.</p>
+        <label class="l" for="kGem">Gemini API key</label><input class="field" id="kGem" type="password" value="sample-draft-key" autocomplete="off">
+        <label class="l" for="kGroq">Groq API key</label><input class="field" id="kGroq" type="password" value="sample-draft-key" autocomplete="off">
+        <label class="l" for="mGroq">Groq model</label><input class="field" id="mGroq" type="text" value="llama-3.1-8b-instant" autocomplete="off">
+        <label class="l" for="kOr">OpenRouter API key</label><input class="field" id="kOr" type="password" value="sample-draft-key" autocomplete="off">
+        <label class="l" for="mOr">OpenRouter model</label><input class="field" id="mOr" type="text" value="openrouter/auto" autocomplete="off">
+        <p class="small muted" style="margin:.75rem 0 0">Keys stay in encrypted device storage.</p>
+      </section>
+      <section class="card sc"><h3>Local model</h3>
+        <p style="margin:0">Manage existing .task model</p>
+        <p class="small" style="margin:.25rem 0 .75rem">Qwen2.5-0.5B-Instruct · 547 MB · loaded</p>
+        <button type="button" class="btn primary" data-toast="Sample only: model manager is not built here">Manage model</button>
+      </section>
+      <section class="card tc"><div class="line"><div class="grow"><h3 style="margin:0">On-device backup</h3><p class="small" style="margin:0">Use the on-device model when cloud keys fail.</p></div><button type="button" class="sw" role="switch" aria-checked="true" aria-label="Use on-device model when keys fail"><span></span></button></div></section>
+      <section class="card"><h3>Permissions</h3><div class="perm line"><span class="nm grow">Microphone</span>
+      <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Microphone" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1" disabled="">Granted</button></div><div class="perm line"><span class="nm grow">Accessibility Service</span>
+      <button type="button" class="sw" role="switch" aria-checked="false" aria-label="Accessibility Service" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1">Grant</button></div><div class="perm line"><span class="nm grow">Floating assistant (display over other apps)</span>
+      <button type="button" class="sw" role="switch" aria-checked="false" aria-label="Floating assistant (display over other apps)" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1">Grant</button></div><div class="perm line"><span class="nm grow">SMS</span>
+      <button type="button" class="sw" role="switch" aria-checked="true" aria-label="SMS" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1" disabled="">Granted</button></div><div class="perm line"><span class="nm grow">Notifications and exact alarms</span>
+      <button type="button" class="sw" role="switch" aria-checked="false" aria-label="Notifications and exact alarms" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1">Grant</button></div><div class="perm line"><span class="nm grow">Spotify controls via notification access</span>
+      <button type="button" class="sw" role="switch" aria-checked="false" aria-label="Spotify controls via notification access" data-perm="1"><span></span></button>
+      <button type="button" class="btn tonal" data-grant="1">Grant</button></div></section>
+      <section class="card tc"><div class="line"><div class="grow"><h3 style="margin:0">Voice</h3><p class="small" style="margin:0">Speak replies out loud. Speech language follows the Android speech service.</p></div><button type="button" class="sw" role="switch" aria-checked="false" aria-label="Speak replies out loud" data-sync="speak"><span></span></button></div></section>
+      <section class="card"><h3>Updates</h3>
+        <p style="margin:0 0 .75rem" id="upd">Current version v56</p>
+        <button type="button" class="btn" id="updBtn">Check for update</button>
+      </section>
+      <button type="button" class="btn primary xl" id="saveBtn" style="flex:none">Save</button>
+      <p class="foot">Draft preview, sample data</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="commands" role="dialog" aria-label="Commands" hidden="">
+    <div class="obar"><button type="button" class="ib" id="cmdsBack" aria-label="Back"><svg class="ico " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></button><h2>Commands</h2></div>
+    <div class="obody">
+      <p class="small muted" style="margin:0 .25rem .5rem">These work offline, before any cloud brain. Chain steps with "and" or "then".</p>
+      <section class="card"><h3>Apps and phone</h3>
+        <p class="cmd">open youtube <span>Opens the app.</span></p>
+        <p class="cmd">flashlight on / off <span>Toggles the torch.</span></p>
+        <p class="cmd">set volume to 50% <span>Sets media volume.</span></p></section>
+      <section class="card"><h3>Calls and messages</h3>
+        <p class="cmd">call shubham <span>Dials the contact.</span></p>
+        <p class="cmd">text ravi saying I am on my way <span>Sends an SMS.</span></p>
+        <p class="cmd">send a whatsapp to maya saying 6 pm works <span>Sends a WhatsApp message.</span></p>
+        <p class="cmd">read my sms <span>Reads new texts. "messages from bank" filters.</span></p></section>
+      <section class="card"><h3>Reminders</h3>
+        <p class="cmd">remind me to call shubham in 20 minutes <span>One-shot reminder.</span></p>
+        <p class="cmd">remind me to drink water at 6 pm <span>Timed reminder.</span></p></section>
+      <section class="card"><h3>Gold</h3>
+        <p class="cmd">gold price <span>Current XAU rate.</span></p>
+        <p class="cmd">open trades <span>Running positions.</span></p>
+        <p class="cmd">set tp and sl on my trade <span>Guides take-profit / stop-loss.</span></p></section>
+      <p class="foot">Anything else goes to a cloud brain, then the on-device model.</p>
+    </div>
+  </div>
+
+  <div class="overlay scan" id="scan" role="dialog" aria-label="Scan QR" hidden="">
+    <h2 style="margin:0">Scan QR</h2>
+    <div class="vf" aria-hidden="true"></div>
+    <p style="margin:0">Point the camera at the code on your computer. (Fake screen.)</p>
+    <div class="row" style="justify-content:center"><button type="button" class="btn primary" id="scanOk">Use sample scan</button><button type="button" class="btn" id="scanX">Cancel</button></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+<script>
+(function(){
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var phone=$('#phone'),toastEl=$('#toast'),tt,cur='chat',opener=null;
+var tabs=['chat','agent','tasks','alerts','devices'];
+function toast(m){toastEl.textContent=m;toastEl.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('on')},2200)}
+function filter(){var q=$('#q').value.trim().toLowerCase();$$('#s-'+cur+' [data-s]').forEach(function(e){e.hidden=!!q&&e.dataset.s.indexOf(q)<0})}
+function show(t){cur=t;tabs.forEach(function(n){var s=$('#s-'+n),on=n===t;s.hidden=!on;if(on){s.classList.remove('enter');void s.offsetWidth;s.classList.add('enter')}});
+phone.dataset.tab=t;$$('.dock button').forEach(function(b){if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+$('#searchrow').hidden=!(t==='tasks'||t==='alerts'||t==='devices');$('#q').value='';filter()}
+$$('.dock button').forEach(function(b){b.addEventListener('click',function(){show(b.dataset.tab)})});
+$('#q').addEventListener('input',filter);
+function setTheme(t){document.documentElement.dataset.theme=t;$('#themeBtn').setAttribute('aria-label',t==='dark'?'Switch to light mode':'Switch to dark mode');
+$$('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',b.dataset.themeSet===t?'true':'false')})}
+$('#themeBtn').addEventListener('click',function(){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')});
+$$('[data-theme-set]').forEach(function(b){b.addEventListener('click',function(){setTheme(b.dataset.themeSet)})});
+function openO(id,from,focusSel){opener=from;var o=$(id);o.hidden=false;o.style.animation='none';void o.offsetWidth;o.style.animation='';var f=$(focusSel,o);if(f)f.focus()}
+function closeO(id){$(id).hidden=true;if(opener)opener.focus()}
+$('#gearBtn').addEventListener('click',function(){openO('#settings',this,'#backBtn')});
+$('#cmdsBtn').addEventListener('click',function(){openO('#commands',this,'#cmdsBack')});
+$('#cmdsBack').addEventListener('click',function(){closeO('#commands')});
+$('#setupBtn').addEventListener('click',function(){openO('#settings',this,'#backBtn')});
+$('#backBtn').addEventListener('click',function(){closeO('#settings')});
+$('#scanBtn').addEventListener('click',function(){openO('#scan',this,'#scanOk')});
+$('#scanX').addEventListener('click',function(){closeO('#scan')});
+$('#scanOk').addEventListener('click',function(){closeO('#scan');toast('Sample scan. Nothing was paired.')});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(!$('#scan').hidden)closeO('#scan');else if(!$('#commands').hidden)closeO('#commands');else if(!$('#settings').hidden)closeO('#settings')}});
+function setSpeak(v){$$('[data-sync="speak"]').forEach(function(e){if(e.classList.contains('chip'))e.setAttribute('aria-pressed',v);else e.setAttribute('aria-checked',v)})}
+function speakOn(){return $('#speakChip').getAttribute('aria-pressed')==='true'}
+$('#speakChip').addEventListener('click',function(){setSpeak(!speakOn())});
+document.addEventListener('click',function(e){
+var s=e.target.closest('.sw');
+if(s){var on=s.getAttribute('aria-checked')!=='true';s.setAttribute('aria-checked',on);
+if(s.dataset.sync==='speak')setSpeak(on);
+if(s.dataset.task){var c=s.closest('.card'),tg=$('.st',c);tg.textContent=on?tg.dataset.st:'paused';tg.className='tag st '+(on?'st-'+tg.dataset.st:'')}
+if(s.dataset.perm){var g=$('[data-grant]',s.closest('.perm'));g.textContent=on?'Granted':'Grant';g.disabled=on}
+if(s.dataset.health){$('#healthTxt').textContent=on?'Listener access is on':'Listener access is off';toast(on?'Listener access on':'Listener access off. Alerts will not be read.')}}
+var gb=e.target.closest('[data-grant]');
+if(gb){var p=gb.closest('.perm'),sw=$('.sw',p);sw.setAttribute('aria-checked','true');gb.textContent='Granted';gb.disabled=true;toast('Sample only: permission marked granted')}
+var cl=e.target.closest('[data-clear]');
+if(cl){cl.closest('.card').remove();if(!$$('#alertList .card').length)$('#alertEmpty').hidden=false}
+var tb=e.target.closest('[data-toast]');if(tb)toast(tb.dataset.toast)});
+var msgs=$('#msgs'),inp=$('#msgIn'),brains=['Gemini','Groq','OpenRouter','On-device'],bi=0;
+function add(who,t,brain){var d=document.createElement('div');d.className='msg '+who;var p=document.createElement('p');p.textContent=t;d.appendChild(p);
+if(brain){var c=document.createElement('span');c.className='brain';c.textContent='Answered by · '+brain;d.appendChild(c)}
+msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight}
+$('#composer').addEventListener('submit',function(e){e.preventDefault();var v=inp.value.trim();if(!v){inp.focus();return}
+add('user',v);inp.value='';var b=brains[bi++%brains.length];
+setTimeout(function(){add('bot','Sample reply: I heard "'+v+'". This is a draft, so nothing is sent.'+(speakOn()?' (Spoken aloud.)':''),b)},600)});
+$$('[data-fill]').forEach(function(b){b.addEventListener('click',function(){inp.value=b.dataset.fill;inp.focus()})});
+var micT=null,mic=$('#micBtn'),mt=$('#mictext');
+mic.addEventListener('click',function(){if(micT){clearTimeout(micT);micT=null;mic.setAttribute('aria-pressed','false');mt.textContent='';return}
+mic.setAttribute('aria-pressed','true');mt.textContent='Listening…';
+micT=setTimeout(function(){micT=null;mic.setAttribute('aria-pressed','false');mt.textContent='';inp.value='what is the weather';inp.focus()},1600)});
+var ag=$('#agIn'),run=false;
+$('#agEx').addEventListener('click',function(){ag.value='search gta 6 on youtube';$('#agErr').textContent='';ag.removeAttribute('aria-invalid')});
+function agSet(r,msg){run=r;$('#agStart').disabled=r;$('#agStop').disabled=!r;ag.disabled=r;$('#agState').textContent=msg}
+$('#agStart').addEventListener('click',function(){var v=ag.value.trim();
+if(!v){$('#agErr').textContent='Type a task first, or use the example.';ag.setAttribute('aria-invalid','true');ag.focus();return}
+$('#agErr').textContent='';ag.removeAttribute('aria-invalid');agSet(true,'Running: '+v)});
+$('#agStop').addEventListener('click',function(){agSet(false,'Stopped. Nothing is running.')});
+$('#mdlBtn').addEventListener('click',function(){var b=this;b.disabled=true;b.textContent='Testing…';$('#mdlState').textContent='testing';
+setTimeout(function(){b.disabled=false;b.textContent='Load and test';$('#mdlState').textContent='loaded, test passed'},1400)});
+$('#accChip').addEventListener('click',function(){var on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',on);$('#accTxt').textContent=on?'Enabled':'Disabled'});
+$('#copyBtn').addEventListener('click',function(){try{navigator.clipboard.writeText($('#code').textContent)}catch(x){}toast('Code copied (sample)')});
+$('#unlinkBtn').addEventListener('click',function(){var t=$('#pcTag'),l=t.textContent==='linked';t.textContent=l?'unlinked':'linked';t.className='tag st '+(l?'st-failed':'st-done');this.textContent=l?'Link again':'Unlink'});
+$('#updBtn').addEventListener('click',function(){var b=this;b.disabled=true;b.textContent='Checking…';
+setTimeout(function(){b.disabled=false;b.textContent='Check for update';$('#upd').textContent='v56 is the latest version.'},1200)});
+$('#saveBtn').addEventListener('click',function(){toast('Saved. Draft only, nothing stored.')});
+})();</script></main>
+  <footer class="pally-shell pally-footer"><p><a href="mailto:support@pally.com?subject=Report%20page%20friday-ui-draft">Report this page</a></p></footer>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;75f86c783dad4de3bb2bb3be38f3c3f5&quot;,&quot;r&quot;:1,&quot;spa&quot;:2}" crossorigin="anonymous"></script>
+
+<script src="/_pally/links.js?v=13ey3e7" defer=""></script></body></html>
