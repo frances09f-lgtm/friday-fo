@@ -66,14 +66,27 @@ void main() {
       (t) async {
     await t.binding.setSurfaceSize(const Size(320, 640));
     addTearDown(() => t.binding.setSurfaceSize(null));
-    await t.pumpWidget(await app());
-    await t.pumpAndSettle();
-    expect(find.byType(BackgroundTasksScreen), findsNothing);
-    await t.tap(dock('Tasks'));
-    await t.pumpAndSettle();
-    expect(find.byType(BackgroundTasksScreen), findsOneWidget);
-    expect(t.takeException(), isNull);
-    await t.pumpWidget(const SizedBox.shrink());
+    final errs = <String>[];
+    var phase = 'start';
+    final prev = FlutterError.onError;
+    FlutterError.onError = (d) {
+      final s = d.toString();
+      errs.add('[$phase] ${s.length > 1800 ? s.substring(0, 1800) : s}');
+    };
+    try {
+      await t.pumpWidget(await app());
+      phase = 'chat';
+      await t.pumpAndSettle();
+      expect(find.byType(BackgroundTasksScreen), findsNothing);
+      phase = 'tasks';
+      await t.tap(dock('Tasks'));
+      await t.pumpAndSettle();
+      expect(find.byType(BackgroundTasksScreen), findsOneWidget);
+      await t.pumpWidget(const SizedBox.shrink());
+    } finally {
+      FlutterError.onError = prev;
+    }
+    expect(errs, isEmpty, reason: errs.join('\n-----\n'));
   });
 
   testWidgets('theme toggle switches between light and dark', (t) async {
