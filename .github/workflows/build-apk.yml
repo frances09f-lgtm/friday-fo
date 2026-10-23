@@ -2,13 +2,11 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, redesign/orion-ui]
+    branches: [size/v75-diag]
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -19,40 +17,22 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.47.6'
-      - name: Restore signing keystore
+      - name: CI build memory
         run: |
-          echo "${{ secrets.FRIDAY_KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/friday-release.jks
-          cat >> android/gradle.properties <<GP
-          FRIDAY_KEYSTORE_FILE=$RUNNER_TEMP/friday-release.jks
-          FRIDAY_KEYSTORE_PASSWORD=${{ secrets.FRIDAY_KEYSTORE_PASSWORD }}
-          FRIDAY_KEY_ALIAS=${{ secrets.FRIDAY_KEY_ALIAS }}
-          FRIDAY_KEY_PASSWORD=${{ secrets.FRIDAY_KEY_PASSWORD }}
-          GP
-      - name: CI build memory (keep local low-memory settings unchanged)
-        run: |
-          free -m
           cat >> android/gradle.properties <<'GP'
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
           org.gradle.workers.max=2
           kotlin.compiler.execution.strategy=in-process
           GP
       - run: flutter pub get
-      - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.74 --build-number=74 -v
-      - name: Native task evaluation tests
-        run: cd android && ./gradlew :app:testReleaseUnitTest
-      - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: friday-release-apk
-          path: "build/app/outputs/flutter-apk/Friday.apk"
-      - name: Publish GitHub release v74
-        if: github.ref_name == 'redesign/orion-ui'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v74
-          name: Friday v74
-          target_commitish: ${{ github.sha }}
-          make_latest: false
-          body: "Orion Store redesign (UI only): five-tab pill dock, light and dark themes, tonal floating bubble and assistant bar. Built and tested by CI from this commit."
-          files: build/app/outputs/flutter-apk/Friday.apk
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.74 --build-number=74
+      - name: Baseline APK breakdown (v74 code, diagnostic only, not published)
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          echo "BASELINE_SIZE_BYTES=$(stat -c %s "$APK")"
+          echo "BASELINE_NATIVE_PER_ABI_UNCOMPRESSED"
+          unzip -l "$APK" | awk '$4 ~ /^lib\// {split($4,a,"/"); s[a[2]]+=$1} END{for(k in s) print "  " k ": " s[k]}'
+          echo "BASELINE_LARGEST_ENTRIES uncompressed stored name"
+          unzip -lv "$APK" | awk '$1 ~ /^[0-9]+$/ && $8 != "" {print $1, $3, $8}' | sort -nr | head -25
+          echo "BASELINE_BY_TOP_FOLDER uncompressed bytes"
+          unzip -l "$APK" | awk '$1 ~ /^[0-9]+$/ && $4 != "" {n=split($4,a,"/"); k=(n>1?a[1]:$4); s[k]+=$1} END{for(k in s) print "  " k ": " s[k]}' | sort -t: -k2 -nr | head -10
