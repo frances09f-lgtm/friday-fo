@@ -53,7 +53,11 @@ class _OrionShellState extends State<OrionShell> {
           title: Row(children: [
             const CoreLogo(size: 28),
             const SizedBox(width: 12),
-            Text('Friday', style: Stitch.title(24)),
+            Flexible(
+                child: Text('Friday',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Stitch.title(24))),
           ]),
           actions: [
             IconButton(
