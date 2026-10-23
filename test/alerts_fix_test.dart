@@ -7,12 +7,14 @@ import 'dart:io';
 void main() {
   const channel = MethodChannel('friday/device');
   const alerts = MethodChannel('friday/alerts');
+  const plugin = MethodChannel('dexterous.com/flutter/local_notifications');
 
   testWidgets('alerts tab re-reads state on resume and fix buttons open Android',
       (t) async {
     final calls = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (c) async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (c) async {
       calls.add(c.method);
       if (c.method == 'notificationState') {
         return {
@@ -27,10 +29,16 @@ void main() {
       }
       return true;
     });
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(alerts, (c) async {
+    messenger.setMockMethodCallHandler(alerts, (c) async {
       calls.add('alerts:${c.method}');
       return true;
+    });
+    // The local notifications plugin has no Android side in a unit test.
+    // Answer "not granted" so the screen falls back to the settings page.
+    messenger.setMockMethodCallHandler(plugin, (c) async {
+      if (c.method == 'initialize') return true;
+      if (c.method == 'requestNotificationsPermission') return false;
+      return null;
     });
     await t.binding.setSurfaceSize(const Size(412, 915));
     await t.pumpWidget(const MaterialApp(home: NotificationsScreen()));
@@ -65,15 +73,14 @@ void main() {
     await t.ensureVisible(find.text('Allow notifications'));
     await t.tap(find.text('Allow notifications'));
     await t.pumpAndSettle();
-    // Permission box unavailable in the test, so the app sends the user to
-    // the Android notification page instead.
+    // Permission not granted, so the app sends the user to the Android
+    // notification page instead.
     expect(calls, contains('notificationSettings'));
     expect(t.takeException(), isNull);
 
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(alerts, null);
+    messenger.setMockMethodCallHandler(channel, null);
+    messenger.setMockMethodCallHandler(alerts, null);
+    messenger.setMockMethodCallHandler(plugin, null);
   });
 
   test('alert plumbing is declared in the Android project', () {
