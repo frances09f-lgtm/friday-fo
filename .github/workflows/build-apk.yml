@@ -5,6 +5,9 @@ on:
     branches: [main, redesign/orion-ui, size/v75]
 jobs:
   build:
+    concurrency:
+      group: friday-v75-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -37,6 +40,8 @@ jobs:
           kotlin.compiler.execution.strategy=in-process
           GP
       - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
       - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.75 --build-number=75
       - name: Native task evaluation tests
@@ -47,7 +52,7 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           SIZE=$(stat -c %s "$APK")
           {
-            echo "Size cut, no feature changes: arm64-v8a only, compressed native libraries, R8 code shrinking and resource shrinking. Orion UI from v74 is unchanged. Built and tested by CI from this commit."
+            echo "Size cut: arm64-v8a only, compressed native libraries, R8 and resource shrinking. Floating bubble and assistant bar are 30% smaller, with Orion themes and interaction handlers retained. Checked by CI, not tested on a phone."
             echo
             echo "APK size: $SIZE bytes (v74 was 159865680 bytes)"
             echo
@@ -67,6 +72,11 @@ jobs:
         with:
           name: friday-release-apk
           path: "build/app/outputs/flutter-apk/Friday.apk"
+      - name: Point existing v75 tag at passing combined build
+        if: github.ref_name == 'size/v75'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PATCH repos/${{ github.repository }}/git/refs/tags/v75 -f sha=${{ github.sha }} -F force=true
       - name: Publish GitHub release v75
         if: github.ref_name == 'size/v75'
         uses: softprops/action-gh-release@v2

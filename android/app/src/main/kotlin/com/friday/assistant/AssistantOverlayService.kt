@@ -24,13 +24,7 @@ import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.plugin.common.MethodChannel
 
-/**
- * Draws Friday's assistant panel over whatever app is on screen. Runs its own
- * Flutter engine with the assistantOverlayMain entrypoint; the panel talks
- * back over the friday/assistant channel (dismiss, openFriday).
- */
 class AssistantOverlayService : Service() {
-
     companion object {
         private const val CHANNEL = "friday/assistant"
         private const val NOTIF_CHANNEL = "friday_assistant"
@@ -50,9 +44,7 @@ class AssistantOverlayService : Service() {
         }
         const val MODE_BUBBLE="bubble"
         private const val ACTION_STOP="com.friday.assistant.STOP_BUBBLE"
-
     }
-
     private var engine: FlutterEngine? = null
     private var view: FlutterView? = null
     private var panelAttached=false
@@ -64,16 +56,12 @@ class AssistantOverlayService : Service() {
     private var hold:Runnable?=null
     private var downX=0f;private var downY=0f
     private var longTriggered=false
-
-
     override fun onBind(intent: Intent?): IBinder? = null
-
     override fun onCreate() {
         super.onCreate()
         instance=this
         AssistantInvocation.record(this,"Overlay service created")
         startForeground(NOTIF_ID, buildNotification())
-
         windowManager=getSystemService(WINDOW_SERVICE) as WindowManager
     }
     private fun hidePanelImmediately(){
@@ -86,7 +74,6 @@ class AssistantOverlayService : Service() {
         }
     }
     private fun outsideDismiss(){
-        // Do not depend on a busy Dart handler to remove a system window.
         hidePanelImmediately()
         engine?.let { MethodChannel(it.dartExecutor.binaryMessenger,CHANNEL).invokeMethod("outsideTap",null) }
     }
@@ -100,10 +87,10 @@ class AssistantOverlayService : Service() {
         clearPanel();clearBubble()
         if(!Settings.canDrawOverlays(this)){stopSelf();return}
         val density=resources.displayMetrics.density
-        val size=(48*density).toInt();val barW=(72*density).toInt()
+        val size=(FloatingAssistantSizing.BUBBLE_HEIGHT_DP*density).toInt();val barW=(FloatingAssistantSizing.BUBBLE_WIDTH_DP*density).toInt()
         val night=(resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES
         val bg=if(night)0xff00503f.toInt() else 0xffb9f0df.toInt();val fg=if(night)0xffb9f0df.toInt() else 0xff00201a.toInt();val edge=if(night)0xff4fd8b8.toInt() else 0xff00695a.toInt()
-        val v=TextView(this).apply{text="F";textSize=22f;setTypeface(null,android.graphics.Typeface.BOLD);gravity=Gravity.CENTER;setTextColor(fg);contentDescription="Friday bubble. Tap for panel, hold for voice, swipe sideways to open Friday.";background=GradientDrawable().apply{shape=GradientDrawable.RECTANGLE;setCornerRadius(24*density);setColor(bg);setStroke((1.5f*density).toInt(),edge)}}
+        val v=TextView(this).apply{text="F";textSize=FloatingAssistantSizing.BUBBLE_TEXT_SP;setTypeface(null,android.graphics.Typeface.BOLD);gravity=Gravity.CENTER;setTextColor(fg);contentDescription="Friday bubble. Tap for panel, hold for voice, swipe sideways to open Friday.";background=GradientDrawable().apply{shape=GradientDrawable.RECTANGLE;setCornerRadius(24*density*FloatingAssistantSizing.SCALE);setColor(bg);setStroke((1.5f*density*FloatingAssistantSizing.SCALE).toInt().coerceAtLeast(1),edge)}}
         val params=WindowManager.LayoutParams(barW,size,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=resources.displayMetrics.widthPixels-barW;y=resources.displayMetrics.heightPixels/3}
         v.setOnTouchListener{_,event->
             when(event.actionMasked){
@@ -130,7 +117,7 @@ class AssistantOverlayService : Service() {
                 "panelExpanded"->{
                     val expanded=call.argument<Boolean>("expanded")==true
                     view?.let{v-> val lp=v.layoutParams as? WindowManager.LayoutParams
-                        if(lp!=null&&panelAttached){lp.height=((if(expanded)360 else 132)*resources.displayMetrics.density).toInt();windowManager?.updateViewLayout(v,lp)}
+                        if(lp!=null&&panelAttached){lp.height=FloatingAssistantSizing.panelHeight(expanded,resources.displayMetrics.density);windowManager?.updateViewLayout(v,lp)}
                     };result.success(null)
                 }
                 "launchMode"->result.success(mapOf("voice" to voice))
@@ -153,7 +140,7 @@ class AssistantOverlayService : Service() {
                 return super.dispatchKeyEvent(event)
             }
         };v.setBackgroundColor(android.graphics.Color.TRANSPARENT);v.attachToFlutterEngine(e);e.lifecycleChannel.appIsResumed();view=v
-        val params=WindowManager.LayoutParams(-1,(132*resources.displayMetrics.density).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        val params=WindowManager.LayoutParams(FloatingAssistantSizing.panelWidth(resources.displayMetrics.widthPixels),FloatingAssistantSizing.panelHeight(false,resources.displayMetrics.density),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL;softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
         try{windowManager?.addView(v,params);panelAttached=true;AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
@@ -163,39 +150,18 @@ class AssistantOverlayService : Service() {
         if(intent?.getBooleanExtra(MODE_BUBBLE,false)==true){persistent=true;showBubble()}else showPanel(true)
         return START_NOT_STICKY
     }
-
     private fun buildNotification(): Notification {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(
-                NotificationChannel(
-                    NOTIF_CHANNEL,
-                    "Friday assistant",
-                    NotificationManager.IMPORTANCE_MIN,
-                )
-            )
+            nm.createNotificationChannel(NotificationChannel(NOTIF_CHANNEL,"Friday assistant",NotificationManager.IMPORTANCE_MIN))
         }
-        val open = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-        val builder = if (Build.VERSION.SDK_INT >= 26) {
-            Notification.Builder(this, NOTIF_CHANNEL)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-        return builder
-            .setContentTitle("Friday assistant available")
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentIntent(open)
+        val open = PendingIntent.getActivity(this,0,Intent(this, MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
+        val builder = if (Build.VERSION.SDK_INT >= 26) { Notification.Builder(this, NOTIF_CHANNEL) }
+            else { @Suppress("DEPRECATION") Notification.Builder(this) }
+        return builder.setContentTitle("Friday assistant available")
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now).setContentIntent(open)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel,"Hide",PendingIntent.getService(this,1,Intent(this,AssistantOverlayService::class.java).setAction(ACTION_STOP),PendingIntent.FLAG_IMMUTABLE))
-            .setOngoing(true)
-            .build()
+            .setOngoing(true).build()
     }
-
-    override fun onDestroy(){
-        instance=null;active=false;clearBubble();clearPanel();super.onDestroy()}
+    override fun onDestroy(){instance=null;active=false;clearBubble();clearPanel();super.onDestroy()}
 }

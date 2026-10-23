@@ -16,9 +16,7 @@ import 'package:friday/services/speech/speech_service.dart';
 import 'package:friday/services/storage/chat_store.dart';
 import 'package:friday/services/storage/settings_store.dart';
 import 'package:friday/state/friday_controller.dart';
-
 import 'package:friday/assistant_overlay.dart';
-
 class LiveSpeech extends SpeechService {
   int starts = 0;
   bool active = false;
@@ -27,89 +25,52 @@ class LiveSpeech extends SpeechService {
   @override
   bool get isListening => active;
   @override
-  void startListening(
-      {required void Function(String) onResult,
-      required void Function() onDone,
-      String localeId = 'en_IN'}) {
-    starts++;
-    active = true;
-  }
+  void startListening({required void Function(String) onResult, required void Function() onDone, String localeId = 'en_IN'}) { starts++; active = true; }
 }
-
 void main() {
   for (final voice in [true, false]) {
-    testWidgets('assistant panel voice=$voice starts only on explicit hold',
-        (t) async {
+    testWidgets('assistant panel voice=$voice starts only on explicit hold', (t) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final settings = SettingsStore(const FlutterSecureStorage(), prefs);
       final speech = LiveSpeech();
-      final c = FridayController(
-          brain: AIBrain(settings: settings, local: LocalModelService()),
-          router: IntentRouter(
-              deviceHub: DeviceHub(), reminders: ReminderService()),
-          chatStore: ChatStore(prefs),
-          speech: speech,
-          settings: settings);
+      final c = FridayController(brain: AIBrain(settings: settings, local: LocalModelService()),
+        router: IntentRouter(deviceHub: DeviceHub(), reminders: ReminderService()),
+        chatStore: ChatStore(prefs), speech: speech, settings: settings);
       await t.runAsync(() async {
         for (final item in {
           'Roboto': '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-          'MaterialIcons':
-              '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
+          'MaterialIcons': '${Platform.environment['FLUTTER_ROOT'] ?? '/home/sandbox/flutter'}/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf'
         }.entries) {
           if (!await File(item.value).exists()) continue;
-          final l = FontLoader(item.key)
-            ..addFont(Future.value(
-                ByteData.sublistView(await File(item.value).readAsBytes())));
+          final l = FontLoader(item.key)..addFont(Future.value(ByteData.sublistView(await File(item.value).readAsBytes())));
           await l.load();
         }
       });
       final calls = <String>[];
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(const MethodChannel('friday/assistant'),
-              (call) async {
-        calls.add(call.method);
-        return {'voice': voice};
-      });
-      await t.binding.setSurfaceSize(const Size(412, 132));
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('friday/assistant'), (call) async { calls.add(call.method); return {'voice': voice}; });
+      await t.binding.setSurfaceSize(const Size(288.4, 92.4));
       final key = GlobalKey();
-      await t.pumpWidget(MultiProvider(
-          providers: [
-            ChangeNotifierProvider<FridayController>.value(value: c),
-            Provider<SpeechService>.value(value: speech)
-          ],
-          child: MediaQuery(
-              data: const MediaQueryData(disableAnimations: true),
-              child: RepaintBoundary(
-                  key: key, child: const AssistantOverlayApp()))));
+      await t.pumpWidget(MultiProvider(providers: [ChangeNotifierProvider<FridayController>.value(value: c), Provider<SpeechService>.value(value: speech)],
+        child: MediaQuery(data: const MediaQueryData(disableAnimations: true), child: RepaintBoundary(key: key, child: const AssistantOverlayApp()))));
       await t.pump(const Duration(milliseconds: 300));
       expect(speech.starts, voice ? 1 : 0);
       expect(find.text('Ask Friday anything...'), findsOneWidget);
       final input = t.getRect(find.byType(TextField));
-      expect(input.bottom, greaterThan(90));
-      expect(input.bottom, lessThan(132));
+      expect(input.bottom, greaterThan(50)); expect(input.bottom, lessThan(92.4));
       expect(t.takeException(), isNull);
       c.busy = true;
-      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .handlePlatformMessage(
-              'friday/assistant',
-              const StandardMethodCodec()
-                  .encodeMethodCall(const MethodCall('outsideTap')),
-              (_) {});
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage('friday/assistant', const StandardMethodCodec().encodeMethodCall(const MethodCall('outsideTap')), (_) {});
       await t.pump(const Duration(milliseconds: 300));
-      expect(calls, contains('hidePanelWhileBusy'));
-      expect(calls, isNot(contains('dismiss')));
+      expect(calls, contains('hidePanelWhileBusy')); expect(calls, isNot(contains('dismiss')));
       c.busy = false;
       await t.tap(find.byTooltip('Close Friday'));
       await t.pump(const Duration(milliseconds: 300));
       expect(calls, contains('dismiss'));
       await t.runAsync(() async {
-        final im = await (key.currentContext!.findRenderObject()
-                as RenderRepaintBoundary)
-            .toImage();
+        final im = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
         final d = await im.toByteData(format: ui.ImageByteFormat.png);
-        await File('/tmp/friday-assistant-panel.png')
-            .writeAsBytes(d!.buffer.asUint8List());
+        await File('/tmp/friday-assistant-panel.png').writeAsBytes(d!.buffer.asUint8List());
       });
       await t.pumpWidget(const SizedBox());
     });
