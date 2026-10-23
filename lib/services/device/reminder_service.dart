@@ -13,7 +13,7 @@ class ReminderService {
   int? lastRegisteredId;
   DateTime? lastRegisteredAt;
   Future<List<PendingNotificationRequest>> pending() async {
-    await init();
+    await init(askPermission: false);
     if (!_initialized) return [];
     return _plugin.pendingNotificationRequests();
   }
@@ -24,7 +24,9 @@ class ReminderService {
   static int newNotificationId(int millisSinceEpoch) =>
       millisSinceEpoch % 0x7FFFFFFF;
 
-  Future<void> init() async {
+  /// [askPermission] is false when the Alerts tab only reads state, so opening
+  /// the tab never shows the Android permission box by surprise.
+  Future<void> init({bool askPermission = true}) async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
     try {
@@ -43,11 +45,28 @@ class ReminderService {
       // Plugin initialization is valid regardless; don't discard it if the
       // permission request throws. schedule checks the actual grant below.
       _initialized = true;
-      try {
-        await android?.requestNotificationsPermission();
-      } catch (_) {}
+      if (askPermission) {
+        try {
+          await android?.requestNotificationsPermission();
+        } catch (_) {}
+      }
     } catch (_) {
       _initialized = false;
+    }
+  }
+
+  /// Asks Android for the notification permission (Android 13+). Returns
+  /// true only when Android reports it as granted. After two refusals
+  /// Android shows no box at all and this returns false.
+  Future<bool> requestPermission() async {
+    await init(askPermission: false);
+    if (!_initialized) return false;
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.requestNotificationsPermission() ?? false;
+    } catch (_) {
+      return false;
     }
   }
 
