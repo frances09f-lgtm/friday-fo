@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'app.dart';
 import 'assistant_overlay.dart' as overlay;
 import 'friday_services.dart';
+import 'orion_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +11,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: services.providers,
-      child: const FridayApp(),
+      child: const OrionApp(),
     ),
   );
 }

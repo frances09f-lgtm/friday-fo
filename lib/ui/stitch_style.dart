@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 
 class Stitch {
   static const bg = Color(0xFF10131B);
-  static const low = Color(0xFF181B23);
-  static const high = Color(0xFF272A32);
+  // Translucent grays and mid-tone accents so the same constants read well on
+  // both the light and the dark Orion surfaces.
+  static const low = Color(0x228C9E96);
+  static const high = Color(0x388C9E96);
   static const ink = Color(0xFFE0E2ED);
-  static const muted = Color(0xFFC3C6D6);
-  static const blue = Color(0xFFB2C5FF);
-  static const cyan = Color(0xFF42D9E6);
-  static const green = Color(0xFF4EDEA3);
+  static const muted = Color(0xFF7B8F88);
+  static const blue = Color(0xFF4C86B5);
+  static const cyan = Color(0xFF14A58A);
+  static const green = Color(0xFF2E9E6B);
   static TextStyle mono([double size = 11, Color color = muted]) => TextStyle(
       fontFamily: 'JetBrainsMono',
       fontSize: size,
@@ -19,7 +21,6 @@ class Stitch {
       fontFamily: 'SpaceGrotesk',
       fontSize: size,
       fontWeight: FontWeight.w600,
-      color: ink,
       letterSpacing: -.6);
   static ThemeData theme() => ThemeData(
       useMaterial3: true,
@@ -223,7 +224,7 @@ class StitchHeader extends StatelessWidget implements PreferredSizeWidget {
               IconButton(
                   tooltip: 'Settings',
                   onPressed: onSettings,
-                  icon: const Icon(Icons.account_circle_outlined)),
+                  icon: const Icon(Icons.settings_outlined)),
             const SizedBox(width: 8)
           ]);
 }
