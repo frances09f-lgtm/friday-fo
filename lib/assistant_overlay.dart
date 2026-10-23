@@ -1,4 +1,4 @@
-/// Friday assistant overlay, scaled to 85% without changing interaction handlers.
+/// Friday assistant overlay. The bar is back at the v74 size (scale 1.0); the scale hook stays so the size can be tuned in one place.
 library;
 import 'dart:async';
 import 'dart:math' as math;
@@ -47,7 +47,7 @@ class _AssistantOverlayAppState extends State<AssistantOverlayApp> {
 /// Scales visual dimensions, typography, padding and hit testing together.
 /// The native window uses the same scale, so other apps retain more space.
 class CompactAssistantViewport extends StatelessWidget {
-  static const scale = 0.85;
+  static const scale = 1.0;
   final Widget child;
   const CompactAssistantViewport({super.key, required this.child});
   @override
