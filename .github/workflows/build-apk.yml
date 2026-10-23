@@ -2,11 +2,11 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, redesign/orion-ui, size/v75]
+    branches: [main, redesign/orion-ui, fix/v76-alerts]
 jobs:
   build:
     concurrency:
-      group: friday-v75-${{ github.ref }}
+      group: friday-v76-${{ github.ref }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -43,7 +43,7 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.75 --build-number=75
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.76 --build-number=76
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
       - name: Size report and APK checks
@@ -52,9 +52,9 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           SIZE=$(stat -c %s "$APK")
           {
-            echo "Size cut: arm64-v8a only, compressed native libraries, R8 and resource shrinking. Floating bubble and assistant bar are 30% smaller, with Orion themes and interaction handlers retained. Checked by CI, not tested on a phone."
+            echo "Alerts fix on top of v75: Alerts tab refreshes when you return to the app, has buttons for notification permission, exact alarms and battery limit, and all notification channels are created at startup. Includes the v75 size cut and smaller bubble and bar. Checked by CI, not tested on a phone."
             echo
-            echo "APK size: $SIZE bytes (v74 was 159865680 bytes)"
+            echo "APK size: $SIZE bytes (v74 was 159865680 bytes, v75 was 40654213 bytes)"
             echo
             echo "Native libraries per ABI, uncompressed bytes:"
             unzip -l "$APK" | awk '$4 ~ /^lib\// {split($4,a,"/"); s[a[2]]+=$1} END{for(k in s) print "  " k ": " s[k]}'
@@ -72,17 +72,12 @@ jobs:
         with:
           name: friday-release-apk
           path: "build/app/outputs/flutter-apk/Friday.apk"
-      - name: Point existing v75 tag at passing combined build
-        if: github.ref_name == 'size/v75'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api -X PATCH repos/${{ github.repository }}/git/refs/tags/v75 -f sha=${{ github.sha }} -F force=true
-      - name: Publish GitHub release v75
-        if: github.ref_name == 'size/v75'
+      - name: Publish GitHub release v76
+        if: github.ref_name == 'fix/v76-alerts'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v75
-          name: Friday v75
+          tag_name: v76
+          name: Friday v76
           target_commitish: ${{ github.sha }}
           make_latest: false
           body_path: release-body.md
