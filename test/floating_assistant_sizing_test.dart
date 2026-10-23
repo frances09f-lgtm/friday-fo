@@ -12,8 +12,8 @@ void main() {
             child: Container(key: const Key('target'), width: 100, height: 40,
               color: entry.value.colorScheme.primary))))))));
       final rect = t.getRect(find.byKey(const Key('target')));
-      expect(rect.width, closeTo(70, 0.01));
-      expect(rect.height, closeTo(28, 0.01));
+      expect(rect.width, closeTo(85, 0.01));
+      expect(rect.height, closeTo(34, 0.01));
       await t.tap(find.byKey(const Key('target')));
       expect(taps, 1);
       expect(t.takeException(), isNull);

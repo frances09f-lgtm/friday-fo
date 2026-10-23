@@ -8,8 +8,8 @@ class FloatingAssistantSizingTest {
         assertEquals(15.4f, FloatingAssistantSizing.BUBBLE_TEXT_SP, 0.01f)
     }
     @Test fun windowDimensions() {
-        assertEquals(288, FloatingAssistantSizing.panelWidth(412))
-        assertEquals(92, FloatingAssistantSizing.panelHeight(false, 1f))
-        assertEquals(252, FloatingAssistantSizing.panelHeight(true, 1f))
+        assertEquals(350, FloatingAssistantSizing.panelWidth(412))
+        assertEquals(112, FloatingAssistantSizing.panelHeight(false, 1f))
+        assertEquals(306, FloatingAssistantSizing.panelHeight(true, 1f))
     }
 }

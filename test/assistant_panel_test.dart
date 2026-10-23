@@ -49,7 +49,7 @@ void main() {
       });
       final calls = <String>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('friday/assistant'), (call) async { calls.add(call.method); return {'voice': voice}; });
-      await t.binding.setSurfaceSize(const Size(288.4, 92.4));
+      await t.binding.setSurfaceSize(const Size(350.2, 112.2));
       final key = GlobalKey();
       await t.pumpWidget(MultiProvider(providers: [ChangeNotifierProvider<FridayController>.value(value: c), Provider<SpeechService>.value(value: speech)],
         child: MediaQuery(data: const MediaQueryData(disableAnimations: true), child: RepaintBoundary(key: key, child: const AssistantOverlayApp()))));
@@ -57,7 +57,7 @@ void main() {
       expect(speech.starts, voice ? 1 : 0);
       expect(find.text('Ask Friday anything...'), findsOneWidget);
       final input = t.getRect(find.byType(TextField));
-      expect(input.bottom, greaterThan(50)); expect(input.bottom, lessThan(92.4));
+      expect(input.bottom, greaterThan(60)); expect(input.bottom, lessThan(112.2));
       expect(t.takeException(), isNull);
       c.busy = true;
       await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage('friday/assistant', const StandardMethodCodec().encodeMethodCall(const MethodCall('outsideTap')), (_) {});

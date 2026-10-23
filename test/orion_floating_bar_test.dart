@@ -20,6 +20,15 @@ void main() {
       expect(deco.borderRadius, BorderRadius.circular(32));
     });
   }
+  test('bar is halfway between v74 and v76 and bubble keeps the v75 size', () {
+    final sizing = File('android/app/src/main/kotlin/com/friday/assistant/FloatingAssistantSizing.kt').readAsStringSync();
+    expect(sizing, contains('const val SCALE = 0.7f'));
+    expect(sizing, contains('const val PANEL_SCALE = 0.85f'));
+    expect(sizing, contains('(screenWidthPixels * PANEL_SCALE).toInt()'));
+    expect(sizing, contains('* PANEL_SCALE * density'));
+    expect(sizing, contains('BUBBLE_WIDTH_DP = 72f * SCALE'));
+    expect(CompactAssistantViewport.scale, 0.85);
+  });
   test('overlay sources retain Orion and scale only native dimensions', () {
     final dart = File('lib/assistant_overlay.dart').readAsStringSync();
     final kt = File('android/app/src/main/kotlin/com/friday/assistant/AssistantOverlayService.kt').readAsStringSync();
