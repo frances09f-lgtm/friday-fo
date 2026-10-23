@@ -9,6 +9,7 @@ import '../services/context/oro_context.dart';
 import '../services/tasks/gold_task.dart';
 import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
+import '../services/reminder_parser.dart';
 import '../services/ai/offline_engine.dart';
 
 import 'package:flutter/foundation.dart';
@@ -224,6 +225,46 @@ class FridayController extends ChangeNotifier {
       }
     }
     final localText = remote == null ? clean : clean.substring(0, remote.start);
+    // Simple reminders ("remind me to X at 9:42", "in 10 minutes") are read
+    // with plain code and saved here, before any model is asked. The floating
+    // bar sends through this same method, so it gets the same behaviour.
+    final reminder = ReminderParser.parseForChat(localText, DateTime.now());
+    if (reminder != null) {
+      oroContext.clear();
+      String reply;
+      if (!reminder.ok) {
+        reply = reminder.error!;
+      } else {
+        phase = 'Doing';
+        notifyListeners();
+        String outcome;
+        try {
+          outcome = await router.executeAll([reminder.toAction()]);
+        } catch (_) {
+          outcome =
+              'I could not schedule the reminder. Allow Friday notifications in Android app settings, then try again.';
+        }
+        reply = outcome.startsWith('Reminder registered for ')
+            ? 'Reminder registered for ${ReminderParser.describe(reminder.when!)}: ${reminder.task}.'
+            : (outcome.isEmpty ? 'I could not schedule the reminder.' : outcome);
+      }
+      // No panel auto-close here: the reply carries the task and exact time.
+      messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}reminder',
+          role: MessageRole.friday,
+          text: reply,
+          at: DateTime.now(),
+          localOnly: true));
+      busy = false;
+      phase = 'Ready';
+      notifyListeners();
+      await chatStore.save(messages);
+      if (settings.speakReplies) {
+        await speech.speak(
+            reply.startsWith('Reminder registered for ') ? 'Reminder set' : reply);
+      }
+      return;
+    }
     final whatsappSearch = RegExp(
             r'^(?:please )?open whats\s*app(?: and)? search(?: for)? (.+?)[.!?]?$',
             caseSensitive: false)
