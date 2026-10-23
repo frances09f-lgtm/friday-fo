@@ -48,6 +48,22 @@ android {
         // Hardcoding these is why phones refused every update before.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Size: ship the arm64-v8a build only. Flutter 3.35+ otherwise adds
+        // armeabi-v7a and x86_64 filters, which pulls plugin native libraries
+        // for those ABIs into the APK.
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
+    }
+
+    // Size: store native libraries compressed inside the APK. The phone
+    // extracts them at install, so the download is smaller and installed
+    // storage use is about the same or a little higher.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     signingConfigs {
@@ -72,8 +88,11 @@ android {
             // Stable release key from repo secrets in CI so updates install
             // over the top; local builds fall back to the debug key.
             signingConfig = fridayKeystoreFile != null ? signingConfigs.release : signingConfigs.debug
-            minifyEnabled = false
-            shrinkResources = false
+            // Size: R8 code shrinking and resource shrinking. Keep rules are in
+            // proguard-rules.pro; resource keeps are in res/raw/keep.xml.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 }
