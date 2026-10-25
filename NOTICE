@@ -17,4 +17,15 @@ Closepaw (https://github.com/imoonkey/closepaw)
   License: Apache License 2.0
   Used for: design ideas only (on-device agent structure); no code copied.
 
+needle speech engine (https://github.com/cactus-compute/needle,
+prebuilt library from https://huggingface.co/Cactus-Compute/needle3)
+  License: Apache License 2.0
+  Used for: optional offline voice input; the engine is linked natively
+  (android/app/src/main/cpp) and fetched at build time.
+
+Shruti speech model (https://huggingface.co/udgamlabs/Shruti)
+  License: Apache License 2.0
+  Used for: optional offline voice input; the model downloads into app
+  storage at runtime from Settings > Voice and is not bundled in the APK.
+
 Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
