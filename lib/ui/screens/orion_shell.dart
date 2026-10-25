@@ -75,6 +75,6 @@ class _OrionShellState extends State<OrionShell> {
                   NavigationDestination(icon: icon(Icons.devices_other_outlined, 4), selectedIcon: icon(Icons.devices_other, 4), label: 'Devices'),
                 ])
             ]);
-          })))))));
+          }))))));
   }
 }
