@@ -15,6 +15,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../services/ai/local_model_service.dart';
+import '../../services/speech/shruti_stt.dart';
+import '../widgets/shruti_voice_card.dart';
 import '../../services/storage/settings_store.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -34,6 +36,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _permissions;
   bool _localFallback = true;
   bool _speakReplies = true;
+  bool _shrutiVoice = false;
+  bool _shrutiModelReady = false;
 
   LocalModelService get _local => context.read<LocalModelService>();
   String _modelStatus = '';
@@ -51,6 +55,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _modelUrl.text = s.localModelUrl;
     _localFallback = s.localFallbackEnabled;
     _speakReplies = s.speakReplies;
+    _shrutiVoice = s.shrutiVoiceEnabled;
+    _refreshShrutiModelState();
+  }
+
+  Future<void> _refreshShrutiModelState() async {
+    final ready = await context.read<ShrutiStt>().isModelReady();
+    if (mounted) setState(() => _shrutiModelReady = ready);
   }
 
   Future<void> _readPermissions() async {
@@ -82,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await s.setLocalModelUrl(_modelUrl.text);
     await s.setLocalFallback(_localFallback);
     await s.setSpeakReplies(_speakReplies);
+    await s.setShrutiVoice(_shrutiVoice);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved')),
@@ -168,6 +180,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _speakReplies,
                     onChanged: (value) =>
                         setState(() => _speakReplies = value))),
+            if (!kIsWeb && Platform.isAndroid) ...[
+              const SizedBox(height: 8),
+              _shrutiCard(context),
+            ],
             const SizedBox(height: 22),
             _sectionLabel('More settings'),
             StitchCard(
@@ -339,6 +355,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16))),
           ]),
+    );
+  }
+
+  Widget _shrutiCard(BuildContext context) {
+    final shruti = context.watch<ShrutiStt>();
+    return ShrutiVoiceCard(
+      enabled: _shrutiVoice,
+      onToggle: (value) => setState(() => _shrutiVoice = value),
+      modelReady: _shrutiModelReady,
+      downloading: shruti.downloading,
+      downloadedBytes: shruti.downloadedBytes,
+      error: shruti.lastDownloadError,
+      onDownload: () async {
+        await context.read<ShrutiStt>().ensureModel();
+        _refreshShrutiModelState();
+      },
+      onDelete: () async {
+        await context.read<ShrutiStt>().deleteModel();
+        _refreshShrutiModelState();
+      },
     );
   }
 
