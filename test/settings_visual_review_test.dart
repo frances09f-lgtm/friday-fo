@@ -32,11 +32,12 @@ void main() {
     await t.pump(const Duration(milliseconds:800)); await t.pumpAndSettle(); expect(t.takeException(),isNull);
     await t.runAsync(() async { final im=await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage(pixelRatio:2); final b=await im.toByteData(format:ui.ImageByteFormat.png); await File('${output.path}/${dark?'dark':'light'}-$suffix.png').writeAsBytes(b!.buffer.asUint8List()); im.dispose(); });
    }
+   Future<void> reveal(String text) async { await t.scrollUntilVisible(find.text(text), 250, scrollable: find.byType(Scrollable).first); await t.pump(const Duration(milliseconds:800)); }
    await shot('top');
    await t.ensureVisible(find.text('AI & models')); await t.pumpAndSettle(); await t.tap(find.text('AI & models')); await t.pumpAndSettle();
-   await t.ensureVisible(find.text('Cloud fallback keys')); await t.pump(const Duration(milliseconds:800)); await t.tap(find.text('Cloud fallback keys')); await t.pumpAndSettle(); await shot('models');
-   await t.ensureVisible(find.text('Permissions & phone controls')); await t.pump(const Duration(milliseconds:800)); await t.tap(find.text('Permissions & phone controls')); await t.pumpAndSettle(); await shot('permissions');
-   await t.ensureVisible(find.text('Save changes')); await t.pump(const Duration(milliseconds:800)); await t.ensureVisible(find.text('Save changes')); await shot('save');
+   await reveal('Cloud fallback keys'); await t.tap(find.text('Cloud fallback keys')); await t.pumpAndSettle(); await shot('models');
+   await reveal('Permissions & phone controls'); await t.tap(find.text('Permissions & phone controls')); await t.pumpAndSettle(); await shot('permissions');
+   await reveal('Save changes'); await shot('save');
    await t.pumpWidget(const SizedBox.shrink());
   }
   await t.binding.setSurfaceSize(null);
