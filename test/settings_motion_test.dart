@@ -13,7 +13,7 @@ import 'package:friday/ui/orion_style.dart';
 class SecureMock extends FlutterSecureStorage {
   SecureMock();
   final saved = <String,String>{};
-  @override Future<void> write({required String key, required String? value, IOSOptions? iOptions, AndroidOptions? aOptions, LinuxOptions? lOptions, WebOptions? webOptions, MacOsOptions? mOptions, WindowsOptions? wOptions}) async { saved[key] = value ?? ''; }
+  @override Future<void> write({required String key, required String? value, AppleOptions? iOptions, AndroidOptions? aOptions, LinuxOptions? lOptions, WebOptions? webOptions, AppleOptions? mOptions, WindowsOptions? wOptions}) async { saved[key] = value ?? ''; }
 }
 void main() {
   testWidgets('all Settings fields stay editable and the original save works', (t) async {
@@ -42,7 +42,7 @@ void main() {
       await t.ensureVisible(field(entry.key)); await t.enterText(field(entry.key), entry.value); await t.pump();
     }
     for (final label in ['Gemini API key','Groq API key','OpenRouter API key']) { expect(t.widget<TextField>(field(label)).obscureText, true); }
-    await t.testTextInput.hide(); await t.pump();
+    t.testTextInput.hide(); await t.pump();
     await t.ensureVisible(find.text('Save changes')); await t.tap(find.text('Save changes')); await t.pumpAndSettle();
     expect(store.geminiKey, 'new-gemini'); expect(store.groqKey, 'new-groq'); expect(store.openRouterKey, 'new-router');
     expect(store.groqModel, 'new-groq-model'); expect(store.openRouterModel, 'new-router-model');
