@@ -24,7 +24,10 @@ Future<void> _shot(WidgetTester tester, String name, Widget card) async {
       ),
     ),
   ));
-  await tester.pumpAndSettle();
+  // Explicit pumps, never pumpAndSettle: a stuck animation must fail fast,
+  // not hang the whole CI job.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
   final boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final image = await boundary.toImage(pixelRatio: 2.0);
