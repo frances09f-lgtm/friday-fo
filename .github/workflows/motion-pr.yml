@@ -34,19 +34,34 @@ jobs:
           changed = subprocess.check_output(['git','diff','--name-only',base,'HEAD'], text=True).splitlines()
           allowed = lambda p: p.startswith(('lib/ui/', 'test/', 'docs/')) or p in ('lib/orion_app.dart','.github/workflows/motion-pr.yml')
           assert all(allowed(p) for p in changed), changed
+          # Every original Settings label, option, field and action stays, including destinations.
+          screens = ['settings_screen.dart','assistant_setup_screen.dart','local_model_setup_screen.dart','spotify_controls_screen.dart','commands_screen.dart','device_link_screen.dart','agent_mode_screen.dart','immersive_voice_screen.dart','notifications_screen.dart']
+          for name in screens:
+              path = 'lib/ui/screens/'+name
+              original = subprocess.check_output(['git','show',base+':'+path],text=True)
+              current = open(path).read()
+              original = re.sub(r'//[^\n]*', '', original)
+              strings = re.findall(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"", original)
+              missing = [x for x in strings if len(x)>2 and x not in current]
+              assert not missing, name+': removed or renamed strings: '+repr(missing)
           original = subprocess.check_output(['git','show',base+':lib/ui/screens/settings_screen.dart'],text=True)
           current = open('lib/ui/screens/settings_screen.dart').read()
-          strings = re.findall(r"'(?:\\.|[^'\\])*'", original[original.index('class SettingsScreen'):])
-          missing = [x for x in strings if len(x)>2 and x not in current]
-          assert not missing, 'Settings removed or renamed: '+repr(missing)
           for name in ['setApiKey','setGroqModel','setOpenRouterModel','setLocalModelUrl','setLocalFallback','setSpeakReplies','installFromUrl','manageSavedCallMatches']:
               assert current.count(name) == original.count(name), name
-          print('Every original settings string and save action retained; overlay, model, version and release files unchanged')
+          print('Every original Settings and destination string retained, save actions retained; overlay, services, model, version and release files unchanged')
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Widget and regression tests
         run: flutter test
+      - name: Upload genuine Settings review images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Friday-settings-review
+          path: /tmp/friday-settings-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: CI memory settings (runner only)
         run: |
           cat >> android/gradle.properties <<'GP'
@@ -63,6 +78,7 @@ jobs:
           "$BT/apksigner" verify "$APK"
           "$BT/aapt" dump badging "$APK" | grep -E '^package:|^native-code:'
           cp "$APK" build/app/outputs/flutter-apk/Friday-motion-preview.apk
+          sha256sum build/app/outputs/flutter-apk/Friday-motion-preview.apk
           echo 'arm64 debug-signed preview. No release, tag, merge or update-feed change. Nothing phone-tested. This key normally cannot replace an existing release-signed v78 installation; do not uninstall and lose data just to test this.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
