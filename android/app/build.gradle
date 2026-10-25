@@ -25,6 +25,15 @@ android {
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
+    // Shruti offline voice input: JNI wrapper around the needle engine.
+    // The prebuilt static library is fetched by CI (see build-apk.yml).
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
