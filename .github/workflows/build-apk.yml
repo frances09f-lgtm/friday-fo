@@ -56,13 +56,7 @@ jobs:
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: flutter test
-      - name: Render Shruti settings card states to PNG
-        run: flutter test test/shruti_voice_card_visual_test.dart
-      - uses: actions/upload-artifact@v4
-        with:
-          name: shruti-card-renders
-          path: test_output/*.png
+      - run: flutter test --reporter expanded
       - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.79.shruti --build-number=${{ github.run_number }}
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
@@ -92,6 +86,12 @@ jobs:
         with:
           name: friday-release-apk
           path: "build/app/outputs/flutter-apk/Friday.apk"
+      - name: Render Shruti settings card states to PNG
+        run: flutter test test/shruti_voice_card_visual_test.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shruti-card-renders
+          path: test_output/*.png
       - name: Publish GitHub release v78
         if: github.ref_name == 'fix/v78-reminders'
         uses: softprops/action-gh-release@v2
