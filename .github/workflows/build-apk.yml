@@ -2,7 +2,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, redesign/orion-ui, fix/v78-reminders]
+    branches: [main, redesign/orion-ui, fix/v78-reminders, feat/shruti-voice]
 jobs:
   build:
     concurrency:
@@ -39,11 +39,24 @@ jobs:
           org.gradle.workers.max=2
           kotlin.compiler.execution.strategy=in-process
           GP
+      - name: Install Android NDK and CMake for the Shruti native build
+        run: |
+          NDK_VER=$(grep -rhoE '[0-9]{2}\.[0-9]\.[0-9]{7}' "$FLUTTER_ROOT/packages/flutter_tools/gradle" | sort -Vu | tail -1)
+          NDK_VER=${NDK_VER:-27.0.12077973}
+          echo "Flutter-pinned NDK: $NDK_VER"
+          sdkmanager --install "ndk;$NDK_VER" "cmake;3.22.1"
+      - name: Fetch needle speech engine (Shruti, Apache-2.0)
+        run: |
+          DEST=android/app/src/main/cpp/needle/lib/arm64-v8a
+          mkdir -p "$DEST"
+          # Pinned needle3 revision d6c7d6a2e9655505e0f8e23339356dd1705900eb
+          curl -fL --retry 3 https://huggingface.co/Cactus-Compute/needle3/resolve/d6c7d6a2e9655505e0f8e23339356dd1705900eb/android-arm64/libneedle.a -o "$DEST/libneedle.a"
+          echo "7aa6de6132a22bf45f5e903425feb66f159ad46f47fa558921bc4fd02c3a2fa0  $DEST/libneedle.a" | sha256sum -c -
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.78 --build-number=78
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.79.shruti --build-number=${{ github.run_number }}
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
       - name: Size report and APK checks
