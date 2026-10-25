@@ -13,6 +13,7 @@ import 'services/device/device_hub.dart';
 import 'services/device/reminder_service.dart';
 import 'services/intent_router.dart';
 import 'services/link/device_link.dart';
+import 'services/speech/shruti_stt.dart';
 import 'services/speech/speech_service.dart';
 import 'services/storage/chat_store.dart';
 import 'services/storage/memory_store.dart';
@@ -28,6 +29,7 @@ class FridayServices {
   FridayServices({
     required this.settings,
     required this.speech,
+    required this.shruti,
     required this.controller,
     required this.link,
     required this.agent,
@@ -36,6 +38,7 @@ class FridayServices {
 
   final SettingsStore settings;
   final SpeechService speech;
+  final ShrutiStt shruti;
   final FridayController controller;
   final DeviceLink link;
   final FridayAgent agent;
@@ -45,6 +48,7 @@ class FridayServices {
         ChangeNotifierProvider<DeviceLink>.value(value: link),
         ChangeNotifierProvider<SettingsStore>.value(value: settings),
         Provider<SpeechService>.value(value: speech),
+        ChangeNotifierProvider<ShrutiStt>.value(value: shruti),
         ChangeNotifierProvider<LocalModelService>.value(value: local),
         ChangeNotifierProvider<FridayAgent>.value(value: agent),
         ChangeNotifierProvider<FridayController>.value(value: controller),
@@ -64,8 +68,11 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
     await reminders.init();
   } catch (_) {}
 
+  final shruti = ShrutiStt();
   final speech = SpeechService(
     groqKeyProvider: () async => settings.groqKey,
+    shrutiEnabledProvider: () => settings.shrutiVoiceEnabled,
+    shruti: shruti,
   );
   final local = LocalModelService();
   final brain =
@@ -94,6 +101,7 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
   return FridayServices(
       settings: settings,
       speech: speech,
+      shruti: shruti,
       controller: controller,
       link: link,
       agent: agent,
