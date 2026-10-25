@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,9 +17,12 @@ import '../ai/model_download.dart';
 class ShrutiStt extends ChangeNotifier {
   static const _channel = MethodChannel('friday/shruti');
 
+  // Pinned to Shruti revision ebf52e614065ce20e56affdab641f749a04511a5.
   static const modelUrl =
-      'https://huggingface.co/udgamlabs/Shruti/resolve/main/shruti.cact';
+      'https://huggingface.co/udgamlabs/Shruti/resolve/ebf52e614065ce20e56affdab641f749a04511a5/shruti.cact';
   static const expectedBytes = 29546527;
+  static const expectedSha256 =
+      'b189e954aaed4a9fd41acbad3ac05e486381e96325b22a4c695b9ea5153d7065';
   static const _modelName = 'shruti.cact';
 
   bool downloading = false;
@@ -65,6 +69,13 @@ class ShrutiStt extends ChangeNotifier {
         },
         clientChanged: (_) {},
       );
+      final digest = await sha256.bind(f.openRead()).first;
+      if (digest.toString() != expectedSha256) {
+        await f.delete();
+        lastDownloadError =
+            'Downloaded model failed its integrity check. Retry the download.';
+        return false;
+      }
       return true;
     } catch (_) {
       lastDownloadError = 'Download failed. Check the connection and retry.';
