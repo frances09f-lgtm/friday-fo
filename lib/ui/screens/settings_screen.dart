@@ -56,7 +56,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _localFallback = s.localFallbackEnabled;
     _speakReplies = s.speakReplies;
     _shrutiVoice = s.shrutiVoiceEnabled;
-    _refreshShrutiModelState();
+    // Shruti is Android-only; reading its service off-platform would demand a
+    // provider the test harness does not build.
+    if (!kIsWeb && Platform.isAndroid) _refreshShrutiModelState();
   }
 
   Future<void> _refreshShrutiModelState() async {
