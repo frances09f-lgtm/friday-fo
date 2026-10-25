@@ -21,3 +21,6 @@ key.properties
 # Misc
 *.log
 .DS_Store
+
+# Shruti/needle native library fetched by CI (never commit binaries)
+android/app/src/main/cpp/needle/lib/
