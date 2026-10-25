@@ -128,6 +128,7 @@ class AssistantOverlayService : Service() {
             }
         }
         DeviceBridge.register(e.dartExecutor.binaryMessenger,this,null)
+        ShrutiBridge.register(e.dartExecutor.binaryMessenger)
         engine=e
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint(loader.findAppBundlePath(),"assistantOverlayMain"))
         val texture=FlutterTextureView(this).apply{isOpaque=false};val v=object:FlutterView(this,texture){
