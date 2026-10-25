@@ -34,14 +34,14 @@ jobs:
           changed = subprocess.check_output(['git','diff','--name-only',base,'HEAD'], text=True).splitlines()
           allowed = lambda p: p.startswith(('lib/ui/', 'test/', 'docs/')) or p in ('lib/orion_app.dart','.github/workflows/motion-pr.yml')
           assert all(allowed(p) for p in changed), changed
-          # Every original Settings label, option, field and action stays, including destinations.
           screens = ['settings_screen.dart','assistant_setup_screen.dart','local_model_setup_screen.dart','spotify_controls_screen.dart','commands_screen.dart','device_link_screen.dart','agent_mode_screen.dart','immersive_voice_screen.dart','notifications_screen.dart']
+          token = re.compile(r"//[^\n]*|/\*[\s\S]*?\*/|'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"")
           for name in screens:
               path = 'lib/ui/screens/'+name
               original = subprocess.check_output(['git','show',base+':'+path],text=True)
               current = open(path).read()
-              original = re.sub(r'//[^\n]*', '', original)
-              strings = re.findall(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"", original)
+              # Tokenize comments and strings together; never mistake https:// inside a string for a comment.
+              strings = [m.group(0) for m in token.finditer(original) if m.group(0).startswith(("'", '"'))]
               missing = [x for x in strings if len(x)>2 and x not in current]
               assert not missing, name+': removed or renamed strings: '+repr(missing)
           original = subprocess.check_output(['git','show',base+':lib/ui/screens/settings_screen.dart'],text=True)
