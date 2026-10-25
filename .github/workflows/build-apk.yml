@@ -42,9 +42,10 @@ jobs:
       - name: Install Android NDK and CMake for the Shruti native build
         run: |
           NDK_VER=$(grep -rhoE '[0-9]{2}\.[0-9]\.[0-9]{7}' "$FLUTTER_ROOT/packages/flutter_tools/gradle" | sort -Vu | tail -1)
-          NDK_VER=${NDK_VER:-27.0.12077973}
+          NDK_VER=${NDK_VER:-29.0.1384606}
           echo "Flutter-pinned NDK: $NDK_VER"
-          sdkmanager --install "ndk;$NDK_VER" "cmake;3.22.1"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install "ndk;$NDK_VER" "cmake;3.22.1"
       - name: Fetch needle speech engine (Shruti, Apache-2.0)
         run: |
           DEST=android/app/src/main/cpp/needle/lib/arm64-v8a
@@ -56,6 +57,12 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
+      - name: Render Shruti settings card states to PNG
+        run: flutter test test/shruti_voice_card_visual_test.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shruti-card-renders
+          path: test_output/*.png
       - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.79.shruti --build-number=${{ github.run_number }}
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
