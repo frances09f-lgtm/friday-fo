@@ -32,6 +32,10 @@ class SettingsStore extends ChangeNotifier {
   /// Mute toggle: when true Friday speaks its replies out loud.
   bool speakReplies = true;
 
+  /// Android opt-in: transcribe voice input offline on the phone with the
+  /// Shruti model instead of the system speech engine.
+  bool shrutiVoiceEnabled = false;
+
   /// Where the Gemma weights come from (set in Settings; see README).
   String localModelUrl = '';
 
@@ -49,6 +53,7 @@ class SettingsStore extends ChangeNotifier {
         _prefs.getString('friday_openrouter_model') ?? openRouterModel;
     localFallbackEnabled = _prefs.getBool('friday_local_fallback') ?? true;
     speakReplies = _prefs.getBool('friday_speak_replies') ?? true;
+    shrutiVoiceEnabled = _prefs.getBool('friday_shruti_voice') ?? false;
     localModelUrl = _prefs.getString('friday_local_model_url') ?? '';
     notifyListeners();
   }
@@ -104,6 +109,12 @@ class SettingsStore extends ChangeNotifier {
   Future<void> setSpeakReplies(bool enabled) async {
     speakReplies = enabled;
     await _prefs.setBool('friday_speak_replies', enabled);
+    notifyListeners();
+  }
+
+  Future<void> setShrutiVoice(bool enabled) async {
+    shrutiVoiceEnabled = enabled;
+    await _prefs.setBool('friday_shruti_voice', enabled);
     notifyListeners();
   }
 
