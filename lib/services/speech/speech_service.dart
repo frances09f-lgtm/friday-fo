@@ -8,12 +8,16 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'groq_stt.dart';
+import 'shruti_stt.dart';
 
 /// Voice in and voice out.
 ///
 /// On Android/iOS, input uses the speech_to_text plugin (Google's engine, so
-/// Marathi and Hindi work alongside English). On Windows there is no such
-/// engine, so input records the mic with the record plugin and transcribes
+/// Marathi and Hindi work alongside English). On Android the user can opt
+/// into Shruti instead (Settings > Voice): recording then goes through the
+/// record plugin and is transcribed offline on the phone by the needle
+/// engine running the Shruti model. On Windows there is no such engine, so
+/// input records the mic with the record plugin and transcribes
 /// through Groq's hosted Whisper with the same Groq key the brain uses.
 /// Tap the mic to start; it STOPS ITSELF after ~1.8 s of quiet once you
 /// have said something (user ask), or tap again to stop sooner. No partial
@@ -22,8 +26,13 @@ import 'groq_stt.dart';
 enum SpeechActivity { idle, listening, speaking }
 
 class SpeechService {
-  SpeechService({Future<String> Function()? groqKeyProvider})
-      : _groqKeyProvider = groqKeyProvider {
+  SpeechService(
+      {Future<String> Function()? groqKeyProvider,
+      bool Function()? shrutiEnabledProvider,
+      ShrutiStt? shruti})
+      : _groqKeyProvider = groqKeyProvider,
+        _shrutiEnabledProvider = shrutiEnabledProvider,
+        _shruti = shruti {
     _tts.setStartHandler(() => _setSpeaking(true));
     _tts.setCompletionHandler(() => _setSpeaking(false));
     _tts.setCancelHandler(() => _setSpeaking(false));
@@ -63,6 +72,8 @@ class SpeechService {
   AudioRecorder? _recField;
   AudioRecorder get _rec => _recField ??= AudioRecorder();
   final Future<String> Function()? _groqKeyProvider;
+  final bool Function()? _shrutiEnabledProvider;
+  final ShrutiStt? _shruti;
 
   bool _sttReady = false;
   bool _recListening = false;
@@ -81,7 +92,23 @@ class SpeechService {
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
+  /// Shruti is an Android-only opt-in. When on, recording and transcription
+  /// take the same path as Windows (record plugin to a WAV file) but the WAV
+  /// is transcribed on the phone instead of in the cloud.
+  bool get _useShruti =>
+      !kIsWeb &&
+      Platform.isAndroid &&
+      (_shrutiEnabledProvider?.call() ?? false) &&
+      _shruti != null;
+
   Future<bool> initSpeech() async {
+    if (_useShruti) {
+      try {
+        return await _rec.hasPermission();
+      } catch (_) {
+        return false;
+      }
+    }
     if (_isWindows) {
       try {
         return await _rec.hasPermission();
@@ -101,7 +128,8 @@ class SpeechService {
     return _sttReady;
   }
 
-  bool get isListening => _isWindows ? _recListening : _stt.isListening;
+  bool get isListening =>
+      (_isWindows || _useShruti) ? _recListening : _stt.isListening;
 
   void startListening({
     required void Function(String text) onResult,
@@ -109,7 +137,7 @@ class SpeechService {
     String localeId = 'en_IN',
   }) {
     lastSttError = null;
-    if (_isWindows) {
+    if (_useShruti || _isWindows) {
       _onResult = onResult;
       _onDone = onDone;
       unawaited(_startRecording());
@@ -140,8 +168,9 @@ class SpeechService {
   Future<void> _startRecording() async {
     try {
       if (!await _rec.hasPermission()) {
-        lastSttError =
-            'Microphone permission is off. Enable it in Windows Settings > Privacy > Microphone.';
+        lastSttError = _useShruti
+            ? 'Microphone permission is off. Enable it for Friday in Android Settings > Apps > Permissions.'
+            : 'Microphone permission is off. Enable it in Windows Settings > Privacy > Microphone.';
         _recListening = false;
         _setListening(false);
         _onDone?.call();
@@ -170,7 +199,7 @@ class SpeechService {
   }
 
   Future<void> stopListening() async {
-    if (!_isWindows) {
+    if (!(_isWindows || _useShruti)) {
       try {
         await _stt.stop();
       } finally {
@@ -196,19 +225,33 @@ class SpeechService {
       return;
     }
     try {
-      final key = (await _groqKeyProvider?.call()) ?? '';
-      if (key.isEmpty) {
-        lastSttError = 'Voice input needs a Groq API key. Add one in Settings.';
-      } else {
-        final text = await GroqStt(apiKey: key).transcribe(path);
+      if (_useShruti) {
+        final text = await _shruti!.transcribe(path);
         if (text.isEmpty) {
           lastSttError = 'Nothing was heard. Try again, a little louder.';
         } else {
           _onResult?.call(text);
         }
+      } else {
+        final key = (await _groqKeyProvider?.call()) ?? '';
+        if (key.isEmpty) {
+          lastSttError =
+              'Voice input needs a Groq API key. Add one in Settings.';
+        } else {
+          final text = await GroqStt(apiKey: key).transcribe(path);
+          if (text.isEmpty) {
+            lastSttError = 'Nothing was heard. Try again, a little louder.';
+          } else {
+            _onResult?.call(text);
+          }
+        }
       }
-    } catch (_) {
-      lastSttError = 'Speech-to-text failed. Check the connection.';
+    } catch (e) {
+      lastSttError = _useShruti
+          ? (e is StateError
+              ? e.message
+              : 'On-device speech-to-text failed. Try again, or turn Shruti off in Settings.')
+          : 'Speech-to-text failed. Check the connection.';
     }
     try {
       File(path).delete();
