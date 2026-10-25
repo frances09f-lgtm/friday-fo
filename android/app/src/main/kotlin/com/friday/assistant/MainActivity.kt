@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         DeviceBridge.register(flutterEngine.dartExecutor.binaryMessenger, this, this)
+        ShrutiBridge.register(flutterEngine.dartExecutor.binaryMessenger)
         NotificationHealth.ensureChannels(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "friday/alerts").setMethodCallHandler { call, result ->
             when (call.method) {
