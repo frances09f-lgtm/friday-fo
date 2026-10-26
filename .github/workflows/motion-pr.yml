@@ -1,0 +1,87 @@
+name: Friday motion PR
+on:
+  push:
+    branches: [feat/friday-draft-motion]
+  pull_request:
+    branches: [fix/v78-reminders]
+permissions:
+  contents: read
+concurrency:
+  group: friday-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    if: github.event_name == 'push' || github.head_ref == 'feat/friday-draft-motion'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.6'
+      - name: Guard the animation-only boundary and all current settings
+        shell: python
+        run: |
+          import subprocess, re
+          base = 'c77437c987ee100a1e9cd9fea34ce2b4afe64d58'
+          changed = subprocess.check_output(['git','diff','--name-only',base,'HEAD'], text=True).splitlines()
+          allowed = lambda p: p.startswith(('lib/ui/', 'test/', 'docs/')) or p in ('lib/orion_app.dart','.github/workflows/motion-pr.yml')
+          assert all(allowed(p) for p in changed), changed
+          screens = ['settings_screen.dart','assistant_setup_screen.dart','local_model_setup_screen.dart','spotify_controls_screen.dart','commands_screen.dart','device_link_screen.dart','agent_mode_screen.dart','immersive_voice_screen.dart','notifications_screen.dart']
+          token = re.compile(r"//[^\n]*|/\*[\s\S]*?\*/|'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"")
+          for name in screens:
+              path = 'lib/ui/screens/'+name
+              original = subprocess.check_output(['git','show',base+':'+path],text=True)
+              current = open(path).read()
+              # Tokenize comments and strings together; never mistake https:// inside a string for a comment.
+              strings = [m.group(0) for m in token.finditer(original) if m.group(0).startswith(("'", '"'))]
+              missing = [x for x in strings if len(x)>2 and x not in current]
+              assert not missing, name+': removed or renamed strings: '+repr(missing)
+          original = subprocess.check_output(['git','show',base+':lib/ui/screens/settings_screen.dart'],text=True)
+          current = open('lib/ui/screens/settings_screen.dart').read()
+          for name in ['setApiKey','setGroqModel','setOpenRouterModel','setLocalModelUrl','setLocalFallback','setSpeakReplies','installFromUrl','manageSavedCallMatches']:
+              assert current.count(name) == original.count(name), name
+          print('Every original Settings and destination string retained, save actions retained; overlay, services, model, version and release files unchanged')
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Widget and regression tests
+        run: flutter test
+      - name: Upload genuine Settings review images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Friday-settings-review
+          path: /tmp/friday-settings-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: CI memory settings (runner only)
+        run: |
+          cat >> android/gradle.properties <<'GP'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
+          org.gradle.workers.max=2
+          kotlin.compiler.execution.strategy=in-process
+          GP
+      - name: Build installable arm64 preview (debug key, no release)
+        run: flutter build apk --debug --target-platform android-arm64
+      - name: Verify APK and record limitations
+        run: |
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -E '^package:|^native-code:'
+          cp "$APK" build/app/outputs/flutter-apk/Friday-motion-preview.apk
+          sha256sum build/app/outputs/flutter-apk/Friday-motion-preview.apk
+          echo 'arm64 debug-signed preview. No release, tag, merge or update-feed change. Nothing phone-tested. This key normally cannot replace an existing release-signed v78 installation; do not uninstall and lose data just to test this.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Friday-motion-preview-arm64
+          path: build/app/outputs/flutter-apk/Friday-motion-preview.apk
+          retention-days: 7
