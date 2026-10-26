@@ -1,0 +1,117 @@
+name: Publish verified Friday v80
+on:
+  push:
+    branches: [release/v80-publish]
+permissions:
+  contents: write
+  checks: read
+  pull-requests: read
+concurrency:
+  group: friday-v80-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APPROVED_SHA: cdec8cb9c7befe09aeccfd038b0d39b4e6e3f42f
+      BUILD_SHA: 909645be6fdf8656ed40c79f953b19a248ee938d
+      BUILD_RUN_ID: '40261396979'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wait for and verify exact PR, signed build, draft v80 and unchanged old releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess, time
+          def api(path):
+              p=subprocess.run(['gh','api',path],capture_output=True,text=True)
+              if p.returncode: raise RuntimeError('GitHub API read failed: '+path+' '+p.stderr)
+              return json.loads(p.stdout)
+          repo='repos/'+os.environ['GITHUB_REPOSITORY']
+          build=os.environ['BUILD_SHA']; approved=os.environ['APPROVED_SHA']
+          subprocess.run(['git','merge-base','--is-ancestor',build,'HEAD'],check=True)
+          changed=subprocess.check_output(['git','diff','--name-only',build,'HEAD'],text=True).splitlines()
+          assert changed==['.github/workflows/publish-v80.yml'], changed
+          for attempt in range(120):
+              run=api(repo+'/actions/runs/'+os.environ['BUILD_RUN_ID'])
+              assert run['head_sha']==build and run['head_branch']=='release/v80-motion-speed', 'Unexpected v80 build run'
+              if run['status']=='completed':
+                  assert run['conclusion']=='success', 'v80 signed build failed'
+                  break
+              print('Waiting for the signed v80 build to finish', attempt+1, flush=True)
+              time.sleep(15)
+          else: raise SystemExit('v80 build did not finish within 30 minutes')
+          pr=api(repo+'/pulls/2')
+          assert pr['state']=='open' and not pr['merged'] and pr['head']['sha']==approved, 'PR #2 state/head changed'
+          checks=api(repo+'/commits/'+approved+'/check-runs')['check_runs']
+          verify=[c for c in checks if c['name']=='verify']
+          assert len(verify)>=2 and all(c['status']=='completed' and c['conclusion']=='success' for c in verify), 'Updated PR checks not green'
+          tag78=api(repo+'/git/ref/tags/v78'); assert tag78['object']['sha']=='c77437c987ee100a1e9cd9fea34ce2b4afe64d58'
+          old78=api(repo+'/releases/422082007')
+          assert old78['updated_at']=='2026-10-23T16:39:16Z'
+          apk78=next(a for a in old78['assets'] if a['name']=='Friday.apk')
+          assert apk78['digest']=='sha256:a67723644a5704006b777fa8e22e95d09c19765a3b9ada1237b1316ab087312a'
+          tag79=api(repo+'/git/ref/tags/v79'); assert tag79['object']['sha']=='1dd8f6cade8663b85bdc4a547cae90034cfe6483'
+          old79=api(repo+'/releases/423808086')
+          assert old79['updated_at']=='2026-10-26T02:44:17Z' and old79['draft'] is False
+          apk79=next(a for a in old79['assets'] if a['name']=='Friday.apk')
+          assert apk79['digest']=='sha256:107de17c59b7adb4f80e00127599210886b23847a1870df2e07da173411b9c6d'
+          releases=api(repo+'/releases?per_page=100')
+          matches=[r for r in releases if r['tag_name']=='v80']
+          assert len(matches)==1 and matches[0]['draft'] and matches[0]['target_commitish']==build, 'Verified v80 draft missing or unexpected'
+          release=matches[0]
+          apk=next(a for a in release['assets'] if a['name']=='Friday.apk')
+          audit=next(a for a in release['assets'] if a['name']=='apk-verification.json')
+          assert apk['state']=='uploaded' and apk['content_type']=='application/vnd.android.package-archive'
+          assert audit['state']=='uploaded'
+          with open(os.environ['RUNNER_TEMP']+'/release-meta.json','w') as f:
+              json.dump({'id':release['id'],'apk_digest':apk['digest'],'apk_size':apk['size'],'audit_digest':audit['digest']},f)
+          print('Exact faster-motion PR remains open/unmerged, release CI passed, v78/v79 unchanged, verified v80 draft ready')
+          PY
+      - name: Publish v80 without making it latest
+        run: |
+          set -euo pipefail
+          RELEASE_ID=$(python3 -c "import json,os; print(json.load(open(os.environ['RUNNER_TEMP']+'/release-meta.json'))['id'])")
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F make_latest=false
+      - name: Verify direct published APK URL and exact bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          repo='repos/'+os.environ['GITHUB_REPOSITORY']
+          meta=json.load(open(os.environ['RUNNER_TEMP']+'/release-meta.json'))
+          release=subprocess.run(['gh','api',repo+'/releases/'+str(meta['id'])],capture_output=True,text=True,check=True)
+          r=json.loads(release.stdout)
+          assert r['draft'] is False and r['published_at'] and r['tag_name']=='v80'
+          assert r['target_commitish']==os.environ['BUILD_SHA']
+          apk=next(a for a in r['assets'] if a['name']=='Friday.apk')
+          assert apk['content_type']=='application/vnd.android.package-archive'
+          assert apk['digest']==meta['apk_digest'] and apk['size']==meta['apk_size']
+          url=apk['browser_download_url']
+          expected='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/download/v80/Friday.apk'
+          assert url==expected,url
+          open(os.environ['RUNNER_TEMP']+'/v80-apk-url','w').write(url)
+          open(os.environ['RUNNER_TEMP']+'/v80-apk-digest','w').write(apk['digest'].removeprefix('sha256:'))
+          open(os.environ['RUNNER_TEMP']+'/v80-apk-size','w').write(str(apk['size']))
+          print('Published direct APK URL:',url)
+          PY
+          curl --fail --location --retry 3 "$(cat "$RUNNER_TEMP/v80-apk-url")" -o "$RUNNER_TEMP/Friday-public.apk"
+          echo "$(cat "$RUNNER_TEMP/v80-apk-digest")  $RUNNER_TEMP/Friday-public.apk" | sha256sum --check
+          test "$(stat -c %s "$RUNNER_TEMP/Friday-public.apk")" = "$(cat "$RUNNER_TEMP/v80-apk-size")"
+          python3 - <<'PY'
+          import json,os,subprocess
+          repo='repos/'+os.environ['GITHUB_REPOSITORY']
+          def api(p): return json.loads(subprocess.run(['gh','api',p],capture_output=True,text=True,check=True).stdout)
+          assert api(repo+'/git/ref/tags/v78')['object']['sha']=='c77437c987ee100a1e9cd9fea34ce2b4afe64d58'
+          assert api(repo+'/git/ref/tags/v79')['object']['sha']=='1dd8f6cade8663b85bdc4a547cae90034cfe6483'
+          r78=api(repo+'/releases/422082007'); assert r78['updated_at']=='2026-10-23T16:39:16Z'
+          r79=api(repo+'/releases/423808086'); assert r79['updated_at']=='2026-10-26T02:44:17Z'
+          pr=api(repo+'/pulls/2'); assert pr['state']=='open' and not pr['merged'] and pr['head']['sha']==os.environ['APPROVED_SHA']
+          print('Public direct APK bytes match CI asset; v78/v79 unchanged and PR #2 remains open/unmerged')
+          PY
