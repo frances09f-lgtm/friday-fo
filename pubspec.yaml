@@ -1,7 +1,7 @@
 name: friday
 description: Friday, an on-device AI phone assistant for Android. Voice and text in, answers out, phone actions done.
 publish_to: 'none'
-version: 1.0.78+78
+version: 1.0.79+79
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -35,7 +35,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   fonts:
     - family: SpaceGrotesk
       fonts:
