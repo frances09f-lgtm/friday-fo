@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 abstract final class FridayMotion {
   static const spring = Cubic(.34, 1.56, .64, 1);
   static const out = Cubic(.22, 1, .36, 1);
-  static const screen = Duration(milliseconds: 480);
-  static const route = Duration(milliseconds: 450);
-  static const press = Duration(milliseconds: 300);
-  static const toggle = Duration(milliseconds: 400);
-  static const dock = Duration(milliseconds: 500);
+  static const screen = Duration(milliseconds: 400);
+  static const route = Duration(milliseconds: 375);
+  static const press = Duration(milliseconds: 250);
+  static const toggle = Duration(milliseconds: 340);
+  static const dock = Duration(milliseconds: 420);
   static bool reduced(BuildContext c) => MediaQuery.disableAnimationsOf(c);
   static Duration duration(BuildContext c, Duration d) => reduced(c) ? Duration.zero : d;
 }
