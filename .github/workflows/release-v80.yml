@@ -1,0 +1,149 @@
+name: Friday v80 signed release build
+on:
+  push:
+    branches: [release/v80-motion-speed]
+permissions:
+  contents: write
+  checks: read
+  pull-requests: read
+concurrency:
+  group: friday-v80-signed
+  cancel-in-progress: false
+jobs:
+  release-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APPROVED_SHA: cdec8cb9c7befe09aeccfd038b0d39b4e6e3f42f
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wait for and verify the exact open PR head and green CI; protect v78 and v79
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess, time
+          base=os.environ['APPROVED_SHA']
+          subprocess.run(['git','merge-base','--is-ancestor',base,'HEAD'],check=True)
+          changed=subprocess.check_output(['git','diff','--name-only',base,'HEAD'],text=True).splitlines()
+          assert set(changed)=={'pubspec.yaml','.github/workflows/release-v80.yml'}, changed
+          original=subprocess.check_output(['git','show',base+':pubspec.yaml'],text=True)
+          assert open('pubspec.yaml').read()==original.replace('version: 1.0.78+78','version: 1.0.80+80'), 'Unexpected pubspec change'
+          def api(path):
+              p=subprocess.run(['gh','api',path],capture_output=True,text=True)
+              if p.returncode: raise RuntimeError(p.stderr)
+              return json.loads(p.stdout)
+          repo='repos/'+os.environ['GITHUB_REPOSITORY']
+          for attempt in range(120):
+              pr=api(repo+'/pulls/2')
+              assert pr['state']=='open' and not pr['merged'] and pr['head']['sha']==base, 'PR #2 state/head changed'
+              checks=api(repo+'/commits/'+base+'/check-runs')['check_runs']
+              verify=[c for c in checks if c['name']=='verify']
+              if any(c['status']=='completed' and c['conclusion']!='success' for c in verify): raise SystemExit('PR CI failed')
+              if len(verify)>=2 and all(c['status']=='completed' and c['conclusion']=='success' for c in verify): break
+              print('Waiting for both fresh PR CI runs to pass', attempt+1, flush=True)
+              time.sleep(15)
+          else: raise SystemExit('PR CI did not complete within 30 minutes')
+          releases=api(repo+'/releases?per_page=100')
+          assert not any(r['tag_name']=='v80' for r in releases), 'v80 already exists; never overwrite'
+          tags=api(repo+'/tags?per_page=100')
+          assert not any(t['name']=='v80' for t in tags), 'v80 tag already exists; never overwrite'
+          tag78=api(repo+'/git/ref/tags/v78'); assert tag78['object']['sha']=='c77437c987ee100a1e9cd9fea34ce2b4afe64d58'
+          old78=api(repo+'/releases/422082007')
+          assert old78['updated_at']=='2026-10-23T16:39:16Z'
+          apk78=next(a for a in old78['assets'] if a['name']=='Friday.apk')
+          assert apk78['digest']=='sha256:a67723644a5704006b777fa8e22e95d09c19765a3b9ada1237b1316ab087312a'
+          tag79=api(repo+'/git/ref/tags/v79'); assert tag79['object']['sha']=='1dd8f6cade8663b85bdc4a547cae90034cfe6483'
+          old79=api(repo+'/releases/423808086')
+          assert old79['updated_at']=='2026-10-26T02:44:17Z' and old79['draft'] is False
+          apk79=next(a for a in old79['assets'] if a['name']=='Friday.apk')
+          assert apk79['digest']=='sha256:107de17c59b7adb4f80e00127599210886b23847a1870df2e07da173411b9c6d'
+          open(os.environ['RUNNER_TEMP']+'/v78-url','w').write(apk78['browser_download_url'])
+          print('Approved PR head is open/unmerged with both checks green; v78 and v79 unchanged')
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.6'
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Full widget and regression tests
+        run: flutter test
+      - name: Restore existing production signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FRIDAY_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.FRIDAY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FRIDAY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FRIDAY_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/friday-release.jks"
+          test -s "$RUNNER_TEMP/friday-release.jks"
+          cat >> android/gradle.properties <<GP
+          FRIDAY_KEYSTORE_FILE=$RUNNER_TEMP/friday-release.jks
+          FRIDAY_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
+          FRIDAY_KEY_ALIAS=$KEY_ALIAS
+          FRIDAY_KEY_PASSWORD=$KEY_PASSWORD
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
+          org.gradle.workers.max=2
+          kotlin.compiler.execution.strategy=in-process
+          GP
+      - name: Build release arm64 v80
+        run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.80 --build-number=80
+      - name: Native release unit tests
+        run: cd android && ./gradlew :app:testReleaseUnitTest
+      - name: Verify release APK, package, ABI and production signature
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          curl -fL --retry 3 "$(cat "$RUNNER_TEMP/v78-url")" -o "$RUNNER_TEMP/v78.apk"
+          echo "a67723644a5704006b777fa8e22e95d09c19765a3b9ada1237b1316ab087312a  $RUNNER_TEMP/v78.apk" | sha256sum -c -
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/new-signature.txt"
+          "$BT/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/v78.apk" > "$RUNNER_TEMP/old-signature.txt"
+          diff <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/old-signature.txt") <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/new-signature.txt")
+          "$BT/aapt" dump badging "$APK" > "$RUNNER_TEMP/badging.txt"
+          grep -E "^package: name='com.friday.assistant' versionCode='80' versionName='1.0.80'" "$RUNNER_TEMP/badging.txt"
+          grep -Fx "native-code: 'arm64-v8a'" "$RUNNER_TEMP/badging.txt"
+          if grep -q '^application-debuggable' "$RUNNER_TEMP/badging.txt"; then echo 'Unexpected debug APK'; exit 1; fi
+          unzip -t "$APK" > "$RUNNER_TEMP/archive-check.txt"
+          cp "$APK" Friday.apk
+          python3 - <<'PY'
+          import zipfile, hashlib, os, json
+          with zipfile.ZipFile('Friday.apk') as z:
+            libs=[n for n in z.namelist() if n.startswith('lib/')]
+            assert libs and all(n.startswith('lib/arm64-v8a/') for n in libs)
+            assert 'lib/arm64-v8a/libapp.so' in libs and 'lib/arm64-v8a/libflutter.so' in libs
+            assert 'AndroidManifest.xml' in z.namelist() and 'classes.dex' in z.namelist()
+          audit={'approved_pr_head':os.environ['APPROVED_SHA'],'build_commit':os.environ['GITHUB_SHA'],'package':'com.friday.assistant','version_name':'1.0.80','version_code':80,'abi':'arm64-v8a','debuggable':False,'signature_matches_v78':True,'sha256':hashlib.sha256(open('Friday.apk','rb').read()).hexdigest(),'size_bytes':os.path.getsize('Friday.apk'),'signer_report':open(os.environ['RUNNER_TEMP']+'/new-signature.txt').read(),'phone_tested':False,'build_url':os.environ['GITHUB_SERVER_URL']+'/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID']}
+          open('apk-verification.json','w').write(json.dumps(audit,indent=2))
+          body='Friday v80: modestly faster shared motion timings from unmerged PR #2. All current app settings and behavior are retained, including reduced-motion support. App source is exactly the approved PR head '+audit['approved_pr_head']+'; only version metadata and this release workflow differ. Overlay and floating bar remain unchanged.\n\nFull Flutter analyze/tests, release build and native tests passed. Release-signed arm64 APK, package com.friday.assistant, version 1.0.80 (80). Signing certificate matches published v78.\n\nNothing is phone-tested. PR #2 remains open and unmerged. No Firebase or update-feed publish. Existing v78 and v79 releases unchanged.\n\nAPK SHA-256: '+audit['sha256']+'\nBuild: '+audit['build_url']+'\n'
+          open('release-body.md','w').write(body)
+          PY
+          cat release-body.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Friday-v80-release-verification
+          path: |
+            Friday.apk
+            apk-verification.json
+            release-body.md
+          if-no-files-found: error
+      - name: Stage verified v80 draft only
+        run: |
+          set -euo pipefail
+          gh release create v80 Friday.apk apk-verification.json --draft --target "$GITHUB_SHA" --title 'Friday v80 - faster motion' --notes-file release-body.md
+          gh api "repos/$GITHUB_REPOSITORY/releases" --jq '.[] | select(.tag_name=="v80") | {id,draft,target_commitish,assets:[.assets[]|{name,size,digest,state,browser_download_url}]}'
+      - name: Remove signing material from runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/friday-release.jks" android/gradle.properties
