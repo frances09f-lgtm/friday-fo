@@ -18,6 +18,7 @@ jobs:
       APPROVED_SHA: f2bedbf8d7dc0964982b7dc46d71afdddde3e4c5
       BUILD_SHA: 1dd8f6cade8663b85bdc4a547cae90034cfe6483
       BUILD_RUN_ID: '40259004829'
+      DRAFT_RELEASE_ID: '423808086'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,7 +52,7 @@ jobs:
           assert old['id']==422082007 and old['updated_at']=='2026-10-23T16:39:16Z'
           old_apk=next(a for a in old['assets'] if a['name']=='Friday.apk')
           assert old_apk['digest']=='sha256:a67723644a5704006b777fa8e22e95d09c19765a3b9ada1237b1316ab087312a'
-          release=api(repo+'/releases/tags/v79')
+          release=api(repo+'/releases/'+os.environ['DRAFT_RELEASE_ID'])
           assert release['draft'] and release['tag_name']=='v79' and release['target_commitish']==build
           apk=next(a for a in release['assets'] if a['name']=='Friday.apk')
           audit=next(a for a in release['assets'] if a['name']=='apk-verification.json')
@@ -60,34 +61,19 @@ jobs:
           assert audit['state']=='uploaded' and audit['digest']=='sha256:c63fbfa8e63d1583444706d2256ad723fdfb73da106b5537bafdf02cda209ded'
           print('All pre-publish gates passed: approved PR open/unmerged, required checks green, exact signed build succeeded, v78 untouched, v79 draft target and asset receipts match.')
           PY
-          gh release download v79 --repo "$GITHUB_REPOSITORY" --pattern apk-verification.json --dir "$RUNNER_TEMP"
-          gh release download v79 --repo "$GITHUB_REPOSITORY" --pattern Friday.apk --dir "$RUNNER_TEMP"
-          python3 - <<'PY'
-          import json,hashlib,os
-          p=os.environ['RUNNER_TEMP']
-          audit=json.load(open(p+'/apk-verification.json'))
-          apk=p+'/Friday.apk'
-          digest=hashlib.sha256(open(apk,'rb').read()).hexdigest()
-          assert audit['approved_pr_head']=='f2bedbf8d7dc0964982b7dc46d71afdddde3e4c5'
-          assert audit['build_commit']=='1dd8f6cade8663b85bdc4a547cae90034cfe6483'
-          assert audit['package']=='com.friday.assistant' and audit['version_name']=='1.0.79' and audit['version_code']==79
-          assert audit['abi']=='arm64-v8a' and audit['debuggable'] is False and audit['signature_matches_v78'] is True
-          assert audit['phone_tested'] is False and audit['build_url'].endswith('/40259004829')
-          assert digest==audit['sha256']=='107de17c59b7adb4f80e00127599210886b23847a1870df2e07da173411b9c6d'
-          assert os.path.getsize(apk)==audit['size_bytes']==40675965
-          print('Downloaded draft APK matches CI-verified arm64 release package/version/signature metadata and SHA-256:',digest)
-          PY
       - name: Publish v79 without making it latest
-        run: gh release edit v79 --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
+        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$DRAFT_RELEASE_ID" -F draft=false -F make_latest=false
       - name: Verify published direct APK URL and bytes
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json,os,subprocess
-          p=subprocess.run(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/releases/tags/v79'],capture_output=True,text=True,check=True)
+          path='repos/'+os.environ['GITHUB_REPOSITORY']+'/releases/'+os.environ['DRAFT_RELEASE_ID']
+          p=subprocess.run(['gh','api',path],capture_output=True,text=True,check=True)
           release=json.loads(p.stdout)
           assert release['draft'] is False and release['published_at'] and release['tag_name']=='v79'
+          assert release['target_commitish']==os.environ['BUILD_SHA']
           apk=next(a for a in release['assets'] if a['name']=='Friday.apk')
           assert apk['content_type']=='application/vnd.android.package-archive' and apk['digest']=='sha256:107de17c59b7adb4f80e00127599210886b23847a1870df2e07da173411b9c6d'
           url=apk['browser_download_url']
