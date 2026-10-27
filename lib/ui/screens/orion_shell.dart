@@ -7,6 +7,7 @@ import 'device_link_screen.dart';
 import 'home_screen.dart';
 import 'immersive_voice_screen.dart';
 import 'notifications_screen.dart';
+import '../../update/app_update.dart';
 /// Five lazy, retained tabs. Motion never creates another service or page.
 class OrionShell extends StatefulWidget {
  const OrionShell({super.key, required this.onToggleTheme});
@@ -15,6 +16,12 @@ class OrionShell extends StatefulWidget {
 }
 class _OrionShellState extends State<OrionShell> {
  int tab = 0; final Set<int> built = {0};
+ @override void initState() {
+  super.initState();
+  // In-app self-update: check the latest release once after the first frame
+  // (at most every 6 hours; skipped in tests).
+  WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) maybePromptUpdate(context); });
+ }
  void select(int i) { if (i == tab) return; setState(() { tab = i; built.add(i); }); }
  Widget page(int i) {
   switch (i) {

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
 import 'device_link_screen.dart';
 import 'package:provider/provider.dart';
+import '../../update/app_update.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../services/ai/local_model_service.dart';
@@ -113,6 +114,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MotionCard(color: s.tertiaryContainer, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: MotionSwitchTile(title: const Text('Speak replies out loud'), subtitle: const Text('Turn off for quiet replies'),
             value: _speakReplies, onChanged: (value) => setState(() => _speakReplies = value))),
+        const SizedBox(height: 20), _sectionLabel('App'),
+        MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
+          _tile(leading: Icon(Icons.system_update_alt, color: s.primary), title: const Text('Check for updates'),
+            subtitle: const Text('Get the latest Friday release'), onTap: () => checkUpdateManually(context))),
         const SizedBox(height: 20), _sectionLabel('More settings'),
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
           MotionExpansion(leading: const Icon(Icons.psychology_outlined), title: const Text('AI & models'),
