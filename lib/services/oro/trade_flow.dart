@@ -134,6 +134,9 @@ class TradeFlow {
     }
     final b = StringBuffer()
       ..write('Confirm paper trade: ${buy ? 'BUY' : 'SELL'} ${lotsLabel(c.lots!)} XAU/USD at market.\n');
+    if (c.defaultSize) {
+      b.write('Size: your default (Settings > Trading). For another size say it, like "${buy ? 'buy' : 'sell'} 0.1 lot".\n');
+    }
     if (px == null || !px.isFinite || px <= 0) {
       b.write('Sona has not shared a live price yet; it will refuse the order if it has no fresh quote.\n');
     } else {

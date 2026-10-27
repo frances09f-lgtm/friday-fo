@@ -71,6 +71,11 @@ void main() {
         expect(p!.command, isNull, reason: s);
         expect(p.question, contains('How much gold do you want to buy'), reason: s);
         expect(p.draft!.side, 'buy', reason: s);
+        expect(p.missingSize, isTrue, reason: s);
+        final c = p.withDefaultSize(0.01)!;
+        expect(c.lots, 0.01, reason: s);
+        expect(c.side, 'buy', reason: s);
+        expect(c.defaultSize, isTrue, reason: s);
       }
       for (final s in ['sell a trade', 'sell', 'sell gold', 'go short', 'sell a position']) {
         final p = TradeCommandParser.parse(s)!;
@@ -87,8 +92,24 @@ void main() {
         expect(p, isNotNull, reason: s);
         expect(p!.command, isNull, reason: s);
         expect(p.draft, isNull, reason: s);
+        expect(p.missingSize, isFalse, reason: s);
+        expect(p.withDefaultSize(0.01), isNull, reason: s);
         expect(p.question, contains('Buy or sell'), reason: s);
       }
+    });
+    test('default size keeps SL/TP; a wrong explicit size is not replaced', () {
+      final p = TradeCommandParser.parse('sell gold sl 4150 tp 4080')!;
+      final c = p.withDefaultSize(0.05)!;
+      expect(c.sl, 4150);
+      expect(c.tp, 4080);
+      expect(c.lots, 0.05);
+      final bad = TradeCommandParser.parse('buy gold 0.001 lot')!;
+      expect(bad.missingSize, isFalse);
+      expect(bad.withDefaultSize(0.01), isNull);
+      expect(TradeCommandParser.validDefaultLots(0.01), isTrue);
+      expect(TradeCommandParser.validDefaultLots(0.005), isFalse);
+      expect(TradeCommandParser.validDefaultLots(0), isFalse);
+      expect(TradeCommandParser.validDefaultLots(500), isFalse);
     });
     test('ambiguous or invalid sizes ask instead of guessing', () {
       expect(question('buy gold 0.001 lot'), contains('0.01 lot'));

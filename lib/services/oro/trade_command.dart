@@ -16,6 +16,7 @@ class TradeCommand {
     required double this.lots,
     this.tp,
     this.sl,
+    this.defaultSize = false,
   })  : op = TradeOp.open,
         all = false;
 
@@ -23,7 +24,12 @@ class TradeCommand {
       : op = TradeOp.close,
         lots = null,
         tp = null,
-        sl = null;
+        sl = null,
+        defaultSize = false;
+
+  /// open only: no size was said, so [lots] is the Default trade size from
+  /// Settings (shown on the confirm card).
+  final bool defaultSize;
 
   final TradeOp op;
 
@@ -59,13 +65,29 @@ class TradeDraft {
 class TradeParse {
   const TradeParse.command(TradeCommand this.command)
       : question = null,
-        draft = null;
-  const TradeParse.question(String this.question, {this.draft})
+        draft = null,
+        missingSize = false;
+  const TradeParse.question(String this.question,
+      {this.draft, this.missingSize = false})
       : command = null;
 
   final TradeCommand? command;
   final String? question;
   final TradeDraft? draft;
+
+  /// The order is complete except for the size (none was said): the caller
+  /// fills in the Default trade size instead of asking ("buy gold" buys).
+  final bool missingSize;
+
+  /// [draft] as an order at [lots] when only the size was missing.
+  TradeCommand? withDefaultSize(double lots) => missingSize && draft != null
+      ? TradeCommand.open(
+          side: draft!.side,
+          lots: lots,
+          tp: draft!.tp,
+          sl: draft!.sl,
+          defaultSize: true)
+      : null;
 }
 
 class TradeCommandParser {
@@ -80,7 +102,7 @@ class TradeCommandParser {
       'How much gold do you want to ${side == 'sell' ? 'sell' : 'buy'}? For example "0.1 lot" (1 lot = 100 oz, smallest is 0.01 lot = 1 oz).';
 
   static const sideAndSize =
-      'Buy or sell, and how much gold? Say it like "buy 0.1 lot" or "sell 0.05 lot" (Sona trades gold, XAU/USD).';
+      'Buy or sell? Say "buy" or "sell" to use your default size, or add a size like "buy 0.1 lot" (Sona trades gold, XAU/USD).';
 
   /// Words of a vague trade intent with no size: "buy a trade", "sell a
   /// position", "buy a new paper trade".
@@ -230,14 +252,14 @@ class TradeCommandParser {
           return null;
         }
         return TradeParse.question(howMuch(side),
-            draft: TradeDraft(side: side));
+            draft: TradeDraft(side: side), missingSize: true);
       }
       // "buy a trade", "sell a position": a trade intent without a size.
       if (sizes.isEmpty &&
           words.every(_vagueWords.contains) &&
           words.any(_vagueAnchors.contains)) {
         return TradeParse.question(howMuch(side),
-            draft: TradeDraft(side: side));
+            draft: TradeDraft(side: side), missingSize: true);
       }
       if (sizes.isEmpty) return null;
     }
@@ -247,7 +269,7 @@ class TradeCommandParser {
     }
     if (sizes.isEmpty) {
       return TradeParse.question(howMuch(side),
-          draft: TradeDraft(side: side, tp: tp, sl: sl));
+          draft: TradeDraft(side: side, tp: tp, sl: sl), missingSize: true);
     }
     final size = _size(sizes.first[1]!, sizes.first[2]);
     if (size.error != null) {
@@ -279,6 +301,11 @@ class TradeCommandParser {
     }
     return (lots: steps.roundToDouble() / 100, error: null);
   }
+
+  /// A usable Default trade size: above zero, a whole 0.01-lot step, within
+  /// the per-order limit.
+  static bool validDefaultLots(double lots) =>
+      _size(lots.toString(), 'lot').error == null;
 
   /// A bare size answering "How much gold?" ("0.05", "0.05 lot", "5 oz").
   /// Returns lots, or an error/question; null when [text] is not a size.

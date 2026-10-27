@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../ai/cloud_provider.dart';
 import '../ai/gemini_provider.dart';
 import '../ai/openai_compatible_provider.dart';
+import '../oro/trade_command.dart';
 
 /// Everything Friday needs to know about itself. API keys live in secure
 /// storage (Android Keystore-backed); the rest in plain preferences.
@@ -32,6 +33,11 @@ class SettingsStore extends ChangeNotifier {
   /// Mute toggle: when true Friday speaks its replies out loud.
   bool speakReplies = true;
 
+  /// Size used when a trade command names none ("buy gold"), in lots
+  /// (0.01 lot = 1 oz). Changed in Settings > Trading.
+  static const defaultTradeLotsFallback = 0.01;
+  double defaultTradeLots = defaultTradeLotsFallback;
+
   /// Where the Gemma weights come from (set in Settings; see README).
   String localModelUrl = '';
 
@@ -50,7 +56,22 @@ class SettingsStore extends ChangeNotifier {
     localFallbackEnabled = _prefs.getBool('friday_local_fallback') ?? true;
     speakReplies = _prefs.getBool('friday_speak_replies') ?? true;
     localModelUrl = _prefs.getString('friday_local_model_url') ?? '';
+    final lots = _prefs.getDouble('friday_default_trade_lots');
+    defaultTradeLots =
+        lots != null && TradeCommandParser.validDefaultLots(lots)
+            ? lots
+            : defaultTradeLotsFallback;
     notifyListeners();
+  }
+
+  /// Saves the Default trade size; false (and nothing saved) when [lots] is
+  /// not a valid Sona size.
+  Future<bool> setDefaultTradeLots(double lots) async {
+    if (!TradeCommandParser.validDefaultLots(lots)) return false;
+    defaultTradeLots = (lots * 100).roundToDouble() / 100;
+    await _prefs.setDouble('friday_default_trade_lots', defaultTradeLots);
+    notifyListeners();
+    return true;
   }
 
   Future<void> setApiKey(String slot, String value) async {

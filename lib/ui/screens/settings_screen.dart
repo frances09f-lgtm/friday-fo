@@ -83,6 +83,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _tile({Widget? leading, required Widget title, Widget? subtitle, Widget? trailing, GestureTapCallback? onTap, EdgeInsetsGeometry? contentPadding}) =>
     MotionPress(enabled: onTap != null, child: ListTile(leading: leading, title: title,
       subtitle: subtitle, trailing: trailing, onTap: onTap, contentPadding: contentPadding));
+  static const tradeSizeChoices = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0];
+  Widget _defaultTradeSizeTile(ColorScheme s) {
+    final store = context.watch<SettingsStore>();
+    final current = store.defaultTradeLots;
+    final choices = {...tradeSizeChoices, current}.toList()..sort();
+    String label(double l) => '${l.toStringAsFixed(2)} lot';
+    return _tile(leading: Icon(Icons.candlestick_chart_outlined, color: s.primary), title: const Text('Default trade size'),
+      subtitle: Text('${(current * 100).round()} oz. Used when you say "buy gold" or "sell" without a size; Friday still shows a confirm card.'),
+      trailing: DropdownButton<double>(key: const ValueKey('default-trade-size'), value: current, underline: const SizedBox.shrink(),
+        items: [for (final l in choices) DropdownMenuItem(value: l, child: Text(label(l)))],
+        onChanged: (v) async { if (v != null) await store.setDefaultTradeLots(v); }));
+  }
   Widget _sectionLabel(String title) => Padding(padding: const EdgeInsets.only(left: 4, bottom: 10),
     child: Text(title, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600)));
   @override
@@ -117,6 +129,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MotionCard(color: s.tertiaryContainer, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: MotionSwitchTile(title: const Text('Speak replies out loud'), subtitle: const Text('Turn off for quiet replies'),
             value: _speakReplies, onChanged: (value) => setState(() => _speakReplies = value))),
+        const SizedBox(height: 20), _sectionLabel('Trading'),
+        MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child: _defaultTradeSizeTile(s)),
         const SizedBox(height: 20), _sectionLabel('More settings'),
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
           MotionExpansion(leading: const Icon(Icons.psychology_outlined), title: const Text('AI & models'),

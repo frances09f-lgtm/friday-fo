@@ -202,37 +202,66 @@ void main() {
       expect(brain.calls, 1);
     });
 
-    test('missing size: asks, then a size reply builds the order', () async {
-      final (c, desk, _, _) = await _setup();
+    test('no size: "buy gold" uses the default size on the confirm card',
+        () async {
+      final (c, desk, brain, _) = await _setup();
       await c.send('buy gold');
-      expect(_last(c), contains('How much gold'));
+      expect(c.pendingTrade, isNotNull);
+      expect(_last(c), contains('BUY 0.01 lot (1 oz)'));
+      expect(_last(c), contains('your default'));
+      expect(desk.submitted, isEmpty);
+      expect(brain.calls, 0);
+      await c.send('confirm');
+      expect(desk.submitted.single['side'], 'buy');
+    });
+
+    test('invalid size: asks, then a size reply builds the order', () async {
+      final (c, desk, _, _) = await _setup();
+      await c.send('buy gold 0.001 lot');
+      expect(_last(c), contains('0.01 lot'));
       expect(c.pendingTrade, isNull);
       await c.send('0.02');
       expect(c.pendingTrade, isNotNull);
       expect(_last(c), contains('BUY 0.02 lots (2 oz)'));
+      expect(_last(c), isNot(contains('your default')));
       expect(desk.submitted, isEmpty);
     });
 
-    test('vague "buy a trade" asks for the size, then builds the order',
+    test('vague "buy a trade" / "sell" go to the card at the default size',
         () async {
       final (c, desk, brain, _) = await _setup();
       await c.send('buy a trade');
-      expect(_last(c), contains('How much gold do you want to buy'));
-      expect(brain.calls, 0);
-      await c.send('0.1 lot');
       expect(c.pendingTrade, isNotNull);
-      expect(_last(c), contains('BUY 0.10 lots'));
+      expect(_last(c), contains('BUY 0.01 lot (1 oz)'));
+      expect(brain.calls, 0);
+      await c.send('cancel');
+      expect(desk.submitted, isEmpty);
+      expect(await c.settings.setDefaultTradeLots(0.1), isTrue);
+      await c.send('sell');
+      expect(_last(c), contains('SELL 0.10 lots (10 oz)'));
+      expect(_last(c), contains('your default'));
       expect(desk.submitted, isEmpty);
     });
 
-    test('"open a trade" asks buy or sell and how much', () async {
+    test('"open a trade" asks buy or sell, then uses the default size',
+        () async {
       final (c, desk, brain, _) = await _setup();
       await c.send('open a trade');
       expect(_last(c), contains('Buy or sell'));
+      expect(c.pendingTrade, isNull);
       expect(brain.calls, 0);
-      await c.send('sell 0.05 lot');
+      await c.send('sell');
       expect(c.pendingTrade, isNotNull);
+      expect(_last(c), contains('SELL 0.01 lot (1 oz)'));
       expect(desk.submitted, isEmpty);
+    });
+
+    test('an explicit size still wins over the default', () async {
+      final (c, _, _, _) = await _setup();
+      await c.settings.setDefaultTradeLots(0.2);
+      await c.send('buy gold 0.05 lot');
+      expect(_last(c), contains('BUY 0.05 lots (5 oz)'));
+      expect(_last(c), isNot(contains('your default')));
     });
 
     test('Sona rejection is said plainly', () async {

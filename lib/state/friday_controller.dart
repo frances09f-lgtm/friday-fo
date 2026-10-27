@@ -213,14 +213,20 @@ class FridayController extends ChangeNotifier {
     if (command == null) {
       final parsed = TradeCommandParser.parse(text);
       if (parsed == null) return false;
-      if (parsed.command == null) {
+      // "buy gold" buys: no size said -> the Default trade size from
+      // Settings, shown on the confirm card.
+      final sized = parsed.withDefaultSize(settings.defaultTradeLots);
+      if (sized != null) {
+        command = sized;
+      } else if (parsed.command == null) {
         _tradeDraft = parsed.draft;
         _tradeDraftAt = parsed.draft == null ? null : now;
         oroContext.clear();
         await _tradeReply(parsed.question!);
         return true;
+      } else {
+        command = parsed.command;
       }
-      command = parsed.command;
     }
     oroContext.clear();
     phase = 'Checking Sona';
