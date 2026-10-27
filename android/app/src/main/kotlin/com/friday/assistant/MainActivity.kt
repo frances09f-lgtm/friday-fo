@@ -17,6 +17,12 @@ import io.flutter.plugin.common.MethodChannel
  * also uses "friday/alerts" for the three Android settings pages it opens.
  */
 class MainActivity : FlutterActivity() {
+    override fun onResume() {
+        super.onResume()
+        // Opening Friday revives the floating bubble if the user left it on
+        // and Android ended the overlay service (aggressive battery modes).
+        AssistantOverlayService.ensureBubble(this)
+    }
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         registerUpdateChannel(flutterEngine)

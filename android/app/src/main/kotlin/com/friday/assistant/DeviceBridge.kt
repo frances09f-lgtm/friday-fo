@@ -96,7 +96,7 @@ object DeviceBridge {
                         try{androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java).putExtra(AssistantOverlayService.MODE_BUBBLE,true));result.success("requested")}catch(_:Exception){result.success("failed")}
                     }
                 }
-                "bubbleStop" -> {context.stopService(Intent(context,AssistantOverlayService::class.java));result.success(true)}
+                "bubbleStop" -> {AssistantOverlayService.setBubbleEnabled(context,false);context.stopService(Intent(context,AssistantOverlayService::class.java));result.success(true)}
                 "assistantSessionTest" -> {result.success(FridayAssistantService.ready?.testSession()?:"not_active")}
                 "assistantState" -> result.success(mapOf(
                     "overlay" to Settings.canDrawOverlays(context),

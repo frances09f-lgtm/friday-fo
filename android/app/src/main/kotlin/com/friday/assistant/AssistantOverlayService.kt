@@ -44,6 +44,17 @@ class AssistantOverlayService : Service() {
         }
         const val MODE_BUBBLE="bubble"
         private const val ACTION_STOP="com.friday.assistant.STOP_BUBBLE"
+        private const val PREFS="assistant_bubble"
+        private const val KEY_ENABLED="enabled"
+        fun setBubbleEnabled(context:android.content.Context,on:Boolean){context.getSharedPreferences(PREFS,0).edit().putBoolean(KEY_ENABLED,on).apply()}
+        fun bubbleEnabled(context:android.content.Context)=context.getSharedPreferences(PREFS,0).getBoolean(KEY_ENABLED,false)
+        /** Restarts the user's bubble after a process death, reboot or update.
+            No-op when the user turned it off, it already runs, or the overlay
+            permission is gone. */
+        fun ensureBubble(context:android.content.Context){
+            if(!BubbleRestorePolicy.shouldRestore(bubbleEnabled(context),active,Settings.canDrawOverlays(context)))return
+            try{androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java).putExtra(MODE_BUBBLE,true))}catch(_:Exception){}
+        }
     }
     private var engine: FlutterEngine? = null
     private var view: FlutterView? = null
@@ -122,7 +133,7 @@ class AssistantOverlayService : Service() {
                 }
                 "launchMode"->result.success(mapOf("voice" to voice))
                 "dismiss"->{hidePanelImmediately();result.success(null);handler.post{if(engine === e){if(persistent)showBubble()else stopSelf()}}}
-                "hideBubble"->{result.success(null);stopSelf()}
+                "hideBubble"->{setBubbleEnabled(this,false);result.success(null);stopSelf()}
                 "openFriday"->{openFriday();hidePanelImmediately();result.success(null);handler.post{if(engine === e){if(persistent)showBubble()else stopSelf()}}}
                 else->result.notImplemented()
             }
@@ -144,10 +155,17 @@ class AssistantOverlayService : Service() {
         try{windowManager?.addView(v,params);panelAttached=true;AssistantInvocation.record(this,"Overlay visible")}catch(e:Exception){AssistantInvocation.record(this,"Overlay failed: ${e.javaClass.simpleName}: ${e.message}");stopSelf()}
     }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
-        if(intent?.action==ACTION_STOP){stopSelf();return START_NOT_STICKY}
+        if(intent?.action==ACTION_STOP){setBubbleEnabled(this,false);stopSelf();return START_NOT_STICKY}
         if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
         active=true
-        if(intent?.getBooleanExtra(MODE_BUBBLE,false)==true){persistent=true;showBubble()}else showPanel(true)
+        if(intent==null){
+            // System restarted the service after a process death: restore the
+            // bubble only when the user left it enabled.
+            if(bubbleEnabled(this)){persistent=true;showBubble();return START_STICKY}
+            stopSelf();return START_NOT_STICKY
+        }
+        if(intent.getBooleanExtra(MODE_BUBBLE,false)==true){persistent=true;setBubbleEnabled(this,true);showBubble();return START_STICKY}
+        showPanel(true)
         return START_NOT_STICKY
     }
     private fun buildNotification(): Notification {
