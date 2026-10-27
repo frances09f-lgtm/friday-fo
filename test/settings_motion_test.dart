@@ -25,7 +25,9 @@ void main() {
     await t.pumpWidget(MultiProvider(providers: [ChangeNotifierProvider<SettingsStore>.value(value: store), ChangeNotifierProvider<LocalModelService>.value(value: local)], child: MaterialApp(theme: Orion.light(), home: const SettingsScreen())));
     await t.pumpAndSettle();
     Future<void> show(Finder f) async { await t.ensureVisible(f); await t.pump(const Duration(milliseconds: 800)); await t.pumpAndSettle(); await t.ensureVisible(f); await t.pumpAndSettle(); }
-    for (final label in ['Assistant setup','Contact nicknames & saved matches','Connected devices','Speak replies out loud','AI & models']) { expect(find.text(label), findsOneWidget); }
+    // v1.0.162: the App updates card sits at the top of Settings.
+    expect(find.text('Check for updates'), findsOneWidget);
+    for (final label in ['Assistant setup','Contact nicknames & saved matches','Connected devices','Speak replies out loud','AI & models']) { await t.scrollUntilVisible(find.text(label), 120, scrollable: find.byType(Scrollable).first); expect(find.text(label), findsOneWidget); }
     await show(find.text('Speak replies out loud')); await t.tap(find.text('Speak replies out loud')); await t.pumpAndSettle();
     await show(find.text('AI & models')); await t.tap(find.text('AI & models')); await t.pumpAndSettle(); expect(find.text('Qwen local model'), findsOneWidget);
     await show(find.text('On-device fallback')); await t.tap(find.text('On-device fallback')); await t.pumpAndSettle();

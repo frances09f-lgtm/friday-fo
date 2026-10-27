@@ -1,0 +1,82 @@
+name: Friday v1.0.162 signed release (in-app updates, tasks clear when done)
+on:
+  push:
+    branches: [release/v1.0.162]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: friday-v1.0.162
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION_NAME: 1.0.162
+      VERSION_CODE: '162'
+      TAG: v1.0.162
+      # Same release key as v1.0.161, v1.0.160 and v73-v80 (installs over them).
+      CERT_SHA256: 9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse to overwrite an existing release
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; not touching it." >&2
+            exit 1
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.6'
+      - name: Restore signing keystore
+        run: |
+          echo "${{ secrets.FRIDAY_KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/friday-release.jks
+          cat >> android/gradle.properties <<GP
+          FRIDAY_KEYSTORE_FILE=$RUNNER_TEMP/friday-release.jks
+          FRIDAY_KEYSTORE_PASSWORD=${{ secrets.FRIDAY_KEYSTORE_PASSWORD }}
+          FRIDAY_KEY_ALIAS=${{ secrets.FRIDAY_KEY_ALIAS }}
+          FRIDAY_KEY_PASSWORD=${{ secrets.FRIDAY_KEY_PASSWORD }}
+          GP
+      - name: CI build memory
+        run: |
+          cat >> android/gradle.properties <<'GP'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
+          org.gradle.workers.max=2
+          kotlin.compiler.execution.strategy=in-process
+          GP
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      - name: Native task evaluation tests
+        run: cd android && ./gradlew :app:testReleaseUnitTest
+      - name: Verify package, version and signing certificate
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/cert.txt
+          CERT=$(awk '/certificate SHA-256 digest:/ {print $NF}' /tmp/cert.txt | sort -u)
+          echo "cert: $CERT"
+          test "$CERT" = "$CERT_SHA256"
+          "$BT/aapt" dump badging "$APK" | tee /tmp/badging.txt | head -3
+          grep -F "package: name='com.friday.assistant' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" /tmp/badging.txt
+          mv "$APK" build/app/outputs/flutter-apk/Friday.apk
+          sha256sum build/app/outputs/flutter-apk/Friday.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: friday-v1.0.162-apk
+          path: build/app/outputs/flutter-apk/Friday.apk
+      - name: Publish release (latest, read by the in-app updater)
+        run: |
+          gh release create "$TAG" build/app/outputs/flutter-apk/Friday.apk \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Friday v1.0.162 - In-app updates; finished tasks clear" \
+            --notes-file .github/release-notes-v1.0.162.md --latest

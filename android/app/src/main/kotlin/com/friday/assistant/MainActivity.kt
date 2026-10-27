@@ -66,20 +66,25 @@ class MainActivity : FlutterActivity() {
                             result.error("no_apk", "APK not found: $path", null)
                             return@setMethodCallHandler
                         }
-                        val uri = FileProvider.getUriForFile(
-                            this,
-                            "$packageName.updateprovider",
-                            file
-                        )
-                        val intent = Intent(Intent.ACTION_VIEW)
-                            .setDataAndType(
-                                uri,
-                                "application/vnd.android.package-archive"
+                        try {
+                            val uri = FileProvider.getUriForFile(
+                                this,
+                                "$packageName.updateprovider",
+                                file
                             )
-                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        startActivity(intent)
-                        result.success(null)
+                            val intent = Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(
+                                    uri,
+                                    "application/vnd.android.package-archive"
+                                )
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            result.success(null)
+                        } catch (e: Exception) {
+                            // Shown in the update dialog instead of failing silently.
+                            result.error("install_failed", "Could not open the Android installer: ${e.message}", null)
+                        }
                     }
                     else -> result.notImplemented()
                 }

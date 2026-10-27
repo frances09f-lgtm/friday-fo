@@ -2,6 +2,24 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'gold_task.dart';
 
+/// Task statuses that mean the task is finished: its one-shot alert fired
+/// (completed), it was cancelled, or it expired. Finished tasks are not shown
+/// on the Tasks page; only active (and blocked, which still need the user)
+/// tasks are.
+const doneTaskStatuses = {
+  'completed', 'cancelled', 'canceled', 'expired', 'done', 'fired', 'failed',
+};
+
+bool isDoneTask(Map task) =>
+    doneTaskStatuses.contains('${task['status'] ?? ''}'.trim().toLowerCase());
+
+/// The tasks still worth showing from a `taskState` result.
+List<Map> openTasks(Map<String, dynamic>? state) =>
+    (state?['tasks'] as List? ?? const [])
+        .whereType<Map>()
+        .where((t) => !isDoneTask(t))
+        .toList();
+
 class TaskService {
   static const _channel = MethodChannel('friday/device');
   Future<Map<String, dynamic>> state() async {

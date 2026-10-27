@@ -19,11 +19,23 @@ object GoldTasks {
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private fun tasks(c: Context): JSONArray = try { JSONArray(prefs(c).getString("tasks", "[]")) } catch (_: Exception) { JSONArray() }
     private fun save(c: Context, ts: JSONArray) { kotlin.check(prefs(c).edit().putString("tasks", ts.toString()).commit()) }
+    /** Done tasks (completed, cancelled, expired) leave the list; see GoldTaskRetention. */
+    private fun withoutDone(ts: JSONArray): JSONArray {
+        val keep = GoldTaskRetention.keepIndices((0 until ts.length()).map { ts.optJSONObject(it)?.optString("status") ?: "done" })
+        val out = JSONArray()
+        for (i in keep) out.put(ts.getJSONObject(i))
+        return out
+    }
+    /** Save, dropping done tasks so they disappear from the Tasks page. */
+    private fun saveOpen(c: Context, ts: JSONArray) = save(c, withoutDone(ts))
     fun saver(c: Context) = prefs(c).getBoolean("saver", false)
     fun notificationsAllowed(c: Context): Boolean = NotificationManagerCompat.from(c).areNotificationsEnabled() &&
         (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(c, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
     @Synchronized fun state(c: Context): Map<String, Any> {
-        val ts = tasks(c)
+        val stored = tasks(c)
+        val ts = withoutDone(stored)
+        // Tasks finished by an older build (or between checks) are cleared on read.
+        if (ts.length() != stored.length()) try { save(c, ts) } catch (_: Exception) { }
         return mapOf("mode" to if (saver(c)) "battery_saver" else "foreground",
             "runtime" to prefs(c).getString("runtime", "Not running")!!,
             "engine" to "watch_compare_notify_v1",
@@ -60,7 +72,7 @@ object GoldTasks {
         val ts = tasks(c)
         for (i in 0 until ts.length()) if (ts.getJSONObject(i).optString("status") in listOf("active", "blocked"))
             ts.getJSONObject(i).put("status", "cancelled").put("lastOutcome", "Cancelled by you")
-        save(c, ts)
+        saveOpen(c, ts)
         WorkManager.getInstance(c).cancelUniqueWork(WORK)
         c.stopService(Intent(c, GoldTaskService::class.java))
         runtime(c, "Stopped")
@@ -155,7 +167,7 @@ object GoldTasks {
                 } catch (_: Exception) { task.put("lastOutcome", "Condition met, but notification failed; retry on next check") }
             }
         }
-        save(c, ts)
+        saveOpen(c, ts)
         if (!(0 until ts.length()).any { ts.getJSONObject(it).optString("status") == "active" }) {
             WorkManager.getInstance(c).cancelUniqueWork(WORK)
         }

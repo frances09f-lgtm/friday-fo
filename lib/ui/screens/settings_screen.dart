@@ -94,6 +94,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: MotionList(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
         Text('Make Friday work for you.', style: TextStyle(color: s.onSurfaceVariant, fontSize: 15)),
         const SizedBox(height: 20),
+        _sectionLabel('App updates'),
+        const MotionCard(padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8), child: UpdateSettingsCard()),
+        const SizedBox(height: 20),
         _sectionLabel('Get started'),
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child: Column(children: [
           _tile(leading: Icon(Icons.assistant_outlined, color: s.primary), title: const Text('Assistant setup'),
@@ -163,10 +166,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
           _tile(leading: const Icon(Icons.help_outline), title: const Text('Commands'), subtitle: const Text('What Friday can do'),
             trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const CommandsScreen())))),
-        const SizedBox(height: 12),
-        MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
-          _tile(leading: const Icon(Icons.system_update_alt), title: const Text('Check for updates'),
-            subtitle: const Text('Get the latest Friday release'), onTap: () => checkUpdateManually(context))),
         const SizedBox(height: 24),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(Icons.lock_outline, size: 16, color: s.onSurfaceVariant), const SizedBox(width: 9),

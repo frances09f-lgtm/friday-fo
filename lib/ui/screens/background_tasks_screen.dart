@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/tasks/task_service.dart';
 import '../stitch_style.dart';
@@ -7,15 +8,34 @@ class BackgroundTasksScreen extends StatefulWidget {
   final TaskService? service;
   final bool embedded;
   final VoidCallback? onCreate;
+  static const refreshEvery = Duration(seconds: 20);
   @override
   State<BackgroundTasksScreen> createState() => _BackgroundTasksScreenState();
 }
-class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> {
+class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> with WidgetsBindingObserver {
   late final TaskService service = widget.service ?? TaskService();
   Map<String, dynamic>? data;
   String? error;
+  Timer? _poll;
   @override
-  void initState() { super.initState(); refresh(); }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    refresh();
+    // Tasks finish in the background (an alert fires); re-read so finished
+    // ones drop off this page without leaving it.
+    _poll = Timer.periodic(BackgroundTasksScreen.refreshEvery, (_) => refresh());
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) refresh();
+  }
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
   Future<void> refresh() async {
     try { final value = await service.state(); if (mounted) setState(() { data = value; error = null; }); }
     catch (_) { if (mounted) setState(() => error = 'Could not read saved background tasks.'); }
@@ -27,7 +47,7 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> {
   }
   @override
   Widget build(BuildContext context) {
-    final tasks = (data?['tasks'] as List? ?? []).whereType<Map>().toList();
+    final tasks = openTasks(data);
     final body = MotionList(padding: const EdgeInsets.all(20), children: [
       Row(children: [Expanded(child: Text('Tasks', style: Stitch.title(30))), const StitchBadge('SAVED STATE'),
         MotionPress(scale: .88, child: IconButton(onPressed: refresh, tooltip: 'Refresh tasks', icon: const Icon(Icons.refresh, size: 18)))]),
@@ -47,8 +67,8 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> {
           Text('One-shot alert · no trades', style: Stitch.mono(10, Stitch.green))
         ]))),
       if (tasks.isEmpty && data != null) StitchCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.checklist, color: Stitch.cyan, size: 30), const SizedBox(height: 12), Text('No saved gold tasks.', style: Stitch.title(20)), const SizedBox(height: 8),
-        const Text('Create a check from chat. Only saved quotes on this phone are used, not a live market API.')
+        const Icon(Icons.checklist, color: Stitch.cyan, size: 30), const SizedBox(height: 12), Text('No active tasks.', style: Stitch.title(20)), const SizedBox(height: 8),
+        const Text('Finished tasks clear from here on their own. Create a check from chat. Only saved quotes on this phone are used, not a live market API.')
       ])),
       const SizedBox(height: 22), Text('BACKGROUND EXECUTION', style: Stitch.mono(11)), const SizedBox(height: 8),
       StitchCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
