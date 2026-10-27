@@ -53,7 +53,14 @@ class AssistantOverlayService : Service() {
             permission is gone. */
         fun ensureBubble(context:android.content.Context){
             if(!BubbleRestorePolicy.shouldRestore(bubbleEnabled(context),active,Settings.canDrawOverlays(context)))return
-            try{androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java).putExtra(MODE_BUBBLE,true))}catch(_:Exception){}
+            try{
+                androidx.core.content.ContextCompat.startForegroundService(context,Intent(context,AssistantOverlayService::class.java).putExtra(MODE_BUBBLE,true))
+                AssistantInvocation.record(context,"Bubble restore requested")
+            }catch(e:Exception){
+                // OEM/Android version restrictions can still refuse a start the
+                // docs allow; surface it on the setup screen instead of dying silently.
+                AssistantInvocation.record(context,"Bubble restore refused: ${e.javaClass.simpleName}: ${e.message}")
+            }
         }
     }
     private var engine: FlutterEngine? = null
