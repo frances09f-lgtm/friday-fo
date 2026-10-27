@@ -74,6 +74,22 @@ class TradeCommandParser {
   static const sizeHelp =
       'Say a size in lots, like "buy gold 0.01 lot" (1 lot = 100 oz, smallest is 0.01 lot = 1 oz).';
 
+  /// Side known, size missing: Sona only trades gold (XAU/USD), so only the
+  /// size is asked for.
+  static String howMuch(String side) =>
+      'How much gold do you want to ${side == 'sell' ? 'sell' : 'buy'}? For example "0.1 lot" (1 lot = 100 oz, smallest is 0.01 lot = 1 oz).';
+
+  static const sideAndSize =
+      'Buy or sell, and how much gold? Say it like "buy 0.1 lot" or "sell 0.05 lot" (Sona trades gold, XAU/USD).';
+
+  /// Words of a vague trade intent with no size: "buy a trade", "sell a
+  /// position", "buy a new paper trade".
+  static const _vagueWords = {
+    'a', 'an', 'new', 'paper', 'trade', 'position', 'order', 'some', 'one',
+    'now', 'please', 'for', 'me',
+  };
+  static const _vagueAnchors = {'trade', 'position'};
+
   static final _num = r'(\d+(?:\.\d+)?|\.\d+)';
 
   static String _normalize(String text) {
@@ -151,6 +167,13 @@ class TradeCommandParser {
   }
 
   static TradeParse? _parseOpen(String t) {
+    // "open a trade", "place a trade", "make a new gold trade": a trade with
+    // neither side nor size. Ask for both; never guess.
+    if (RegExp(
+            r'^(?:open|place|take|make|start|enter|do|put)(?: me)?(?: a| an)?(?: new)?(?: paper)?(?: gold)? (?:trade|position)(?: (?:on|in|for|with) (?:gold|sona))?(?: (?:now|please))?$')
+        .hasMatch(t)) {
+      return const TradeParse.question(sideAndSize);
+    }
     final m = RegExp(
             r'^(?:(?:open|place|take|put|make|do|enter)(?: me)?(?: a| an)?(?: new)?(?: paper)? )?(?:go )?(buy|sell|long|short)\b(.*)$')
         .firstMatch(t);
@@ -202,8 +225,18 @@ class TradeCommandParser {
     if (!looksLikeTrade && sizes.length != 1) {
       // "buy" alone, or several bare numbers with no trade words.
       if (sizes.isEmpty && words.isEmpty) {
-        if (m[1] == 'long' || m[1] == 'short') return null;
-        return TradeParse.question('How much gold? $sizeHelp',
+        // Bare "long"/"short" are ordinary words; "go long" is a trade.
+        if ((m[1] == 'long' || m[1] == 'short') && !t.startsWith('go ')) {
+          return null;
+        }
+        return TradeParse.question(howMuch(side),
+            draft: TradeDraft(side: side));
+      }
+      // "buy a trade", "sell a position": a trade intent without a size.
+      if (sizes.isEmpty &&
+          words.every(_vagueWords.contains) &&
+          words.any(_vagueAnchors.contains)) {
+        return TradeParse.question(howMuch(side),
             draft: TradeDraft(side: side));
       }
       if (sizes.isEmpty) return null;
@@ -213,7 +246,7 @@ class TradeCommandParser {
           'I could not tell which number is the size, SL or TP. Say it like "sell 0.05 lot SL 2310 TP 2280".');
     }
     if (sizes.isEmpty) {
-      return TradeParse.question('How much gold? $sizeHelp',
+      return TradeParse.question(howMuch(side),
           draft: TradeDraft(side: side, tp: tp, sl: sl));
     }
     final size = _size(sizes.first[1]!, sizes.first[2]);

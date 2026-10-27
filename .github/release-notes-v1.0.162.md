@@ -1,6 +1,7 @@
-Two fixes:
+Three fixes:
 
 - In-app updates, like Replier and Sona: Settings now opens with an "App updates" card showing the installed Friday version and a "Check for updates" button. The button always tells you what it found (new version, up to date, or why the check failed). Friday also checks by itself when it opens, at most every 6 hours. The update window shows the new version and what's new, downloads with a progress bar and opens Android's installer. The one-time "allow installs from Friday" step now continues by itself when you come back from Android's settings. The window follows the light and dark theme, so it's readable in both. If a download fails, it shows the reason (for example DNS blocked or an HTTP error) and tries GitHub's second download link.
 - Tasks page: finished tasks (alert fired, completed, cancelled or expired) now disappear from the Tasks page by themselves. Only active tasks, and blocked ones that still need you, stay. The page refreshes every 20 seconds and whenever you come back to Friday.
+- Trading from Friday understands vague requests: "buy a trade", "sell a trade", "buy", "buy gold", "go long" now ask "How much gold do you want to buy?" (gold, XAU/USD, is implied), and "open a trade" / "place a trade" asks buy or sell and how much. This works without a cloud key or local model. The offline help text now mentions buying, selling and closing trades.
 
 Built on v1.0.161, with all of its changes kept (including trading from Friday). Signed with the same key, so it installs over v1.0.161, v80 or v1.0.160 with no uninstall. Checked by CI tests, not yet on a phone.

@@ -78,5 +78,5 @@ jobs:
         run: |
           gh release create "$TAG" build/app/outputs/flutter-apk/Friday.apk \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Friday v1.0.162 - In-app updates; finished tasks clear" \
+            --title "Friday v1.0.162 - In-app updates, finished tasks clear, easier trade commands" \
             --notes-file .github/release-notes-v1.0.162.md --latest

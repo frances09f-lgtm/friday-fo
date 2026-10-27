@@ -491,7 +491,7 @@ class OfflineEngine {
 
     return const FridayResponse(
       reply:
-          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth, close all apps, or answer gold price and open trades from Sona.",
+          "I couldn't reach the cloud and no local model is loaded. I can still run phone commands: open an app, read messages, set a reminder, flashlight, volume, Wi-Fi or Bluetooth, close all apps, answer gold price and open trades from Sona, or buy/sell gold and close trades in Sona (\"buy gold 0.1 lot\", \"close my trade\").",
       source: FridaySource.offline,
     );
   }

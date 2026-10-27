@@ -61,6 +61,35 @@ void main() {
       expect(q.draft!.tp, 4080);
       expect(TradeCommandParser.parse('sell')!.draft!.side, 'sell');
     });
+    test('vague trade intents ask for the size (gold is implied)', () {
+      for (final s in [
+        'buy a trade', 'Buy a trade.', 'buy', 'buy gold', 'buy a new trade',
+        'buy a position', 'go long', 'buy a paper trade please',
+      ]) {
+        final p = TradeCommandParser.parse(s);
+        expect(p, isNotNull, reason: s);
+        expect(p!.command, isNull, reason: s);
+        expect(p.question, contains('How much gold do you want to buy'), reason: s);
+        expect(p.draft!.side, 'buy', reason: s);
+      }
+      for (final s in ['sell a trade', 'sell', 'sell gold', 'go short', 'sell a position']) {
+        final p = TradeCommandParser.parse(s)!;
+        expect(p.question, contains('How much gold do you want to sell'), reason: s);
+        expect(p.draft!.side, 'sell', reason: s);
+      }
+    });
+    test('a trade with no side asks buy or sell and how much', () {
+      for (final s in [
+        'open a trade', 'place a trade', 'make a trade', 'open a new gold trade',
+        'take a position', 'friday place a trade', 'can you open a trade',
+      ]) {
+        final p = TradeCommandParser.parse(s);
+        expect(p, isNotNull, reason: s);
+        expect(p!.command, isNull, reason: s);
+        expect(p.draft, isNull, reason: s);
+        expect(p.question, contains('Buy or sell'), reason: s);
+      }
+    });
     test('ambiguous or invalid sizes ask instead of guessing', () {
       expect(question('buy gold 0.001 lot'), contains('0.01 lot'));
       expect(question('buy gold 0.5 oz'), contains('0.01 lot'));
@@ -125,6 +154,11 @@ void main() {
       'short',
       'send whatsapp to mom buy gold 0.1',
       'set volume 40',
+      'place an order',
+      'buy me a coffee please',
+      'buy a gift',
+      'sell a car',
+      'open a new tab',
     ]) {
       expect(TradeCommandParser.parse(s), isNull, reason: s);
     }

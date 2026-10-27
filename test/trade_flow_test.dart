@@ -213,6 +213,28 @@ void main() {
       expect(desk.submitted, isEmpty);
     });
 
+    test('vague "buy a trade" asks for the size, then builds the order',
+        () async {
+      final (c, desk, brain, _) = await _setup();
+      await c.send('buy a trade');
+      expect(_last(c), contains('How much gold do you want to buy'));
+      expect(brain.calls, 0);
+      await c.send('0.1 lot');
+      expect(c.pendingTrade, isNotNull);
+      expect(_last(c), contains('BUY 0.10 lots'));
+      expect(desk.submitted, isEmpty);
+    });
+
+    test('"open a trade" asks buy or sell and how much', () async {
+      final (c, desk, brain, _) = await _setup();
+      await c.send('open a trade');
+      expect(_last(c), contains('Buy or sell'));
+      expect(brain.calls, 0);
+      await c.send('sell 0.05 lot');
+      expect(c.pendingTrade, isNotNull);
+      expect(desk.submitted, isEmpty);
+    });
+
     test('Sona rejection is said plainly', () async {
       final (c, desk, _, _) = await _setup();
       desk.answer = (o) => jsonEncode({'id': o['id'], 'status': 'rejected', 'message': 'Market closed for the weekend - reopens Mon 3:30 AM'});
