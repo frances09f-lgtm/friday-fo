@@ -302,6 +302,41 @@ class DeviceHub {
     }
   }
 
+  /// Whether Sona can take paper orders from Friday: 'ok', 'missing',
+  /// 'unsupported' (older Sona), 'unavailable' (not a phone) or 'error'.
+  Future<String> oroTradeSupport() async {
+    if (_isWindows || kIsWeb) return 'unavailable';
+    try {
+      return await _channel.invokeMethod<String>('oroTradeSupport') ?? 'error';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
+  /// Hands one confirmed paper order to Sona's bridge and opens Sona so it
+  /// can execute it with its own session. Same answer words as
+  /// [oroTradeSupport].
+  Future<String> oroTradeSubmit(String orderJson) async {
+    if (_isWindows || kIsWeb) return 'unavailable';
+    try {
+      return await _channel.invokeMethod<String>(
+              'oroTradeSubmit', {'order': orderJson}) ??
+          'error';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
+  /// Sona's result JSON for order [id], or null when none is written yet.
+  Future<String?> oroTradeResult(String id) async {
+    if (_isWindows || kIsWeb) return null;
+    try {
+      return await _channel.invokeMethod<String>('oroTradeResult', {'id': id});
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// "Close all apps" (user voice ask, WINDOWS ONLY - user decision after
   /// hearing Android's honest limits). Closes visible app windows on
   /// Windows; anywhere else returns 'unsupported' for the router's honest

@@ -9,7 +9,12 @@ void main() {
   test('compareVersions', () {
     expect(compareVersions('1.0.20', '1.0.19'), greaterThan(0));
     expect(compareVersions('v1.0.20', '1.0.20'), 0);
-    expect(compareVersions('22', '1.0.22'), greaterThan(0)); // old tag shape
+    // Short release tags ("v80") mean 1.0.80.
+    expect(compareVersions('80', '1.0.80'), 0);
+    expect(compareVersions('v81', '1.0.80'), greaterThan(0));
+    expect(compareVersions('v80', '1.0.161'), lessThan(0));
+    expect(compareVersions('1.0.161', '1.0.160'), greaterThan(0));
+    expect(compareVersions('1.0.161', '1.0.80'), greaterThan(0));
   });
   test('fetchLatest parses latest release and compares', () async {
     const body = '{"tag_name":"v1.0.20","body":"notes here",'

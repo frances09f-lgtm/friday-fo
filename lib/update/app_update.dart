@@ -37,16 +37,21 @@ class UpdateInfo {
   });
 }
 
-/// Numeric semver-ish compare: >0 when a > b. Ignores a leading v and any
-/// +build suffix; missing segments count as 0.
+/// Numeric semver-ish compare: >0 when a > b. Ignores a leading v, any
+/// +build suffix and any -suffix on a segment; missing segments count as 0.
+/// Friday's short release tags ("v80") mean versionName 1.0.80, so a bare
+/// single number N compares as 1.0.N instead of looking newer than every
+/// 1.0.x build forever.
 int compareVersions(String a, String b) {
-  List<int> parts(String v) => v
-      .replaceFirst(RegExp(r'^[vV]'), '')
-      .split('+')
-      .first
-      .split('.')
-      .map((s) => int.tryParse(s) ?? 0)
-      .toList();
+  List<int> parts(String v) {
+    final core = v.trim().replaceFirst(RegExp(r'^[vV]'), '').split('+').first;
+    final segs = core
+        .split('.')
+        .map((s) => int.tryParse(s.split('-').first) ?? 0)
+        .toList();
+    return segs.length == 1 ? [1, 0, segs.first] : segs;
+  }
+
   final pa = parts(a), pb = parts(b);
   for (var i = 0; i < pa.length || i < pb.length; i++) {
     final x = i < pa.length ? pa[i] : 0;

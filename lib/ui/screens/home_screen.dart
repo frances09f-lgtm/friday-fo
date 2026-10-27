@@ -88,7 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, i) {
               final m = visibleMessages[visibleMessages.length - 1 - i];
               return MotionEntrance(key: ValueKey(m.id), index: i, scale: .88,
-                child: ChatBubble(message: m, source: m.source));
+                child: ChatBubble(message: m, source: m.source,
+                  actions: controller.pendingTrade?.messageId == m.id ? TradeConfirmButtons(
+                    busy: controller.busy,
+                    onConfirm: () => controller.send('Confirm'),
+                    onCancel: () => controller.send('Cancel')) : null));
             })),
         if (controller.partialHeard.isNotEmpty)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Align(alignment: Alignment.centerLeft,
@@ -117,4 +121,20 @@ class _EmptyState extends StatelessWidget {
     Text('Ask a question or tell Friday what to do.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall), const SizedBox(height: 24),
     Wrap(spacing: 8, children: [for (final s in _suggestions) MotionPress(scale: .93, child: OutlinedButton(onPressed: () => onSuggestion(s), child: Text(s)))])
   ]));
+}
+
+/// Confirm / Cancel under a pending Sona paper-trade confirmation.
+class TradeConfirmButtons extends StatelessWidget {
+  const TradeConfirmButtons({super.key, required this.onConfirm, required this.onCancel, this.busy = false});
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  final bool busy;
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Expanded(child: FilledButton.icon(key: const ValueKey('trade-confirm'), onPressed: busy ? null : onConfirm,
+      icon: const Icon(Icons.check, size: 18), label: const Text('Confirm'))),
+    const SizedBox(width: 10),
+    Expanded(child: OutlinedButton.icon(key: const ValueKey('trade-cancel'), onPressed: busy ? null : onCancel,
+      icon: const Icon(Icons.close, size: 18), label: const Text('Cancel'))),
+  ]);
 }

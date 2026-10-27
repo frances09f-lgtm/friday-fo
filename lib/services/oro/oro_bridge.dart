@@ -4,7 +4,12 @@ import '../device/device_hub.dart';
 
 /// One open Sona paper position as exposed by the offline bridge.
 class OroPosition {
-  const OroPosition({this.dir, this.qty, this.entry, this.tp, this.sl});
+  const OroPosition(
+      {this.id, this.dir, this.qty, this.entry, this.tp, this.sl});
+
+  /// Sona's position id (Sona 1.2.8+). Lets Friday close exactly the trade
+  /// the user confirmed. Null from older Sona builds.
+  final String? id;
 
   final String? dir; // 'buy' / 'sell'
   final double? qty;
@@ -54,6 +59,7 @@ class OroSnapshot {
           for (final p in (j['open'] as List? ?? const []))
             if (p is Map)
               OroPosition(
+                id: p['id']?.toString(),
                 dir: p['dir']?.toString(),
                 qty: (p['qty'] as num?)?.toDouble(),
                 entry: (p['entry'] as num?)?.toDouble(),

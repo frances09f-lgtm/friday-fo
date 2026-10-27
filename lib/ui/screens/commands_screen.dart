@@ -12,7 +12,9 @@ class CommandsScreen extends StatelessWidget {
  ],
  'Gold and connected apps': [
  ('Check current gold price / check Sona status', 'Read Sona\'s saved on-device quote with age. Does not fetch a new market price.'),
- ('Check my open trades / my trade profit / risk / TP and SL / account balance', 'Read Sona\'s saved positions, P/L, protection/risk and paper balance. Never trades for you.'),
+ ('Check my open trades / my trade profit / risk / TP and SL / account balance', 'Read Sona\'s saved positions, P/L, protection/risk and paper balance. Reading never trades.'),
+    ('Buy gold 0.1 lot / sell 0.05 lot SL 4150 TP 4080', 'Sona PAPER trade at market. Friday shows a confirmation (side, size, last price and age, TP/SL); nothing is sent until you tap Confirm or say "confirm". No size = Friday asks. Sona places it with its own PIN session and checks. 1 lot = 100 oz.'),
+    ('Close my trade / close my buy / close all trades', 'Closes Sona PAPER trades after a confirmation listing exactly which trades. With several open trades Friday asks which one.'),
  ('Alert me when gold price goes below 4120', 'Create a one-shot saved-quote alert, checking about every 5 minutes. Above also works. Requires notifications; stale/missing quotes do not trigger.'),
  ('Check gold every 5 minutes and tell me if it goes below 4120', 'Explicit cadence (5min to24h) and above/below threshold. Battery saver has best-effort15min checks.'),
  ('Ping me when gold price reaches 4120', 'No alert is created from ambiguous "reaches". Specify above or below. Equality alerts are not supported.'),

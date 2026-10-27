@@ -6,6 +6,8 @@ import '../services/agent/workflow_planner.dart';
 import '../services/agent/friday_agent.dart';
 
 import '../services/context/oro_context.dart';
+import '../services/oro/trade_command.dart';
+import '../services/oro/trade_flow.dart';
 import '../services/tasks/gold_task.dart';
 import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
@@ -78,7 +80,28 @@ class FridayController extends ChangeNotifier {
     this.link,
     this.agentRunning,
     this.screenAgent,
-  });
+    OroTradeDesk? tradeDesk,
+    Duration tradeTimeout = const Duration(seconds: 45),
+    Duration tradePoll = const Duration(milliseconds: 700),
+  })  : _tradeDesk = tradeDesk,
+        _tradeTimeout = tradeTimeout,
+        _tradePoll = tradePoll;
+
+  /// Sona paper-order path (see trade_flow.dart). Built on first use.
+  OroTradeDesk? _tradeDesk;
+  OroTradeDesk get tradeDesk =>
+      _tradeDesk ??= DeviceOroTradeDesk(router.deviceHub);
+  final Duration _tradeTimeout;
+  final Duration _tradePoll;
+  PendingTrade? _pendingTrade;
+  TradeDraft? _tradeDraft;
+  DateTime? _tradeDraftAt;
+
+  /// The trade confirmation currently waiting for Confirm/Cancel, if any.
+  PendingTrade? get pendingTrade =>
+      _pendingTrade != null && !_pendingTrade!.expired(DateTime.now())
+          ? _pendingTrade
+          : null;
 
   final FridayAgent? screenAgent;
   final DeviceLink? link;
@@ -104,6 +127,127 @@ class FridayController extends ChangeNotifier {
   String phase = 'Ready';
   String partialHeard = '';
   final oroContext = OroContext();
+
+  Future<void> _tradeReply(String text, {String? spoken, String? id}) async {
+    final msg = ChatMessage(
+      id: id ?? '${DateTime.now().microsecondsSinceEpoch}trade',
+      role: MessageRole.friday,
+      text: text,
+      at: DateTime.now(),
+    );
+    messages.add(msg);
+    busy = false;
+    partialHeard = '';
+    phase = 'Ready';
+    notifyListeners();
+    await chatStore.save(messages);
+    if (settings.speakReplies) await speech.speak(spoken ?? text);
+  }
+
+  /// Returns true when [text] was a trade command or a reply to a pending
+  /// trade confirmation and has been answered here.
+  Future<bool> _handleTrade(String text) async {
+    final now = DateTime.now();
+    final pending = _pendingTrade;
+    if (pending != null) {
+      final reply = TradeFlow.classifyReply(text);
+      if (pending.expired(now)) {
+        _pendingTrade = null;
+        if (reply != TradeReply.other) {
+          await _tradeReply(
+              'That trade confirmation expired after 2 minutes. No order was sent - say the trade again.',
+              spoken: 'That confirmation expired. No order was sent.');
+          return true;
+        }
+      } else if (reply == TradeReply.confirm) {
+        _pendingTrade = null;
+        oroContext.clear();
+        phase = 'Sending to Sona';
+        notifyListeners();
+        final result = await OroTradeExecutor(tradeDesk,
+                timeout: _tradeTimeout, poll: _tradePoll)
+            .execute(pending);
+        await _tradeReply(result, spoken: TradeFlow.spokenResult(result));
+        return true;
+      } else if (reply == TradeReply.cancel) {
+        _pendingTrade = null;
+        await _tradeReply('Cancelled. No order was sent to Sona.',
+            spoken: 'Cancelled');
+        return true;
+      } else {
+        // Anything else drops the confirmation; never keep an order armed
+        // behind an unrelated request.
+        _pendingTrade = null;
+        messages.add(ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}tradedrop',
+          role: MessageRole.friday,
+          text: 'Dropped the pending trade confirmation. No order was sent.',
+          at: DateTime.now(),
+        ));
+        notifyListeners();
+      }
+    }
+
+    TradeCommand? command;
+    final draft = _tradeDraft;
+    if (draft != null) {
+      _tradeDraft = null;
+      final fresh = _tradeDraftAt != null &&
+          now.difference(_tradeDraftAt!) <= PendingTrade.ttl;
+      final size = fresh ? TradeCommandParser.parseSizeReply(text) : null;
+      if (size != null) {
+        if (size.error != null) {
+          _tradeDraft = draft;
+          _tradeDraftAt = now;
+          await _tradeReply(size.error!);
+          return true;
+        }
+        command = TradeCommand.open(
+            side: draft.side, lots: size.lots!, tp: draft.tp, sl: draft.sl);
+      } else if (fresh && TradeFlow.classifyReply(text) == TradeReply.cancel) {
+        await _tradeReply('Okay, no trade.', spoken: 'Okay');
+        return true;
+      }
+    }
+
+    if (command == null) {
+      final parsed = TradeCommandParser.parse(text);
+      if (parsed == null) return false;
+      if (parsed.command == null) {
+        _tradeDraft = parsed.draft;
+        _tradeDraftAt = parsed.draft == null ? null : now;
+        oroContext.clear();
+        await _tradeReply(parsed.question!);
+        return true;
+      }
+      command = parsed.command;
+    }
+    oroContext.clear();
+    phase = 'Checking Sona';
+    notifyListeners();
+    final support = await tradeDesk.support();
+    if (support != 'ok') {
+      await _tradeReply(TradeFlow.supportAnswer(support));
+      return true;
+    }
+    final snapshot = await tradeDesk.snapshot();
+    final plan = TradeFlow.plan(command!, snapshot,
+        nowMs: DateTime.now().millisecondsSinceEpoch);
+    if (!plan.ready) {
+      await _tradeReply(plan.text);
+      return true;
+    }
+    final id = '${DateTime.now().microsecondsSinceEpoch}tradeconfirm';
+    _pendingTrade = PendingTrade(
+      id: 'f${DateTime.now().microsecondsSinceEpoch}',
+      command: command,
+      targets: plan.targets,
+      at: DateTime.now(),
+      messageId: id,
+    );
+    await _tradeReply(plan.text, spoken: plan.spoken, id: id);
+    return true;
+  }
 
   Future<void> loadHistory() async {
     final saved = chatStore.load();
@@ -184,6 +328,9 @@ class FridayController extends ChangeNotifier {
       if (settings.speakReplies) await speech.speak(spokenActionReply(reply));
       return;
     }
+
+    // Sona paper trades: confirmation first, never an ambiguous order.
+    if (await _handleTrade(clean)) return;
 
     final remote = RegExp(
       r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',

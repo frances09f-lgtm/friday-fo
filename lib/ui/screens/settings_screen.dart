@@ -114,10 +114,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MotionCard(color: s.tertiaryContainer, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: MotionSwitchTile(title: const Text('Speak replies out loud'), subtitle: const Text('Turn off for quiet replies'),
             value: _speakReplies, onChanged: (value) => setState(() => _speakReplies = value))),
-        const SizedBox(height: 20), _sectionLabel('App'),
-        MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
-          _tile(leading: Icon(Icons.system_update_alt, color: s.primary), title: const Text('Check for updates'),
-            subtitle: const Text('Get the latest Friday release'), onTap: () => checkUpdateManually(context))),
         const SizedBox(height: 20), _sectionLabel('More settings'),
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
           MotionExpansion(leading: const Icon(Icons.psychology_outlined), title: const Text('AI & models'),
@@ -167,6 +163,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
           _tile(leading: const Icon(Icons.help_outline), title: const Text('Commands'), subtitle: const Text('What Friday can do'),
             trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const CommandsScreen())))),
+        const SizedBox(height: 12),
+        MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child:
+          _tile(leading: const Icon(Icons.system_update_alt), title: const Text('Check for updates'),
+            subtitle: const Text('Get the latest Friday release'), onTap: () => checkUpdateManually(context))),
         const SizedBox(height: 24),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(Icons.lock_outline, size: 16, color: s.onSurfaceVariant), const SizedBox(width: 9),

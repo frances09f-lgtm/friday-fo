@@ -127,6 +127,9 @@ object DeviceBridge {
                 "taskCancelAll" -> result.success(GoldTasks.cancelAll(context))
                 "taskMode" -> result.success(GoldTasks.setMode(context, call.argument<Boolean>("saver") == true))
                 "oroStatus" -> result.success(oroStatus(context))
+                "oroTradeSupport" -> result.success(oroTradeSupport(context))
+                "oroTradeSubmit" -> result.success(oroTradeSubmit(context, call.argument<String>("order") ?: ""))
+                "oroTradeResult" -> result.success(oroTradeResult(context, call.argument<String>("id") ?: ""))
                 "lookoutStatus" -> result.success(lookoutStatus(context))
                 else -> result.notImplemented()
             }
@@ -504,6 +507,66 @@ object DeviceBridge {
             null
         }
     }
+    // Friday -> Sona paper orders (user ask: buy/sell/close a trade from
+    // Friday). Friday never holds Sona's PIN or backend keys: it hands the
+    // confirmed order to Sona's bridge provider (which only answers Friday's
+    // package), opens Sona, and Sona executes it with its own session and
+    // safety checks, then writes the result back to the same provider.
+    private const val SONA_PACKAGE = "com.ambi.gold_paper_trading"
+    private val SONA_BRIDGE: Uri = Uri.parse("content://com.ambi.gold_paper_trading.bridge")
+
+    private fun sonaInstalled(context: Context): Boolean = try {
+        context.packageManager.getPackageInfo(SONA_PACKAGE, 0); true
+    } catch (_: Exception) { false }
+
+    private fun oroTradeSupport(context: Context): String {
+        if (!sonaInstalled(context)) return "missing"
+        return try {
+            val b = context.contentResolver.call(SONA_BRIDGE, "fridayTradePing", null, null)
+            if (b?.getBoolean("trade", false) == true) "ok" else "unsupported"
+        } catch (_: IllegalArgumentException) {
+            "unsupported"
+        } catch (_: Exception) {
+            "error"
+        }
+    }
+
+    private fun oroTradeSubmit(context: Context, order: String): String {
+        if (order.isBlank()) return "error"
+        val support = oroTradeSupport(context)
+        if (support != "ok") return support
+        return try {
+            val b = context.contentResolver.call(SONA_BRIDGE, "fridayTradeSubmit", order, null)
+            if (b?.getBoolean("accepted", false) != true) return "error"
+            try {
+                val launch = context.packageManager.getLaunchIntentForPackage(SONA_PACKAGE)
+                    ?: throw IllegalStateException("no Sona launcher")
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                launch.putExtra("friday_trade", true)
+                context.startActivity(launch)
+                "ok"
+            } catch (e: Exception) {
+                // Sona could not be opened: withdraw the order so it can't run later.
+                try {
+                    val id = org.json.JSONObject(order).optString("id")
+                    context.contentResolver.call(SONA_BRIDGE, "fridayTradeCancel", id, null)
+                } catch (_: Exception) { }
+                "error"
+            }
+        } catch (_: Exception) {
+            "error"
+        }
+    }
+
+    private fun oroTradeResult(context: Context, id: String): String? {
+        if (id.isBlank()) return null
+        return try {
+            context.contentResolver.call(SONA_BRIDGE, "fridayTradeResult", id, null)?.getString("json")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun lookoutStatus(context: Context): String? {
         return try {
             context.contentResolver.query(Uri.parse("content://com.ambi.lookout.bridge/status"), null, null, null, null)?.use { c ->

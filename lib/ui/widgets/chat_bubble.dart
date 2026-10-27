@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../../models/chat_message.dart';
 import '../../models/friday_response.dart';
 class ChatBubble extends StatelessWidget {
-  const ChatBubble({super.key, required this.message, this.source, this.isPartial = false});
+  const ChatBubble({super.key, required this.message, this.source, this.isPartial = false, this.actions});
   final ChatMessage message;
   final FridaySource? source;
   final bool isPartial;
+  /// Optional buttons under the text (e.g. a trade's Confirm / Cancel).
+  final Widget? actions;
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == MessageRole.user;
@@ -25,6 +27,7 @@ class ChatBubble extends StatelessWidget {
               Expanded(child: Text('FRIDAY RESPONSE', style: Stitch.mono(11, Stitch.cyan))), const StitchBadge('RESULT')]), const SizedBox(height: 14)
           ],
           Text(isPartial ? '${message.text}...' : message.text, style: theme.textTheme.bodyMedium),
+          if (actions != null) ...[const SizedBox(height: 12), actions!],
           if (!isUser) ...[
             const SizedBox(height: 14), Row(children: [
               Expanded(child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Stitch.high, borderRadius: BorderRadius.circular(12)),
