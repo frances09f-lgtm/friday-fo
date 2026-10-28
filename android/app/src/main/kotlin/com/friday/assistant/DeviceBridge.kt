@@ -125,6 +125,8 @@ object DeviceBridge {
                     (call.argument<Number>("threshold")?.toDouble()) ?: Double.NaN,
                     call.argument<Int>("intervalMinutes") ?: 0))
                 "taskCancelAll" -> result.success(GoldTasks.cancelAll(context))
+                "taskCancel" -> result.success(GoldTasks.cancel(context, call.argument<String>("id"),
+                    call.argument<String>("direction"), call.argument<Number>("threshold")?.toDouble()))
                 "taskMode" -> result.success(GoldTasks.setMode(context, call.argument<Boolean>("saver") == true))
                 "oroStatus" -> result.success(oroStatus(context))
                 "oroTradeSupport" -> result.success(oroTradeSupport(context))

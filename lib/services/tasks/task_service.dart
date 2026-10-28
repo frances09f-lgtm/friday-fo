@@ -20,6 +20,31 @@ List<Map> openTasks(Map<String, dynamic>? state) =>
         .where((t) => !isDoneTask(t))
         .toList();
 
+/// Stable identity of a task row: its id, or (for a task saved by an old
+/// build without an id) its direction and threshold.
+String taskKey(Map task) {
+  final id = '${task['id'] ?? ''}'.trim();
+  return id.isNotEmpty ? id : '${task['direction']}-${task['threshold']}';
+}
+
+/// [state] with [task] taken out, so a removed task leaves the Tasks page at
+/// once while the phone confirms the removal.
+Map<String, dynamic>? withoutTask(Map<String, dynamic>? state, Map task) {
+  if (state == null) return null;
+  final key = taskKey(task);
+  final tasks = (state['tasks'] as List? ?? const []).whereType<Map>().toList();
+  final i = tasks.indexWhere((t) => taskKey(t) == key);
+  if (i >= 0) tasks.removeAt(i);
+  return {...state, 'tasks': tasks};
+}
+
+/// Arguments sent to the phone to remove one task.
+Map<String, dynamic> cancelArguments(Map task) => {
+      'id': '${task['id'] ?? ''}'.trim(),
+      'direction': '${task['direction'] ?? ''}',
+      'threshold': task['threshold'] is num ? (task['threshold'] as num).toDouble() : double.tryParse('${task['threshold']}'),
+    };
+
 class TaskService {
   static const _channel = MethodChannel('friday/device');
   Future<Map<String, dynamic>> state() async {
@@ -45,6 +70,15 @@ class TaskService {
       return 'Cancel your gold tasks in Friday on the phone.';
     return await _channel.invokeMethod<String>('taskCancelAll') ??
         'Could not cancel the tasks.';
+  }
+
+  /// Remove one task: the phone stops its checks, clears its alert and drops
+  /// it from storage so it does not come back after a restart.
+  Future<String> cancel(Map task) async {
+    if (!Platform.isAndroid)
+      return 'Remove your gold tasks in Friday on the phone.';
+    return await _channel.invokeMethod<String>('taskCancel', cancelArguments(task)) ??
+        'Could not remove the task.';
   }
 
   Future<String> setMode(bool saver) async {

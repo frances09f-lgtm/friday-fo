@@ -1,7 +1,7 @@
 name: friday
 description: Friday, an on-device AI phone assistant for Android. Voice and text in, answers out, phone actions done.
 publish_to: 'none'
-version: 1.0.164+164
+version: 1.0.165+165
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

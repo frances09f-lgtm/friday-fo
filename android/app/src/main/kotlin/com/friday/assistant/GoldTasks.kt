@@ -78,6 +78,35 @@ object GoldTasks {
         runtime(c, "Stopped")
         return "Cancelled all gold background tasks."
     }
+    /**
+     * Remove one task the user deleted from the Tasks page. It is marked
+     * cancelled and dropped from storage (so it never comes back after a
+     * restart), its alert notification is cleared, and when no active task is
+     * left the worker and the foreground checker are stopped.
+     */
+    @Synchronized fun cancel(c: Context, id: String?, direction: String?, threshold: Double?): String {
+        val ts = tasks(c)
+        val rows = (0 until ts.length()).map { ts.optJSONObject(it) ?: JSONObject() }
+        val i = GoldTaskRetention.matchIndex(rows.map { it.optString("id", "") }, rows.map { it.optString("direction", "") },
+            rows.map { it.optDouble("threshold", Double.NaN) }, id, direction, threshold)
+        if (i < 0) return "That task was already removed."
+        val task = rows[i]
+        task.put("status", "cancelled").put("lastOutcome", "Removed by you")
+        saveOpen(c, ts)
+        val taskId = task.optString("id", "")
+        if (taskId.isNotEmpty()) try {
+            (c.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(taskId, 82)
+        } catch (_: Exception) { }
+        val left = tasks(c)
+        if (!GoldTaskRetention.anyActive((0 until left.length()).map { left.optJSONObject(it)?.optString("status") })) {
+            WorkManager.getInstance(c).cancelUniqueWork(WORK)
+            c.stopService(Intent(c, GoldTaskService::class.java))
+            runtime(c, "Stopped")
+        }
+        val name = "gold ${task.optString("direction")} ${formatThreshold(task.optDouble("threshold"))}".trim()
+        return "Removed the $name task."
+    }
+    private fun formatThreshold(v: Double): String = if (!v.isFinite()) "" else if (v == Math.floor(v)) v.toLong().toString() else v.toString()
     @Synchronized fun setMode(c: Context, batterySaver: Boolean): String {
         prefs(c).edit().putBoolean("saver", batterySaver).commit()
         WorkManager.getInstance(c).cancelUniqueWork(WORK)
