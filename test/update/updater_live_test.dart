@@ -49,7 +49,7 @@ void main() {
     final info = result.info!;
     await t.binding.setSurfaceSize(const Size(420, 720));
     addTearDown(() => t.binding.setSurfaceSize(null));
-    const boundaryKey = ValueKey('live-update-dialog');
+    final boundaryKey = GlobalKey();
     await t.pumpWidget(MaterialApp(
       theme: ThemeData.light(),
       home: Scaffold(
