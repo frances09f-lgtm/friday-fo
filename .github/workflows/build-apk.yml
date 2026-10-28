@@ -43,12 +43,6 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: live-update-dialog-screenshot
-          path: "live-update-dialog.png"
-          if-no-files-found: ignore
       - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.78 --build-number=78
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
@@ -78,6 +72,14 @@ jobs:
         with:
           name: friday-release-apk
           path: "build/app/outputs/flutter-apk/Friday.apk"
+      # LIVE updater test evidence: the widget test renders the real
+      # release-feed dialog to live-update-dialog.png in the repo root.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-update-dialog
+          path: "live-update-dialog*.png"
+          if-no-files-found: ignore
       - name: Publish GitHub release v78
         if: github.ref_name == 'fix/v78-reminders'
         uses: softprops/action-gh-release@v2

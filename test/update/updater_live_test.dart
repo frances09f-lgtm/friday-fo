@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,14 +49,18 @@ void main() {
     final info = result.info!;
     await t.binding.setSurfaceSize(const Size(420, 720));
     addTearDown(() => t.binding.setSurfaceSize(null));
+    const boundaryKey = ValueKey('live-update-dialog');
     await t.pumpWidget(MaterialApp(
       theme: ThemeData.light(),
       home: Scaffold(
         body: Center(
-          child: UpdateDialog(
-            info: info,
-            checker: checker,
-            current: '1.0.162',
+          child: RepaintBoundary(
+            key: boundaryKey,
+            child: UpdateDialog(
+              info: info,
+              checker: checker,
+              current: '1.0.162',
+            ),
           ),
         ),
       ),
@@ -63,8 +70,20 @@ void main() {
     expect(find.text('Installed: 1.0.162  ->  New: ${info.version}'),
         findsOneWidget);
     expect(find.text("What's new"), findsOneWidget);
-    expect(find.text(info.version), findsWidgets);
+    expect(find.text('Friday ${info.version} is available'), findsOneWidget);
     expect(t.takeException(), isNull);
-    await t.binding.takeScreenshot('live-update-dialog');
+    // Render the dialog subtree to a PNG (same pattern as
+    // background_ui_test.dart); CI uploads it as an artifact.
+    await t.runAsync(() async {
+      final image = await (boundaryKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary)
+          .toImage(pixelRatio: 2.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      expect(data, isNotNull);
+      await File('live-update-dialog.png')
+          .writeAsBytes(data!.buffer.asUint8List());
+    });
   });
 }
+
+
