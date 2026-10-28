@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:friday/update/app_update.dart';
+import 'package:friday/ui/orion_style.dart';
 
 /// LIVE tests: hit the real public GitHub releases feed for
 /// frances09f-lgtm/friday-fo and render the shipped update dialog with the
@@ -42,16 +44,35 @@ void main() {
   testWidgets('LIVE: update dialog renders the published release',
       (t) async {
     final checker = liveChecker();
-    final result = await checker.check();
+    // Real network inside testWidgets must run in a real-async zone: the
+    // widget-test body runs under FakeAsync, where real I/O futures never
+    // complete and the test hangs until the 10-minute timeout (CI run
+    // 40704804633: TimeoutException after 0:10:00).
+    final result = (await t.runAsync(() => checker.check()))!;
     expect(result.status, UpdateCheckStatus.available,
         reason:
             'live feed answered ${result.status} (error: ${result.error})');
     final info = result.info!;
+    // Load the app's real fonts so the captured PNG is legible for visual
+    // review (same pattern as settings_visual_review_test.dart).
+    await t.runAsync(() async {
+      for (final name in ['Inter', 'SpaceGrotesk', 'JetBrainsMono']) {
+        final font = FontLoader(name)
+          ..addFont(Future.value(ByteData.sublistView(
+              await File('assets/fonts/$name.ttf').readAsBytes())));
+        await font.load();
+      }
+      final icons = FontLoader('MaterialIcons')
+        ..addFont(Future.value(ByteData.sublistView(await File(
+                '${Platform.environment['FLUTTER_ROOT']}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf')
+            .readAsBytes())));
+      await icons.load();
+    });
     await t.binding.setSurfaceSize(const Size(420, 720));
     addTearDown(() => t.binding.setSurfaceSize(null));
     final boundaryKey = GlobalKey();
     await t.pumpWidget(MaterialApp(
-      theme: ThemeData.light(),
+      theme: Orion.light(),
       home: Scaffold(
         body: Center(
           child: RepaintBoundary(
@@ -81,6 +102,27 @@ void main() {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       expect(data, isNotNull);
       await File('live-update-dialog.png')
+          .writeAsBytes(data!.buffer.asUint8List());
+    });
+    // Long release notes scroll inside a fixed-height viewport while the
+    // Later/Update actions stay mounted below; verify the scroll really
+    // reaches the last line and capture that end state for review.
+    final scrollable = t.state<ScrollableState>(find.descendant(
+        of: find.byType(AlertDialog), matching: find.byType(Scrollable)));
+    expect(scrollable.position.maxScrollExtent, greaterThan(0),
+        reason: 'published notes must overflow the fixed notes viewport');
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await t.pumpAndSettle();
+    expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+    expect(find.text('Update'), findsOneWidget);
+    expect(find.text('Later'), findsOneWidget);
+    await t.runAsync(() async {
+      final image = await (boundaryKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary)
+          .toImage(pixelRatio: 2.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      expect(data, isNotNull);
+      await File('live-update-dialog-notes-end.png')
           .writeAsBytes(data!.buffer.asUint8List());
     });
   });
