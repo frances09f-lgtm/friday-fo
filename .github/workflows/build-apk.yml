@@ -43,6 +43,12 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-update-dialog-screenshot
+          path: "live-update-dialog.png"
+          if-no-files-found: ignore
       - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.78 --build-number=78
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
