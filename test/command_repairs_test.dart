@@ -43,18 +43,20 @@ void main() {
             ?.direction,
         'above');
   });
-  test('reaches does not become a quote answer or fake saved alert', () async {
+  test('reaches is a real alert, not a quote answer or a refusal', () async {
     SharedPreferences.setMockInitialValues({});
     final s = SettingsStore(
         const FlutterSecureStorage(), await SharedPreferences.getInstance());
     final b = AIBrain(settings: s, local: LocalModelService());
     for (final verb in ['ping', 'alert']) {
       final request = '$verb me when gold price reaches 4120';
-      expect(GoldTaskRequest.parse(request), isNull);
+      // No direction word: the chat picks above/below from Sona's quote.
+      expect(GoldTaskRequest.parse(request)?.direction, 'auto');
+      expect(GoldTaskRequest.parse(request)?.threshold, 4120);
       final r = await b.ask(request);
       expect(r.action.type, FridayActionType.none);
-      expect(r.reply, contains('No alert was created'));
-      expect(r.reply, contains('above'));
+      expect(r.reply, isNot(contains('No alert was created')));
+      expect(r.reply, isNot(contains('Checking Sona')));
     }
   });
   testWidgets('commands page explains supported patterns and limits',

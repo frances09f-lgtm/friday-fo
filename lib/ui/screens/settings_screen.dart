@@ -127,8 +127,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ])),
         const SizedBox(height: 20), _sectionLabel('Voice'),
         MotionCard(color: s.tertiaryContainer, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          child: MotionSwitchTile(title: const Text('Speak replies out loud'), subtitle: const Text('Turn off for quiet replies'),
-            value: _speakReplies, onChanged: (value) => setState(() => _speakReplies = value))),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            MotionSwitchTile(title: const Text('Speak replies out loud'), subtitle: const Text('Turn off for quiet replies'),
+              value: _speakReplies, onChanged: (value) => setState(() => _speakReplies = value)),
+            _tile(leading: Icon(Icons.record_voice_over_outlined, color: s.primary), title: const Text('Voice input language'),
+              subtitle: Text(SettingsStore.speechLocales[context.read<SettingsStore>().speechLocale] ?? 'English (India)'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final store = context.read<SettingsStore>();
+                final picked = await showDialog<String>(context: context, builder: (ctx) => SimpleDialog(
+                  title: const Text('Voice input language'),
+                  children: [for (final e in SettingsStore.speechLocales.entries)
+                    SimpleDialogOption(onPressed: () => Navigator.pop(ctx, e.key),
+                      child: Row(children: [
+                        Icon(e.key == store.speechLocale ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 20),
+                        const SizedBox(width: 12), Text(e.value)]))]));
+                if (picked != null) { await store.setSpeechLocale(picked); if (mounted) setState(() {}); }
+              }),
+          ])),
         const SizedBox(height: 20), _sectionLabel('Trading'),
         MotionCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8), child: _defaultTradeSizeTile(s)),
         const SizedBox(height: 20), _sectionLabel('More settings'),

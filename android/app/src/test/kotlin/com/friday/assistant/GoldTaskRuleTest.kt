@@ -24,4 +24,15 @@ class GoldTaskRuleTest {
         assertEquals("invalid_quote", rule(threshold=0.0))
         assertEquals("invalid_condition", rule(dir="buy"))
     }
+    @Test fun crossAlertTakesItsSideFromTheFirstFreshQuote() {
+        // Below the target: wait for gold to rise above it.
+        assertEquals("above", GoldTaskRule.resolveCross(4000.0, 3962.5, 990000, 1000000, 300000))
+        // Above the target: wait for it to fall below.
+        assertEquals("below", GoldTaskRule.resolveCross(4000.0, 4031.0, 990000, 1000000, 300000))
+        // No fresh valid quote yet, or exactly on the target: keep waiting.
+        assertEquals(null, GoldTaskRule.resolveCross(4000.0, 3962.5, 0, 1000000, 300000))
+        assertEquals(null, GoldTaskRule.resolveCross(4000.0, 3962.5, 600000, 1000000, 300000))
+        assertEquals(null, GoldTaskRule.resolveCross(4000.0, Double.NaN, 990000, 1000000, 300000))
+        assertEquals(null, GoldTaskRule.resolveCross(4000.0, 4000.0, 990000, 1000000, 300000))
+    }
 }

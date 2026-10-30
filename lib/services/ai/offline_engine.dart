@@ -203,11 +203,20 @@ class OfflineEngine {
             _ => FridayActionType.stopMusic,
           }),
           source: FridaySource.offline);
-    if (GoldTaskRequest.isWatchLike(text) &&
-        GoldTaskRequest.parse(text) == null) {
+    final goldReading = GoldTaskRequest.read(text);
+    if (goldReading != null) {
+      // The chat on the phone creates the alert (it reads Sona's quote to
+      // pick the direction); this engine only describes it.
+      return FridayResponse(
+          reply: goldReading.certain
+              ? 'Gold alerts are set from Friday\'s chat on the phone: "${goldReading.request.canonical}".'
+              : 'Did you mean: ${goldReading.request.readable}?',
+          source: FridaySource.offline);
+    }
+    if (GoldTaskRequest.isWatchLike(text) || GoldTaskRequest.isAlertRequest(text)) {
       return const FridayResponse(
           reply:
-              'I could not read the watch command clearly. No watch or reminder was created. Please confirm the item, above/below target and interval, for example: "check gold every 5 minutes and tell me if it goes above 4185". Gold checks read Sona saved quotes, not a live feed.',
+              'What price should I watch gold for? For example: "alert me when gold goes above 4000". Friday checks Sona\'s saved quote every 5 minutes, not a live market feed.',
           source: FridaySource.offline);
     }
     if (RegExp(
@@ -231,11 +240,6 @@ class OfflineEngine {
               type: FridayActionType.searchApp,
               app: search[1]!.toLowerCase(),
               query: search[2]!.trim()),
-          source: FridaySource.offline);
-    if (GoldTaskRequest.isAlertRequest(text))
-      return const FridayResponse(
-          reply:
-              'No alert was created. Say below or above, for example: "alert me when gold price goes below 4120". Friday checks Sona\'s saved quote every 5 minutes, not a live market feed.',
           source: FridaySource.offline);
 
     if (t.contains('lookout') &&

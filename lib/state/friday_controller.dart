@@ -8,6 +8,7 @@ import '../services/agent/friday_agent.dart';
 import '../services/context/oro_context.dart';
 import '../services/oro/trade_command.dart';
 import '../services/oro/trade_flow.dart';
+import '../services/oro/oro_bridge.dart';
 import '../services/tasks/gold_task.dart';
 import '../services/tasks/task_service.dart';
 import '../services/link/device_link.dart';
@@ -263,6 +264,80 @@ class FridayController extends ChangeNotifier {
     }
   }
 
+  /// The gold alert waiting for Yes / Edit after a "Did you mean" question.
+  PendingAlert? _pendingAlert;
+  PendingAlert? get pendingAlert => _pendingAlert;
+
+  /// Sona's latest saved gold price, when it is recent enough to tell which
+  /// way an alert has to move. Null when Sona has no usable quote.
+  Future<double?> _goldQuote() async {
+    try {
+      final s = await OroBridge(router.deviceHub)
+          .read()
+          .timeout(const Duration(seconds: 3));
+      if (s == null) return null;
+      return GoldTaskRequest.usableQuote(
+          s.bid, s.ask, s.quoteAt, DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _createGoldAlert(GoldTaskRequest request) async {
+    final current = await _goldQuote();
+    final resolved = request.resolve(current);
+    try {
+      final native = await TaskService().create(resolved);
+      return resolved.createdReply(native, currentPrice: current);
+    } catch (_) {
+      return 'Could not update background tasks. Open Background tasks to check their saved state.';
+    }
+  }
+
+  Future<String> _cancelGoldAlerts() async {
+    try {
+      return await TaskService().cancelAll();
+    } catch (_) {
+      return 'Could not update background tasks. Open Background tasks to check their saved state.';
+    }
+  }
+
+  Future<void> _goldReply(String reply, {String? id, String? spoken}) async {
+    messages.add(
+      ChatMessage(
+        id: id ?? '${DateTime.now().microsecondsSinceEpoch}task',
+        role: MessageRole.friday,
+        text: reply,
+        at: DateTime.now(),
+      ),
+    );
+    busy = false;
+    phase = 'Ready';
+    notifyListeners();
+    await chatStore.save(messages);
+    if (settings.speakReplies)
+      await speech.speak(spoken ?? conciseReply(reply));
+  }
+
+  /// Answers a Yes / No to a pending "Did you mean" gold alert. Returns
+  /// true when [text] was that answer.
+  Future<bool> _handleAlertGuess(String text) async {
+    final pending = _pendingAlert;
+    if (pending == null) return false;
+    _pendingAlert = null;
+    if (PendingAlert.isYes(text)) {
+      oroContext.clear();
+      await _goldReply(await _createGoldAlert(pending.request));
+      return true;
+    }
+    if (PendingAlert.isNo(text)) {
+      await _goldReply(
+          'Okay, no alert was set. Say it again, or tap your message to edit it.');
+      return true;
+    }
+    return false;
+  }
+
   /// Every send speaks its reply unless the user muted Friday in Settings.
   Future<void> send(String text) async {
     if (text.trim().isEmpty || busy || agentRunning?.call() == true) return;
@@ -337,6 +412,8 @@ class FridayController extends ChangeNotifier {
 
     // Sona paper trades: confirmation first, never an ambiguous order.
     if (await _handleTrade(clean)) return;
+    // Yes / No to a "Did you mean" gold alert.
+    if (await _handleAlertGuess(clean)) return;
 
     final remote = RegExp(
       r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
@@ -399,7 +476,9 @@ class FridayController extends ChangeNotifier {
         }
         reply = outcome.startsWith('Reminder registered for ')
             ? 'Reminder registered for ${ReminderParser.describe(reminder.when!)}: ${reminder.task}.'
-            : (outcome.isEmpty ? 'I could not schedule the reminder.' : outcome);
+            : (outcome.isEmpty
+                ? 'I could not schedule the reminder.'
+                : outcome);
       }
       // No panel auto-close here: the reply carries the task and exact time.
       messages.add(ChatMessage(
@@ -413,8 +492,9 @@ class FridayController extends ChangeNotifier {
       notifyListeners();
       await chatStore.save(messages);
       if (settings.speakReplies) {
-        await speech.speak(
-            reply.startsWith('Reminder registered for ') ? 'Reminder set' : reply);
+        await speech.speak(reply.startsWith('Reminder registered for ')
+            ? 'Reminder set'
+            : reply);
       }
       return;
     }
@@ -557,35 +637,40 @@ class FridayController extends ChangeNotifier {
             'That action is not supported yet. Check the app launch result.');
       return;
     }
-    final goldTask = GoldTaskRequest.parse(clean);
+    final goldReading = GoldTaskRequest.read(clean);
+    final goldTask =
+        goldReading != null && goldReading.certain ? goldReading.request : null;
     final cancelGold = RegExp(
       r'^(?:cancel|stop) (?:all |my )?gold (?:alerts|tasks|checks)[.!]?$',
       caseSensitive: false,
     ).hasMatch(clean);
     if (goldTask != null || cancelGold) {
       oroContext.clear();
-      String reply;
-      try {
-        reply = goldTask != null
-            ? await TaskService().create(goldTask)
-            : await TaskService().cancelAll();
-      } catch (_) {
-        reply =
-            'Could not update background tasks. Open Background tasks to check their saved state.';
-      }
-      messages.add(
-        ChatMessage(
-          id: '${DateTime.now().microsecondsSinceEpoch}task',
-          role: MessageRole.friday,
-          text: reply,
-          at: DateTime.now(),
-        ),
+      final reply = goldTask != null
+          ? await _createGoldAlert(goldTask)
+          : await _cancelGoldAlerts();
+      await _goldReply(reply);
+      return;
+    }
+    // A gold alert Friday could only read with a sound-alike guess (or an
+    // interval the phone cannot run): ask, never refuse and never guess.
+    if (goldReading != null) {
+      oroContext.clear();
+      final id = '${DateTime.now().microsecondsSinceEpoch}alertguess';
+      _pendingAlert = PendingAlert(id, goldReading.request);
+      await _goldReply(
+        'Did you mean: ${goldReading.request.readable}? Tap Yes to set it, or Edit to fix it.',
+        id: id,
+        spoken:
+            'Did you mean, ${goldReading.request.readable}? Say yes to set it.',
       );
-      busy = false;
-      phase = 'Ready';
-      notifyListeners();
-      await chatStore.save(messages);
-      if (settings.speakReplies) await speech.speak(conciseReply(reply));
+      return;
+    }
+    if (GoldTaskRequest.isAssetlessAlert(clean)) {
+      oroContext.clear();
+      await _goldReply(
+        'Which one should I watch? Friday can watch gold, for example: "alert me when gold goes above 4000".',
+      );
       return;
     }
 

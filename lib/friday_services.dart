@@ -66,6 +66,7 @@ Future<FridayServices> createFridayServices({bool loadHistory = true}) async {
 
   final speech = SpeechService(
     groqKeyProvider: () async => settings.groqKey,
+    localeProvider: () => settings.speechLocale,
   );
   final local = LocalModelService();
   final brain =

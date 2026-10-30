@@ -33,6 +33,17 @@ class SettingsStore extends ChangeNotifier {
   /// Mute toggle: when true Friday speaks its replies out loud.
   bool speakReplies = true;
 
+  /// Voice input language for the speech recognizer. Indian English by
+  /// default; Hindi and Marathi are offered in Settings.
+  String speechLocale = 'en_IN';
+  static const speechLocales = {
+    'en_IN': 'English (India)',
+    'en_US': 'English (US)',
+    'en_GB': 'English (UK)',
+    'hi_IN': 'Hindi',
+    'mr_IN': 'Marathi',
+  };
+
   /// Size used when a trade command names none ("buy gold"), in lots
   /// (0.01 lot = 1 oz). Changed in Settings > Trading.
   static const defaultTradeLotsFallback = 0.01;
@@ -55,6 +66,8 @@ class SettingsStore extends ChangeNotifier {
         _prefs.getString('friday_openrouter_model') ?? openRouterModel;
     localFallbackEnabled = _prefs.getBool('friday_local_fallback') ?? true;
     speakReplies = _prefs.getBool('friday_speak_replies') ?? true;
+    final locale = _prefs.getString('friday_speech_locale') ?? 'en_IN';
+    speechLocale = speechLocales.containsKey(locale) ? locale : 'en_IN';
     localModelUrl = _prefs.getString('friday_local_model_url') ?? '';
     final lots = _prefs.getDouble('friday_default_trade_lots');
     defaultTradeLots =
@@ -119,6 +132,13 @@ class SettingsStore extends ChangeNotifier {
   Future<void> setLocalModelUrl(String value) async {
     localModelUrl = value.trim();
     await _prefs.setString('friday_local_model_url', localModelUrl);
+    notifyListeners();
+  }
+
+  Future<void> setSpeechLocale(String value) async {
+    if (!speechLocales.containsKey(value)) return;
+    speechLocale = value;
+    await _prefs.setString('friday_speech_locale', value);
     notifyListeners();
   }
 

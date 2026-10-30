@@ -38,6 +38,19 @@ Map<String, dynamic>? withoutTask(Map<String, dynamic>? state, Map task) {
   return {...state, 'tasks': tasks};
 }
 
+/// "Gold above 4000"; a cross alert still waiting for its first quote reads
+/// "Gold reaches 4000 (either way)".
+String taskTitle(Map task) {
+  final direction = '${task['direction'] ?? ''}';
+  final threshold = task['threshold'];
+  final n = threshold is num && threshold == threshold.roundToDouble()
+      ? threshold.round().toString()
+      : '$threshold';
+  return direction == 'cross'
+      ? 'Gold reaches $n (either way)'
+      : 'Gold $direction $n';
+}
+
 /// Arguments sent to the phone to remove one task.
 Map<String, dynamic> cancelArguments(Map task) => {
       'id': '${task['id'] ?? ''}'.trim(),

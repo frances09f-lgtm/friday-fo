@@ -15,4 +15,21 @@ object GoldTaskRule {
             else -> "invalid_condition"
         }
     }
+
+    /**
+     * A "cross" alert was made with no quote to compare with ("tell me when
+     * gold hits 4000" before Sona had a price). The first fresh quote fixes
+     * the side: below the target waits for gold to rise above it, above
+     * waits for it to fall below. Null while there is no fresh valid quote
+     * (or the quote sits exactly on the target).
+     */
+    fun resolveCross(threshold: Double, mid: Double, quoteAt: Long, now: Long, maxAgeMs: Long): String? {
+        if (!threshold.isFinite() || threshold <= 0 || !mid.isFinite() || mid <= 0) return null
+        if (quoteAt <= 0 || quoteAt > now || now - quoteAt > maxAgeMs) return null
+        return when {
+            mid < threshold -> "above"
+            mid > threshold -> "below"
+            else -> null
+        }
+    }
 }

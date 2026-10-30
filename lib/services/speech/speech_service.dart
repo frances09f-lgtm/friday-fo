@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'groq_stt.dart';
+import 'voice_pick.dart';
 
 /// Voice in and voice out.
 ///
@@ -22,8 +23,11 @@ import 'groq_stt.dart';
 enum SpeechActivity { idle, listening, speaking }
 
 class SpeechService {
-  SpeechService({Future<String> Function()? groqKeyProvider})
-      : _groqKeyProvider = groqKeyProvider {
+  SpeechService(
+      {Future<String> Function()? groqKeyProvider,
+      String Function()? localeProvider})
+      : _groqKeyProvider = groqKeyProvider,
+        _localeProvider = localeProvider {
     _tts.setStartHandler(() => _setSpeaking(true));
     _tts.setCompletionHandler(() => _setSpeaking(false));
     _tts.setCancelHandler(() => _setSpeaking(false));
@@ -63,6 +67,13 @@ class SpeechService {
   AudioRecorder? _recField;
   AudioRecorder get _rec => _recField ??= AudioRecorder();
   final Future<String> Function()? _groqKeyProvider;
+
+  /// The recognizer language from Settings (default Indian English).
+  final String Function()? _localeProvider;
+  String get localeId {
+    final chosen = _localeProvider?.call().trim() ?? '';
+    return chosen.isEmpty ? 'en_IN' : chosen;
+  }
 
   bool _sttReady = false;
   bool _recListening = false;
@@ -106,7 +117,8 @@ class SpeechService {
   void startListening({
     required void Function(String text) onResult,
     required void Function() onDone,
-    String localeId = 'en_IN',
+    // Empty: the language chosen in Settings (Indian English by default).
+    String localeId = '',
   }) {
     lastSttError = null;
     if (_isWindows) {
@@ -119,14 +131,22 @@ class SpeechService {
     unawaited(_stt
         .listen(
       onResult: (r) {
-        onResult(r.recognizedWords);
+        // The recognizer returns several guesses for one utterance; on the
+        // final result act on the one Friday can read as a command (the
+        // top guess unless it cannot be read and a close one can).
+        onResult(r.finalResult
+            ? VoicePick.choose([
+                for (final a in r.alternates)
+                  HeardText(a.recognizedWords, a.confidence),
+              ])
+            : r.recognizedWords);
         if (r.finalResult) {
           _setListening(false);
           onDone();
         }
       },
       listenOptions: SpeechListenOptions(
-        localeId: localeId,
+        localeId: localeId.isEmpty ? this.localeId : localeId,
         partialResults: true,
         cancelOnError: true,
       ),
@@ -200,7 +220,8 @@ class SpeechService {
       if (key.isEmpty) {
         lastSttError = 'Voice input needs a Groq API key. Add one in Settings.';
       } else {
-        final text = await GroqStt(apiKey: key).transcribe(path);
+        final text = await GroqStt(apiKey: key)
+            .transcribe(path, language: GroqStt.whisperLanguage(localeId));
         if (text.isEmpty) {
           lastSttError = 'Nothing was heard. Try again, a little louder.';
         } else {

@@ -47,7 +47,8 @@ object GoldTasks {
     }
     fun runtime(c: Context, state: String) { prefs(c).edit().putString("runtime", state).commit() }
     @Synchronized fun create(c: Context, direction: String, threshold: Double, interval: Int): String {
-        if (direction !in listOf("above", "below") || !threshold.isFinite() || threshold <= 0 || interval !in 5..1440)
+        // "cross": no direction given and no quote yet; the first fresh quote picks the side.
+        if (direction !in listOf("above", "below", "cross") || !threshold.isFinite() || threshold <= 0 || interval !in 5..1440)
             return "Use a gold above/below alert with an interval from 5 minutes to 24 hours."
         if (!NotificationHealth.channelAllowed(c, "friday_gold_alerts")) return "Gold alert notifications are disabled. Open Notifications in Friday and enable them before starting a task."
         val ts = tasks(c)
@@ -168,6 +169,12 @@ object GoldTasks {
             val ask = snapshot.optDouble("ask", Double.NaN)
             val sample = if (bid.isFinite() && ask.isFinite() && bid > 0 && ask >= bid)
                 WatchSample("oro_saved_quote", (bid + ask) / 2, quoteAt, "$bid:$ask") else null
+            if (task.optString("direction") == "cross") {
+                val side = if (sample == null) null
+                    else GoldTaskRule.resolveCross(task.optDouble("threshold"), sample.value, quoteAt, now, 300000L)
+                if (side == null) { task.put("lastOutcome", "Waiting for a fresh Oro quote to see which way gold has to move"); continue }
+                task.put("direction", side).put("resolvedFromQuote", sample!!.value)
+            }
             val pipeline = WatchPipeline(object : WatchSource { override fun fetch() = sample })
             val decision = pipeline.run(task.optString("lastFingerprint"), now,
                 300000L, task.optString("direction"), task.optDouble("threshold"), task.optLong("lastQuoteAt"))

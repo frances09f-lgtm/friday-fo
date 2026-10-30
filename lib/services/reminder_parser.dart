@@ -119,7 +119,7 @@ class ReminderParser {
   /// Same as [parse], but leaves gold watches and gold alerts to their own
   /// handlers instead of answering them with a reminder error.
   static ReminderRequest? parseForChat(String text, DateTime now) {
-    if (GoldTaskRequest.parse(text) != null) return null;
+    if (GoldTaskRequest.read(text) != null) return null;
     final r = parse(text, now);
     if (r == null) return null;
     if (!r.ok &&

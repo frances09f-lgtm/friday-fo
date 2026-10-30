@@ -1,7 +1,7 @@
 name: friday
 description: Friday, an on-device AI phone assistant for Android. Voice and text in, answers out, phone actions done.
 publish_to: 'none'
-version: 1.0.165+165
+version: 1.0.166+166
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -13,7 +13,9 @@ dependencies:
   http: ^1.2.2
   flutter_secure_storage: ^11.2.0
   shared_preferences: ^2.3.2
-  speech_to_text: ^7.5.0
+  # Friday's copy with recognizer biasing strings (third_party/speech_to_text/FRIDAY_PATCH.md).
+  speech_to_text:
+    path: third_party/speech_to_text
   record: ^6.1.1
   flutter_tts: ^4.0.2
   android_intent_plus: ^5.0.2

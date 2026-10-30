@@ -49,7 +49,7 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> with Widg
   Future<bool> confirmRemove(Map t) async {
     final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('Remove this task?'),
-      content: Text('Gold ${t['direction']} ${t['threshold']} stops checking and will not come back. No alert will be sent for it.'),
+      content: Text('${taskTitle(t)} stops checking and will not come back. No alert will be sent for it.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
         TextButton(key: const ValueKey('confirm-remove-task'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
@@ -100,7 +100,7 @@ class _BackgroundTasksScreenState extends State<BackgroundTasksScreen> with Widg
         child: Padding(padding: const EdgeInsets.only(bottom: 16),
         child: GestureDetector(onLongPress: () => askRemove(t), child: StitchCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [const Icon(Icons.currency_exchange, color: Stitch.cyan), const SizedBox(width: 10),
-            Expanded(child: Text('Gold ${t['direction']} ${t['threshold']}', style: Stitch.title(19))),
+            Expanded(child: Text(taskTitle(t), style: Stitch.title(19))),
             StitchBadge('${t['status']}', color: t['status'] == 'active' ? Stitch.cyan : Stitch.muted),
             SizedBox(width: 32, height: 32, child: PopupMenuButton<String>(key: ValueKey('task-menu-${taskKey(t)}'), tooltip: 'Task options', padding: EdgeInsets.zero,
               icon: const Icon(Icons.more_vert, size: 18, color: Stitch.muted),

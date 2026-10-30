@@ -6,6 +6,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.speech.RecognitionService
+import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
@@ -36,7 +37,11 @@ class FridayRecognitionService : RecognitionService() {
             listener.error(SpeechRecognizer.ERROR_CLIENT)
             return
         }
-        io.execute { recordAndTranscribe(key, listener) }
+        val hints = WhisperHints.from(
+            recognizerIntent?.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE),
+            if (android.os.Build.VERSION.SDK_INT >= 33)
+                recognizerIntent?.getStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS) else null)
+        io.execute { recordAndTranscribe(key, listener, hints) }
     }
 
     override fun onCancel(listener: Callback?) {
@@ -51,7 +56,7 @@ class FridayRecognitionService : RecognitionService() {
         capturing = false
     }
 
-    private fun recordAndTranscribe(key: String, listener: Callback) {
+    private fun recordAndTranscribe(key: String, listener: Callback, hints: WhisperHints) {
         val rate = 16000
         val minBuf = AudioRecord.getMinBufferSize(
             rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
@@ -102,7 +107,7 @@ class FridayRecognitionService : RecognitionService() {
             return
         }
         val text = try {
-            transcribeGroq(key, wav(audio, rate))
+            transcribeGroq(key, wav(audio, rate), hints)
         } catch (e: Exception) {
             null
         }
@@ -135,7 +140,7 @@ class FridayRecognitionService : RecognitionService() {
         return out.toByteArray()
     }
 
-    private fun transcribeGroq(key: String, wavBytes: ByteArray): String {
+    private fun transcribeGroq(key: String, wavBytes: ByteArray, hints: WhisperHints): String {
         val boundary = "frid4yboundary"
         val conn = (URL(
             "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -156,6 +161,10 @@ class FridayRecognitionService : RecognitionService() {
         }
         field("model", "whisper-large-v3-turbo")
         field("response_format", "json")
+        // Friday's command words as Whisper's prompt, so "above" is not
+        // written as "about"; the caller's language when it named one.
+        field("prompt", hints.prompt)
+        hints.language?.let { field("language", it) }
         body.write(
             "--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"speech.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
                 .toByteArray())
@@ -173,5 +182,32 @@ class FridayRecognitionService : RecognitionService() {
             .replace("\\\"", "\"")
             .replace("\\n", " ")
             .trim()
+    }
+}
+
+/**
+ * What Friday tells Whisper about the speech: the language (from the
+ * caller's EXTRA_LANGUAGE, "en-IN" -> "en") and a prompt made of Friday's
+ * command phrasing plus any biasing strings the caller passed. Pure, so it
+ * is unit tested.
+ */
+data class WhisperHints(val language: String?, val prompt: String) {
+    companion object {
+        const val BASE_PROMPT = "Friday voice commands. Alert me when gold goes above 4,000. " +
+            "Tell me when gold goes below 3,950. Notify me when gold price crosses 4,100. " +
+            "Check gold every 10 minutes. Remind me in 30 minutes. Open WhatsApp."
+        val VOCABULARY = listOf("Friday", "alert", "notify", "remind", "gold", "silver", "nifty",
+            "sensex", "price", "above", "below", "crosses", "every", "minutes", "hours", "task",
+            "Sona", "Lookout", "WhatsApp")
+
+        fun from(languageTag: String?, biasing: List<String>?): WhisperHints {
+            val code = languageTag?.split('-', '_')?.firstOrNull()?.lowercase()
+            val language = code?.takeIf { it.length == 2 && it.all { ch -> ch in 'a'..'z' } }
+            val extra = (biasing ?: emptyList()).map { it.trim() }.filter { it.isNotEmpty() && it.length <= 40 }
+                .filter { w -> VOCABULARY.none { it.equals(w, ignoreCase = true) } }.distinct().take(30)
+            val words = (VOCABULARY + extra).joinToString(", ")
+            // Whisper reads up to ~224 prompt tokens; keep it well under.
+            return WhisperHints(language, "$BASE_PROMPT Words: $words.".take(700))
+        }
     }
 }

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../services/speech/speech_service.dart';
 import '../../state/friday_controller.dart';
 import '../widgets/chat_bubble.dart';
+import '../../models/chat_message.dart';
 import '../../services/agent/friday_agent.dart';
 import 'agent_mode_screen.dart';
 
@@ -25,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _followBottom = true;
   String _messageRevision = '';
   @override
-  void dispose() { _input.dispose(); _scroll.dispose(); super.dispose(); }
+  void dispose() { _input.dispose(); _scroll.dispose(); _inputFocus.dispose(); super.dispose(); }
   @override
   void initState() {
     super.initState();
@@ -36,6 +37,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _send() {
     final controller = context.read<FridayController>();
     final text = _input.text; _input.clear(); controller.send(text);
+  }
+  final _inputFocus = FocusNode();
+  /// Puts [text] in the box to fix and send again.
+  void _edit(String text) {
+    _input.text = text;
+    _input.selection = TextSelection.collapsed(offset: text.length);
+    _inputFocus.requestFocus();
   }
   void _scrollDown() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,11 +96,18 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, i) {
               final m = visibleMessages[visibleMessages.length - 1 - i];
               return MotionEntrance(key: ValueKey(m.id), index: i, scale: .88,
-                child: ChatBubble(message: m, source: m.source,
+                child: GestureDetector(
+                  // Tap what you said (or what Friday heard) to fix it and send again.
+                  onTap: m.role == MessageRole.user ? () => _edit(m.text) : null,
+                  child: ChatBubble(message: m, source: m.source,
                   actions: controller.pendingTrade?.messageId == m.id ? TradeConfirmButtons(
                     busy: controller.busy,
                     onConfirm: () => controller.send('Confirm'),
-                    onCancel: () => controller.send('Cancel')) : null));
+                    onCancel: () => controller.send('Cancel'))
+                    : controller.pendingAlert?.messageId == m.id ? AlertGuessButtons(
+                    busy: controller.busy,
+                    onYes: () => controller.send('Yes'),
+                    onEdit: () => _edit(controller.pendingAlert!.request.canonical)) : null)));
             })),
         if (controller.partialHeard.isNotEmpty)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Align(alignment: Alignment.centerLeft,
@@ -100,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
           child: StitchCard(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: SafeArea(top: false,
             child: Row(children: [
-              Expanded(child: Padding(padding: const EdgeInsets.only(left: 12), child: TextField(controller: _input,
+              Expanded(child: Padding(padding: const EdgeInsets.only(left: 12), child: TextField(controller: _input, focusNode: _inputFocus,
                 textInputAction: TextInputAction.send, onSubmitted: (_) => _send(),
                 decoration: const InputDecoration(hintText: 'Ask or instruct Friday...', border: InputBorder.none)))),
               if (_speechReady) MotionPress(scale: .88, child: IconButton(icon: Icon(Icons.mic,
@@ -136,5 +151,20 @@ class TradeConfirmButtons extends StatelessWidget {
     const SizedBox(width: 10),
     Expanded(child: OutlinedButton.icon(key: const ValueKey('trade-cancel'), onPressed: busy ? null : onCancel,
       icon: const Icon(Icons.close, size: 18), label: const Text('Cancel'))),
+  ]);
+}
+
+/// Yes / Edit under a "Did you mean ...?" gold alert.
+class AlertGuessButtons extends StatelessWidget {
+  const AlertGuessButtons({super.key, required this.onYes, required this.onEdit, this.busy = false});
+  final VoidCallback onYes;
+  final VoidCallback onEdit;
+  final bool busy;
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 8, children: [
+    MotionPress(scale: .93, enabled: !busy, child: FilledButton.icon(onPressed: busy ? null : onYes,
+      icon: const Icon(Icons.check, size: 18), label: const Text('Yes'))),
+    MotionPress(scale: .93, child: OutlinedButton.icon(onPressed: onEdit,
+      icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit'))),
   ]);
 }

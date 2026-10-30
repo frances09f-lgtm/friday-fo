@@ -17,7 +17,7 @@ class CommandsScreen extends StatelessWidget {
     ('Close my trade / close my buy / close all trades', 'Closes Sona PAPER trades after a confirmation listing exactly which trades. With several open trades Friday asks which one.'),
  ('Alert me when gold price goes below 4120', 'Create a one-shot saved-quote alert, checking about every 5 minutes. Above also works. Requires notifications; stale/missing quotes do not trigger.'),
  ('Check gold every 5 minutes and tell me if it goes below 4120', 'Explicit cadence (5min to24h) and above/below threshold. Battery saver has best-effort15min checks.'),
- ('Ping me when gold price reaches 4120', 'No alert is created from ambiguous "reaches". Specify above or below. Equality alerts are not supported.'),
+ ('Ping me when gold price reaches 4120', 'No direction needed: Friday compares 4120 with Sona\'s latest saved price and sets above or below to match (either side if there is no recent price). Also understands over/under, crosses, drops to, 4k, ₹4,000 and common voice slips like "goes about 4000".'),
  ('Cancel all gold alerts / stop gold tasks', 'Cancel saved gold background tasks. Open Background tasks to inspect state.'),
  ('Check Lookout status / Lookout watches', 'Read Lookout\'s saved watch state; does not silently change watches.'),
  ],
