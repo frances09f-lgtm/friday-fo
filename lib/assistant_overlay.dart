@@ -1,6 +1,8 @@
 /// Friday assistant overlay. The bar is back at the v74 size (scale 1.0); the scale hook stays so the size can be tuned in one place.
 library;
 
+import 'ui/widgets/listening_bubble.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -101,10 +103,12 @@ class _AssistantPanelState extends State<AssistantPanel> {
   bool _initializingSpeech = false;
   int _listenGeneration = 0;
   late final SpeechService _speech;
+  late final FridayController _voiceController;
   @override
   void initState() {
     super.initState();
     _speech = context.read<SpeechService>();
+    _voiceController = context.read<FridayController>();
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'outsideTap') await _dismiss();
     });
@@ -134,7 +138,15 @@ class _AssistantPanelState extends State<AssistantPanel> {
     super.dispose();
   }
 
-  void _invalidateListening() => _listenGeneration++;
+  void _invalidateListening() {
+    _listenGeneration++;
+    if (mounted) {
+      final c = _voiceController;
+      c.voiceDraftActive = false;
+      c.partialHeard = '';
+    }
+  }
+
   Future<void> _beginListening(SpeechService speech) async {
     if (!mounted || _closeRequested || _sending || _initializingSpeech) return;
     final controller = context.read<FridayController>();
@@ -149,7 +161,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _sending ||
           controller.busy ||
           generation != _listenGeneration) return;
-      controller.setPartialHeard('');
+      controller.beginVoiceDraft();
       bool current() =>
           mounted && !_closeRequested && generation == _listenGeneration;
       speech.startListening(
@@ -159,11 +171,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
         onDone: () {
           if (!current()) return;
           final text = controller.partialHeard;
+          final error = speech.lastSttError;
           _invalidateListening();
-          if (text.trim().isNotEmpty) _submit(text);
+          controller.endVoiceDraft();
+          if (error == null && text.trim().isNotEmpty) _submit(text);
         },
       );
     } catch (_) {
+      controller.endVoiceDraft();
       // Unavailable recognizer leaves text input usable.
     } finally {
       _initializingSpeech = false;
@@ -251,7 +266,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final recent = controller.messages.length <= 6
         ? controller.messages
         : controller.messages.sublist(controller.messages.length - 6);
-    final expanded = recent.isNotEmpty || controller.partialHeard.isNotEmpty;
+    final expanded = recent.isNotEmpty || controller.voiceDraftActive;
     if (_expanded != expanded) {
       _expanded = expanded;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -332,17 +347,12 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                                               ? cs.onPrimaryContainer
                                                               : cs.onSurface))));
                                         }))),
-                          if (controller.partialHeard.isNotEmpty)
-                            Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 4),
-                                child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(controller.partialHeard,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color: cs.onSurfaceVariant,
-                                            fontStyle: FontStyle.italic)))),
+                          if (controller.voiceDraftActive)
+                            Flexible(
+                                child: SingleChildScrollView(
+                                    child: ListeningBubble(
+                                        text: controller.partialHeard,
+                                        compact: true))),
                           Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 8),
@@ -427,7 +437,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                         ? Icons.mic
                                         : Icons.mic_none),
                                     onPressed: () async {
-                                      if (speech.isListening) {
+                                      if (speech.isListening ||
+                                          controller.voiceDraftActive) {
+                                        _invalidateListening();
+                                        controller.endVoiceDraft();
                                         await speech.stopListening();
                                       } else {
                                         await _beginListening(speech);
@@ -443,7 +456,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                               cs.secondaryContainer,
                                           minimumSize: const Size(40, 40),
                                           padding: const EdgeInsets.all(8)),
-                                      icon: Icon(Icons.stop, size: 18, color: cs.onSecondaryContainer),
+                                      icon: Icon(Icons.stop,
+                                          size: 18,
+                                          color: cs.onSecondaryContainer),
                                       onPressed: controller.cancel)
                                 else
                                   IconButton.filled(
