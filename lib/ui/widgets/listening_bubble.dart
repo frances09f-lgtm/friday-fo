@@ -51,8 +51,14 @@ class ListeningBubble extends StatelessWidget {
                   : Text.rich(
                       TextSpan(children: [
                         TextSpan(text: text),
-                        const TextSpan(
-                            text: ' ▏', style: TextStyle(color: Stitch.cyan))
+                        WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: Container(
+                                    width: 2,
+                                    height: compact ? 14 : 17,
+                                    color: Stitch.cyan)))
                       ]),
                       style: TextStyle(
                           fontSize: compact ? 13 : null,
