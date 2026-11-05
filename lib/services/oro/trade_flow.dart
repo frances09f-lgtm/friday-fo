@@ -119,7 +119,9 @@ class TradeFlow {
       return const TradePlan.answer(
           "I couldn't read Sona's data. Open Sona once on this phone and unlock your paper account, then try again.");
     }
-    return c.op == TradeOp.open ? _planOpen(c, s, nowMs) : _planClose(c, s, nowMs);
+    return c.op == TradeOp.open
+        ? _planOpen(c, s, nowMs)
+        : _planClose(c, s, nowMs);
   }
 
   static TradePlan _planOpen(TradeCommand c, OroSnapshot s, int nowMs) {
@@ -133,22 +135,29 @@ class TradeFlow {
       }
     }
     final b = StringBuffer()
-      ..write('Confirm paper trade: ${buy ? 'BUY' : 'SELL'} ${lotsLabel(c.lots!)} XAU/USD at market.\n');
+      ..write(
+          'Confirm paper trade: ${buy ? 'BUY' : 'SELL'} ${lotsLabel(c.lots!)} XAU/USD at market.\n');
     if (c.defaultSize) {
-      b.write('Size: your default (Settings > Trading). For another size say it, like "${buy ? 'buy' : 'sell'} 0.1 lot".\n');
+      b.write(
+          'Size: your default (Settings > Trading). For another size say it, like "${buy ? 'buy' : 'sell'} 0.1 lot".\n');
     }
     if (px == null || !px.isFinite || px <= 0) {
-      b.write('Sona has not shared a live price yet; it will refuse the order if it has no fresh quote.\n');
+      b.write(
+          'Sona has not shared a live price yet; it will refuse the order if it has no fresh quote.\n');
     } else {
       final age = s.quoteAt > 0 ? nowMs - s.quoteAt : null;
-      b.write('Last Sona ${buy ? 'ask' : 'bid'}: ${price(px)} (${age == null ? 'age unknown' : ageLabel(age)}).');
+      b.write(
+          'Last Sona ${buy ? 'ask' : 'bid'}: ${price(px)} (${age == null ? 'age unknown' : ageLabel(age)}).');
       if (age == null || age > 60000) {
-        b.write(' That price is not live - Sona fills at its own live price and refuses if it has none.');
+        b.write(
+            ' That price is not live - Sona fills at its own live price and refuses if it has none.');
       }
       b.write('\n');
     }
-    b.write('TP ${c.tp == null ? 'none' : price(c.tp!)} · SL ${c.sl == null ? 'none' : price(c.sl!)}\n');
-    b.write('Sona places it with its own checks (market hours, limits, margin). $confirmHint');
+    b.write(
+        'TP ${c.tp == null ? 'none' : price(c.tp!)} · SL ${c.sl == null ? 'none' : price(c.sl!)}\n');
+    b.write(
+        'Quote age above was measured when this preview was prepared, not live. Sona checks again when you confirm (fresh quote, market hours, limits, margin). $confirmHint');
     final spoken =
         '${buy ? 'Buy' : 'Sell'} ${lotsSpoken(c.lots!)} of gold${px == null ? '' : ' at about ${px.toStringAsFixed(0)}'}'
         '${c.tp == null ? '' : ', take profit ${c.tp!.toStringAsFixed(0)}'}'
@@ -161,14 +170,16 @@ class TradeFlow {
       return const TradePlan.answer(
           "Sona hasn't synced your paper account yet, so I can't see which trades are open. Open Sona and let it sync, then try again.");
     }
-    final accountAge = s.accountAt > 0 ? ageLabel(nowMs - s.accountAt) : 'an unknown time ago';
+    final accountAge =
+        s.accountAt > 0 ? ageLabel(nowMs - s.accountAt) : 'an unknown time ago';
     final which = c.side == null ? '' : ' ${c.side}';
     final targets = [
       for (final p in s.open)
         if (c.side == null || (p.dir ?? '').toLowerCase() == c.side) p
     ];
     if (targets.isEmpty) {
-      return TradePlan.answer('No open$which trades in Sona (account as of $accountAge). Nothing to close.');
+      return TradePlan.answer(
+          'No open$which trades in Sona (account as of $accountAge). Nothing to close.');
     }
     if (!c.all && targets.length > 1) {
       final list = targets.take(4).map((p) => positionLabel(p, s)).join('; ');
@@ -190,8 +201,10 @@ class TradeFlow {
     for (final p in targets) {
       b.write('• ${positionLabel(p, s)}\n');
     }
-    final quoteAge = s.quoteAt > 0 ? ageLabel(nowMs - s.quoteAt) : 'age unknown';
-    b.write('P/L uses Sona\'s last quote ($quoteAge, bid ${s.bid == null ? '?' : price(s.bid!)} / ask ${s.ask == null ? '?' : price(s.ask!)}); '
+    final quoteAge =
+        s.quoteAt > 0 ? ageLabel(nowMs - s.quoteAt) : 'age unknown';
+    b.write(
+        'P/L uses Sona\'s last quote ($quoteAge, bid ${s.bid == null ? '?' : price(s.bid!)} / ask ${s.ask == null ? '?' : price(s.ask!)}); '
         'Sona closes at its live price. Account as of $accountAge. $confirmHint');
     final spoken = targets.length == 1
         ? 'Close your ${(targets.first.dir ?? '').toLowerCase()} trade of ${ozSpoken(targets.first.qty)}? Say confirm or cancel.'
@@ -202,9 +215,11 @@ class TradeFlow {
   /// Same rules as Sona's validateProtection (trade_safety.dart), checked
   /// early against Sona's last quote so an obvious mistake is caught before
   /// the confirmation. Sona re-checks against its live price.
-  static String? protectionError(String side, double entry, double? tp, double? sl) {
+  static String? protectionError(
+      String side, double entry, double? tp, double? sl) {
     for (final v in [tp, sl]) {
-      if (v != null && (!v.isFinite || v <= 0)) return 'TP and SL must be positive prices.';
+      if (v != null && (!v.isFinite || v <= 0))
+        return 'TP and SL must be positive prices.';
     }
     if (tp != null && (side == 'buy' ? tp <= entry : tp >= entry)) {
       return 'Take profit must be ${side == 'buy' ? 'above' : 'below'} the entry price for a $side.';
@@ -247,7 +262,8 @@ class TradeFlow {
           '${message.isEmpty ? 'no reason given' : message}';
     }
     if (p.command.op == TradeOp.open) {
-      final f = j['fill'] is Map ? Map<String, dynamic>.from(j['fill'] as Map) : null;
+      final f =
+          j['fill'] is Map ? Map<String, dynamic>.from(j['fill'] as Map) : null;
       if (status == 'done' && f != null) {
         final side = (f['side'] ?? p.command.side).toString().toUpperCase();
         final qty = (f['qty'] as num?)?.toDouble() ?? p.command.oz!;
@@ -262,8 +278,10 @@ class TradeFlow {
         return 'Done. Sona opened the paper trade${message.isEmpty ? '' : ': $message'}.';
       }
     } else {
-      final closed = (j['closed'] as List? ?? const []).whereType<Map>().toList();
-      final failed = (j['failed'] as List? ?? const []).whereType<Map>().toList();
+      final closed =
+          (j['closed'] as List? ?? const []).whereType<Map>().toList();
+      final failed =
+          (j['failed'] as List? ?? const []).whereType<Map>().toList();
       final lines = <String>[];
       for (final c in closed) {
         final side = (c['side'] ?? '').toString().toUpperCase();
@@ -271,16 +289,19 @@ class TradeFlow {
         final exit = (c['exit'] as num?)?.toDouble();
         final pnl = (c['pnl'] as num?)?.toDouble();
         lines.add('Closed $side ${qty == null ? '' : '${ozLabel(qty)} '}'
-            '${exit == null ? '' : 'at ${price(exit)}'}'
-            '${pnl == null ? '' : ', P/L ${signedMoney(pnl)}'}.'.replaceAll('  ', ' '));
+                '${exit == null ? '' : 'at ${price(exit)}'}'
+                '${pnl == null ? '' : ', P/L ${signedMoney(pnl)}'}.'
+            .replaceAll('  ', ' '));
       }
       for (final f in failed) {
         final side = (f['side'] ?? '').toString().toUpperCase();
         final qty = (f['qty'] as num?)?.toDouble();
-        lines.add('Not closed: $side ${qty == null ? '' : ozLabel(qty)} - ${f['reason'] ?? 'no reason given'}');
+        lines.add(
+            'Not closed: $side ${qty == null ? '' : ozLabel(qty)} - ${f['reason'] ?? 'no reason given'}');
       }
       if (lines.isNotEmpty) return lines.join('\n');
-      if (status == 'done') return 'Done. Sona closed the trade${message.isEmpty ? '' : ': $message'}.';
+      if (status == 'done')
+        return 'Done. Sona closed the trade${message.isEmpty ? '' : ': $message'}.';
     }
     return message.isEmpty
         ? 'Sona answered without a clear result. Open Sona to check the trade.'
@@ -289,8 +310,10 @@ class TradeFlow {
 
   static String spokenResult(String text) {
     if (text.startsWith('Done. Sona opened')) return 'Trade placed';
-    if (text.startsWith('Closed ') && !text.contains('Not closed')) return 'Trade closed';
-    if (text.startsWith('Sona did not')) return "Sona didn't do it. Check the screen";
+    if (text.startsWith('Closed ') && !text.contains('Not closed'))
+      return 'Trade closed';
+    if (text.startsWith('Sona did not'))
+      return "Sona didn't do it. Check the screen";
     return 'Check the screen';
   }
 
@@ -307,7 +330,9 @@ class TradeFlow {
       final sell = dir == 'SELL';
       final mark = sell ? s.ask! : s.bid!;
       final pnl = (sell ? p.entry! - mark : mark - p.entry!) * p.qty!;
-      if (pnl.isFinite) out += ', ${pnl >= 0 ? 'up' : 'down'} \$${pnl.abs().toStringAsFixed(2)}';
+      if (pnl.isFinite)
+        out +=
+            ', ${pnl >= 0 ? 'up' : 'down'} \$${pnl.abs().toStringAsFixed(2)}';
     }
     return out;
   }
@@ -324,7 +349,9 @@ class TradeFlow {
 
   static String ozLabel(double oz) {
     final lots = oz / 100;
-    final ozTxt = oz == oz.roundToDouble() ? oz.toInt().toString() : oz.toStringAsFixed(2);
+    final ozTxt = oz == oz.roundToDouble()
+        ? oz.toInt().toString()
+        : oz.toStringAsFixed(2);
     return '${lots.toStringAsFixed(2)} lot ($ozTxt oz)';
   }
 
@@ -334,6 +361,7 @@ class TradeFlow {
   }
 
   static String ageLabel(int ms) {
+    if (ms < -5000) return 'invalid future timestamp';
     if (ms < 0) return 'just now';
     final sec = ms ~/ 1000;
     if (sec < 10) return 'just now';
@@ -375,13 +403,28 @@ class OroTradeExecutor {
   final int Function() _nowMs;
 
   Future<String> execute(PendingTrade p) async {
-    final sent = await desk.submit(jsonEncode(p.orderJson(_nowMs())));
+    final deadline = DateTime.now().add(timeout);
+    final unknown =
+        "Sona did not confirm the outcome. Open Sona to check the order before retrying - Friday will not send it again.";
+    String sent;
+    try {
+      sent =
+          await desk.submit(jsonEncode(p.orderJson(_nowMs()))).timeout(timeout);
+    } catch (_) {
+      return unknown;
+    }
     if (sent != 'ok') {
       return '${TradeFlow.supportAnswer(sent)} No order was sent.';
     }
-    final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
-      final raw = await desk.result(p.id);
+      String? raw;
+      try {
+        raw = await desk
+            .result(p.id)
+            .timeout(deadline.difference(DateTime.now()));
+      } catch (_) {
+        return unknown;
+      }
       if (raw != null && raw.isNotEmpty) {
         String? status;
         try {
