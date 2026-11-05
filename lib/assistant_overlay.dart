@@ -437,8 +437,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                         ? Icons.mic
                                         : Icons.mic_none),
                                     onPressed: () async {
-                                      if (speech.isListening ||
-                                          controller.voiceDraftActive) {
+                                      if (speech.isListening) {
                                         _invalidateListening();
                                         controller.endVoiceDraft();
                                         await speech.stopListening();
