@@ -107,7 +107,9 @@ class LocalModelService extends ChangeNotifier {
       await _tail;
       await checkSetup();
       final result = await _generate(
-              system: 'Reply briefly.', userText: 'Reply with only READY.')
+              generation: _generation,
+              system: 'Reply briefly.',
+              userText: 'Reply with only READY.')
           .timeout(const Duration(seconds: 90));
       if (result.trim().isEmpty) throw StateError('Empty response');
       setupStatus =
@@ -186,7 +188,9 @@ class LocalModelService extends ChangeNotifier {
       // fromFile registers this path without copying; retain the verified file.
       _stage('Load', 'Model registered. Loading native inference...');
       final output = await _generate(
-              system: 'Reply briefly.', userText: 'Reply with only READY.')
+              generation: _generation,
+              system: 'Reply briefly.',
+              userText: 'Reply with only READY.')
           .timeout(const Duration(seconds: 90));
       if (output.trim().isEmpty)
         throw StateError('Model generated no response');
@@ -208,7 +212,9 @@ class LocalModelService extends ChangeNotifier {
   InferenceModel? _model;
   Future<void> Function()? _stopActive;
   bool _inferenceLocked = false;
+  int _generation = 0;
   Future<void> cancelInference() async {
+    _generation++;
     final stop = _stopActive;
     if (stop == null) return;
     try {
@@ -306,11 +312,16 @@ class LocalModelService extends ChangeNotifier {
     if (_inferenceLocked)
       return Future.error(FridayApiException(
           lastLoadError ?? 'Restart Friday before another local task'));
+    final generation = _generation;
     final done = Completer<String>();
     _tail = _tail.then((_) async {
       try {
+        if (generation != _generation) throw StateError('Request cancelled');
         done.complete(await _generate(
-            system: system, userText: userText, history: history));
+            generation: generation,
+            system: system,
+            userText: userText,
+            history: history));
       } catch (e, st) {
         done.completeError(e, st);
       }
@@ -319,6 +330,7 @@ class LocalModelService extends ChangeNotifier {
   }
 
   Future<String> _generate({
+    required int generation,
     required String system,
     required String userText,
     List<ChatMessage> history = const [],
@@ -327,21 +339,25 @@ class LocalModelService extends ChangeNotifier {
       throw FridayApiException(lastLoadError ??
           'Local model is already loading. Retry when that operation finishes.');
     }
+    if (generation != _generation) throw StateError('Request cancelled');
     if (setupBusy)
       _stage('Inference test', 'Native model loaded. Testing inference...');
     final chat = await _model!.createChat(
         temperature: .1, topK: 1, modelType: _type, maxOutputTokens: 192);
     _stopActive = chat.session.stopGeneration;
     try {
+      if (generation != _generation) throw StateError('Request cancelled');
       for (final m in history) {
         await chat.addQueryChunk(
           Message.text(text: m.text, isUser: m.role == MessageRole.user),
         );
       }
+      if (generation != _generation) throw StateError('Request cancelled');
       await chat.addQueryChunk(Message.text(
           text: system.isEmpty ? userText : '$system\n$userText',
           isUser: true));
 
+      if (generation != _generation) throw StateError('Request cancelled');
       final buffer = StringBuffer();
       await for (final response in chat.generateChatResponseAsync()) {
         switch (response) {
