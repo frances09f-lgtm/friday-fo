@@ -443,7 +443,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                                               cs.secondaryContainer,
                                           minimumSize: const Size(40, 40),
                                           padding: const EdgeInsets.all(8)),
-                                      icon: const Icon(Icons.stop, size: 18),
+                                      icon: Icon(Icons.stop, size: 18, color: cs.onSecondaryContainer),
                                       onPressed: controller.cancel)
                                 else
                                   IconButton.filled(
