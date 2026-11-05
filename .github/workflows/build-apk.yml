@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -73,7 +73,21 @@ jobs:
           "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='167' versionName='1.0.167'"
           sha256sum "$APK"
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: friday-release-apk
-          path: "build/app/outputs/flutter-apk/Friday.apk"
+      - name: Save APK to existing unpublished private draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: test-1.0.167-private-transport
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/releases.json
+          RID=$(jq -r --arg tag "$DRAFT_TAG" '.[] | select(.tag_name == $tag and .draft == true and .published_at == null) | .id' /tmp/releases.json)
+          test -n "$RID"
+          test "$(echo "$RID" | wc -l)" = 1
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RID" > /tmp/draft-before.json
+          jq -e '.draft == true and .published_at == null' /tmp/draft-before.json
+          APK=build/app/outputs/flutter-apk/Friday.apk
+          sha256sum "$APK" > build/app/outputs/flutter-apk/Friday.apk.sha256
+          gh release upload "$DRAFT_TAG" "$APK" build/app/outputs/flutter-apk/Friday.apk.sha256 --repo "$GITHUB_REPOSITORY"
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RID" > /tmp/draft-after.json
+          jq -e '.draft == true and .published_at == null' /tmp/draft-after.json
+          jq '{id,tag_name,draft,published_at,assets: [.assets[] | {name,size,digest}]}' /tmp/draft-after.json
