@@ -130,7 +130,7 @@ object DeviceBridge {
                 "taskMode" -> result.success(GoldTasks.setMode(context, call.argument<Boolean>("saver") == true))
                 "oroStatus" -> result.success(oroStatus(context))
                 "oroTradeSupport" -> result.success(oroTradeSupport(context))
-                "oroTradeSubmit" -> result.success(oroTradeSubmit(context, call.argument<String>("order") ?: ""))
+                "oroTradeSubmit" -> SonaBackgroundOrder.submit(context, call.argument<String>("order") ?: "", result)
                 "oroTradeResult" -> result.success(oroTradeResult(context, call.argument<String>("id") ?: ""))
                 "lookoutStatus" -> result.success(lookoutStatus(context))
                 else -> result.notImplemented()
@@ -525,36 +525,9 @@ object DeviceBridge {
         if (!sonaInstalled(context)) return "missing"
         return try {
             val b = context.contentResolver.call(SONA_BRIDGE, "fridayTradePing", null, null)
-            if (b?.getBoolean("trade", false) == true) "ok" else "unsupported"
+            if (b?.getBoolean("background", false) == true) "ok" else "unsupported"
         } catch (_: IllegalArgumentException) {
             "unsupported"
-        } catch (_: Exception) {
-            "error"
-        }
-    }
-
-    private fun oroTradeSubmit(context: Context, order: String): String {
-        if (order.isBlank()) return "error"
-        val support = oroTradeSupport(context)
-        if (support != "ok") return support
-        return try {
-            val b = context.contentResolver.call(SONA_BRIDGE, "fridayTradeSubmit", order, null)
-            if (b?.getBoolean("accepted", false) != true) return "error"
-            try {
-                val launch = context.packageManager.getLaunchIntentForPackage(SONA_PACKAGE)
-                    ?: throw IllegalStateException("no Sona launcher")
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                launch.putExtra("friday_trade", true)
-                context.startActivity(launch)
-                "ok"
-            } catch (e: Exception) {
-                // Sona could not be opened: withdraw the order so it can't run later.
-                try {
-                    val id = org.json.JSONObject(order).optString("id")
-                    context.contentResolver.call(SONA_BRIDGE, "fridayTradeCancel", id, null)
-                } catch (_: Exception) { }
-                "error"
-            }
         } catch (_: Exception) {
             "error"
         }
@@ -563,7 +536,7 @@ object DeviceBridge {
     private fun oroTradeResult(context: Context, id: String): String? {
         if (id.isBlank()) return null
         return try {
-            context.contentResolver.call(SONA_BRIDGE, "fridayTradeResult", id, null)?.getString("json")
+            context.contentResolver.call(SONA_BRIDGE, "fridayTradeResult", id, null)?.getString("json").also { SonaBackgroundOrder.result(context, id, it) }
         } catch (_: Exception) {
             null
         }
