@@ -2,7 +2,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, redesign/orion-ui, fix/v78-reminders]
+    branches: [main, redesign/orion-ui, fix/v78-reminders, test/cancel-167]
 jobs:
   build:
     concurrency:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.78 --build-number=78
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.167 --build-number=167
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
       - name: Size report and APK checks
@@ -67,18 +67,13 @@ jobs:
           } > release-body.md
           "$BT/apksigner" verify "$APK" && echo "apksigner verify: ok"
           cat release-body.md
+          "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/test-cert.txt
+          CERT=$(awk '/certificate SHA-256 digest:/ {print $NF}' /tmp/test-cert.txt | sort -u)
+          test "$CERT" = '9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc'
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='167' versionName='1.0.167'"
+          sha256sum "$APK"
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: friday-release-apk
           path: "build/app/outputs/flutter-apk/Friday.apk"
-      - name: Publish GitHub release v78
-        if: github.ref_name == 'fix/v78-reminders'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v78
-          name: Friday v78
-          target_commitish: ${{ github.sha }}
-          make_latest: false
-          body_path: release-body.md
-          files: build/app/outputs/flutter-apk/Friday.apk
