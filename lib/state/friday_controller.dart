@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import '../services/agent/agent_contract.dart';
 import '../services/agent/compound_command.dart';
@@ -84,9 +85,14 @@ class FridayController extends ChangeNotifier {
     OroTradeDesk? tradeDesk,
     Duration tradeTimeout = const Duration(seconds: 45),
     Duration tradePoll = const Duration(milliseconds: 700),
+    this.requestTimeout = const Duration(seconds: 60),
   })  : _tradeDesk = tradeDesk,
         _tradeTimeout = tradeTimeout,
         _tradePoll = tradePoll;
+
+  /// Longest a single model answer may take before the request is stopped
+  /// with an honest failure instead of spinning forever.
+  final Duration requestTimeout;
 
   /// Sona paper-order path (see trade_flow.dart). Built on first use.
   OroTradeDesk? _tradeDesk;
@@ -116,6 +122,45 @@ class FridayController extends ChangeNotifier {
   final List<ChatMessage> messages = [];
   bool busy = false;
 
+  /// Bumped by every send and by cancel(), so a late completion from a
+  /// cancelled or superseded request can never reset state or post its reply.
+  int _requestGeneration = 0;
+  Completer<void>? _abort;
+  Future<void>? _stopping;
+
+  Future<T> _wait<T>(Future<T> work, int generation) async {
+    if (generation != _requestGeneration) throw const _RequestCancelled();
+    final abort = _abort!;
+    final value = await Future.any<T>([
+      work,
+      abort.future.then<T>((_) => throw const _RequestCancelled()),
+    ]);
+    if (generation != _requestGeneration) throw const _RequestCancelled();
+    return value;
+  }
+
+  Future<String> _runActions(List<FridayAction> actions, int generation) async {
+    final outcomes = <String>[];
+    for (final action in actions) {
+      if (generation != _requestGeneration) throw const _RequestCancelled();
+      final result = await _wait(router.executeAll([action]), generation);
+      if (result.isNotEmpty) outcomes.add(result);
+    }
+    return outcomes.join('\n');
+  }
+
+  void _stopWork() {
+    _abort?.complete();
+    _abort = null;
+    screenAgent?.stop();
+    _stopping = brain.cancel().catchError((Object _) {});
+  }
+
+  /// True while a confirmed order is inside OroTradeExecutor (already handed
+  /// to Sona). Cancel then only stops waiting - Sona's real result is still
+  /// reported when it arrives, never a fake "cancelled".
+  bool _tradeInFlight = false;
+
   /// Changes only after an executed command returns a terminal result suitable
   /// for clearing the floating panel. Speech/history persistence may still run.
   int completedCommandRevision = 0;
@@ -128,6 +173,37 @@ class FridayController extends ChangeNotifier {
   String phase = 'Ready';
   String partialHeard = '';
   final oroContext = OroContext();
+
+  /// Stops the running request, if any. An order already handed to Sona
+  /// cannot be unsent: then this only stops the wait, and Sona's real result
+  /// is still reported when it arrives.
+  void cancel() {
+    if (!busy) return;
+    _requestGeneration++;
+    if (_abort?.isCompleted == false) _stopWork();
+    final inFlight = _tradeInFlight;
+    final mayHaveActed = phase != 'Thinking' && phase != 'Checking Sona';
+    _pendingTrade = null;
+    _tradeDraft = null;
+    _tradeDraftAt = null;
+    _pendingAlert = null;
+    messages.add(ChatMessage(
+      id: '${DateTime.now().microsecondsSinceEpoch}cancel',
+      role: MessageRole.friday,
+      text: inFlight
+          ? 'Stopped waiting. The order may already be with Sona. Its result will be reported if received; check Sona before retrying.'
+          : mayHaveActed
+              ? 'Cancelled. A phone action that already started may still have completed - check the screen before retrying.'
+              : 'Cancelled. Nothing was done.',
+      at: DateTime.now(),
+    ));
+    busy = false;
+    phase = 'Ready';
+    partialHeard = '';
+    notifyListeners();
+    unawaited(chatStore.save(messages));
+    if (settings.speakReplies) unawaited(speech.speak('Cancelled'));
+  }
 
   Future<void> _tradeReply(String text, {String? spoken, String? id}) async {
     final msg = ChatMessage(
@@ -147,7 +223,7 @@ class FridayController extends ChangeNotifier {
 
   /// Returns true when [text] was a trade command or a reply to a pending
   /// trade confirmation and has been answered here.
-  Future<bool> _handleTrade(String text) async {
+  Future<bool> _handleTrade(String text, int generation) async {
     final now = DateTime.now();
     final pending = _pendingTrade;
     if (pending != null) {
@@ -165,10 +241,26 @@ class FridayController extends ChangeNotifier {
         oroContext.clear();
         phase = 'Sending to Sona';
         notifyListeners();
-        final result = await OroTradeExecutor(tradeDesk,
-                timeout: _tradeTimeout, poll: _tradePoll)
-            .execute(pending);
-        await _tradeReply(result, spoken: TradeFlow.spokenResult(result));
+        _tradeInFlight = true;
+        String result;
+        try {
+          result = await OroTradeExecutor(tradeDesk,
+                  timeout: _tradeTimeout, poll: _tradePoll)
+              .execute(pending);
+        } finally {
+          _tradeInFlight = false;
+        }
+        if (generation == _requestGeneration) {
+          await _tradeReply(result, spoken: TradeFlow.spokenResult(result));
+        } else {
+          messages.add(ChatMessage(
+              id: '${DateTime.now().microsecondsSinceEpoch}sonalate',
+              role: MessageRole.friday,
+              text: result,
+              at: DateTime.now()));
+          notifyListeners();
+          await chatStore.save(messages);
+        }
         return true;
       } else if (reply == TradeReply.cancel) {
         _pendingTrade = null;
@@ -232,12 +324,18 @@ class FridayController extends ChangeNotifier {
     oroContext.clear();
     phase = 'Checking Sona';
     notifyListeners();
-    final support = await tradeDesk.support();
+    final support = await tradeDesk
+        .support()
+        .timeout(const Duration(seconds: 10), onTimeout: () => 'error');
+    if (generation != _requestGeneration) return true;
     if (support != 'ok') {
       await _tradeReply(TradeFlow.supportAnswer(support));
       return true;
     }
-    final snapshot = await tradeDesk.snapshot();
+    final snapshot = await tradeDesk
+        .snapshot()
+        .timeout(const Duration(seconds: 10), onTimeout: () => null);
+    if (generation != _requestGeneration) return true;
     final plan = TradeFlow.plan(command!, snapshot,
         nowMs: DateTime.now().millisecondsSinceEpoch);
     if (!plan.ready) {
@@ -283,8 +381,9 @@ class FridayController extends ChangeNotifier {
     }
   }
 
-  Future<String> _createGoldAlert(GoldTaskRequest request) async {
-    final current = await _goldQuote();
+  Future<String> _createGoldAlert(
+      GoldTaskRequest request, int generation) async {
+    final current = await _wait(_goldQuote(), generation);
     final resolved = request.resolve(current);
     try {
       final native = await TaskService().create(resolved);
@@ -321,13 +420,15 @@ class FridayController extends ChangeNotifier {
 
   /// Answers a Yes / No to a pending "Did you mean" gold alert. Returns
   /// true when [text] was that answer.
-  Future<bool> _handleAlertGuess(String text) async {
+  Future<bool> _handleAlertGuess(String text, int generation) async {
     final pending = _pendingAlert;
     if (pending == null) return false;
     _pendingAlert = null;
     if (PendingAlert.isYes(text)) {
       oroContext.clear();
-      await _goldReply(await _createGoldAlert(pending.request));
+      final reply = await _wait(
+          _createGoldAlert(pending.request, generation), generation);
+      await _goldReply(reply);
       return true;
     }
     if (PendingAlert.isNo(text)) {
@@ -341,9 +442,42 @@ class FridayController extends ChangeNotifier {
   /// Every send speaks its reply unless the user muted Friday in Settings.
   Future<void> send(String text) async {
     if (text.trim().isEmpty || busy || agentRunning?.call() == true) return;
+    if (_tradeInFlight) return;
+    await _stopping;
+    if (busy) return;
+    _abort = Completer<void>();
+    final generation = ++_requestGeneration;
     try {
-      await _send(text);
+      await _send(text, generation).timeout(requestTimeout);
+    } on _RequestCancelled {
+      return;
+    } on TimeoutException {
+      if (generation != _requestGeneration) return;
+      _requestGeneration++;
+      if (_abort?.isCompleted == false) _stopWork();
+      busy = false;
+      phase = 'Ready';
+      partialHeard = '';
+      notifyListeners();
+      messages.add(
+        ChatMessage(
+          id: '${DateTime.now().microsecondsSinceEpoch}timeout',
+          role: MessageRole.friday,
+          text:
+              'This request timed out. Further steps were stopped. An action already handed to another app may still finish; check that app before retrying.',
+          at: DateTime.now(),
+        ),
+      );
+      try {
+        await chatStore.save(messages);
+      } catch (_) {}
+      if (settings.speakReplies) {
+        try {
+          await speech.speak("Couldn't do it");
+        } catch (_) {}
+      }
     } catch (_) {
+      if (generation != _requestGeneration) return;
       messages.add(
         ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}failure',
@@ -357,14 +491,16 @@ class FridayController extends ChangeNotifier {
         await chatStore.save(messages);
       } catch (_) {}
     } finally {
-      busy = false;
-      phase = 'Ready';
-      partialHeard = '';
-      notifyListeners();
+      if (generation == _requestGeneration) {
+        busy = false;
+        phase = 'Ready';
+        partialHeard = '';
+        notifyListeners();
+      }
     }
   }
 
-  Future<void> _send(String text) async {
+  Future<void> _send(String text, int generation) async {
     final literalMessage = const OfflineEngine().handle(text);
     final isLiteralWhatsApp =
         literalMessage.action.type == FridayActionType.sendWhatsApp &&
@@ -392,7 +528,8 @@ class FridayController extends ChangeNotifier {
       oroContext.clear();
       phase = 'Doing';
       notifyListeners();
-      final outcome = await router.executeAll([literalMessage.action]);
+      final outcome = await _wait(
+          _runActions([literalMessage.action], generation), generation);
       _commandFinished(outcome);
       final reply = actionResultReply(outcome);
       messages.add(ChatMessage(
@@ -405,15 +542,15 @@ class FridayController extends ChangeNotifier {
       partialHeard = '';
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies) await speech.speak(spokenActionReply(reply));
       return;
     }
 
     // Sona paper trades: confirmation first, never an ambiguous order.
-    if (await _handleTrade(clean)) return;
+    if (await _wait(_handleTrade(clean, generation), generation)) return;
     // Yes / No to a "Did you mean" gold alert.
-    if (await _handleAlertGuess(clean)) return;
+    if (await _wait(_handleAlertGuess(clean, generation), generation)) return;
 
     final remote = RegExp(
       r'\s+(?:on|to)\s+(?:(?:my|the)\s+)?(phone|mobile|laptop|windows|computer)[.!?]*$',
@@ -437,7 +574,7 @@ class FridayController extends ChangeNotifier {
           oroContext.clear();
         final reply = link == null
             ? 'Pair the other device first. No action was run on this device.'
-            : await link!.send(remoteText);
+            : await _wait(link!.send(remoteText), generation);
         messages.add(
           ChatMessage(
             id: '${DateTime.now().microsecondsSinceEpoch}r',
@@ -449,7 +586,7 @@ class FridayController extends ChangeNotifier {
         busy = false;
         phase = 'Ready';
         notifyListeners();
-        await chatStore.save(messages);
+        await _wait(chatStore.save(messages), generation);
         if (settings.speakReplies) await speech.speak(conciseReply(reply));
         return;
       }
@@ -469,7 +606,10 @@ class FridayController extends ChangeNotifier {
         notifyListeners();
         String outcome;
         try {
-          outcome = await router.executeAll([reminder.toAction()]);
+          outcome = await _wait(
+              _runActions([reminder.toAction()], generation), generation);
+        } on _RequestCancelled {
+          rethrow;
         } catch (_) {
           outcome =
               'I could not schedule the reminder. Allow Friday notifications in Android app settings, then try again.';
@@ -490,7 +630,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies) {
         await speech.speak(reply.startsWith('Reminder registered for ')
             ? 'Reminder set'
@@ -507,7 +647,8 @@ class FridayController extends ChangeNotifier {
       String reply =
           'Friday v61: WhatsApp search needs screen-control access. No search run.';
       if (screenAgent != null && query.isNotEmpty && query.length <= 250) {
-        await screenAgent!.start('open whatsapp and search for $query');
+        await _wait(screenAgent!.start('open whatsapp and search for $query'),
+            generation);
         reply = 'Friday v61 WhatsApp search: ${screenAgent!.result}';
         if (screenAgent!.result == 'Done' ||
             screenAgent!.result ==
@@ -524,7 +665,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies) await speech.speak(reply);
       return;
     }
@@ -534,7 +675,7 @@ class FridayController extends ChangeNotifier {
             .hasMatch(localText.trim())) {
       // Observe fresh underlying screen. Never infer a Gallery default or reuse
       // old search history; only a uniquely identified current YouTube query.
-      await screenAgent!.start('read my screen');
+      await _wait(screenAgent!.start('read my screen'), generation);
       final screen = screenAgent!.observation;
       final fields = ((screen['elements'] as List?) ?? [])
           .where((e) =>
@@ -552,7 +693,7 @@ class FridayController extends ChangeNotifier {
           final task = 'open youtube search for $query and play first video';
           final g = AgentGoal.parse(task);
           if (g != null && WorkflowPlanner.searchResults(g, screen)) {
-            await screenAgent!.start(task);
+            await _wait(screenAgent!.start(task), generation);
             reply = screenAgent!.result;
           }
         }
@@ -567,7 +708,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies) await speech.speak(reply);
       return;
     }
@@ -576,7 +717,7 @@ class FridayController extends ChangeNotifier {
         AgentGoal.parse(localText) != null) {
       phase = 'Screen control';
       notifyListeners();
-      await screenAgent!.start(localText);
+      await _wait(screenAgent!.start(localText), generation);
       final reply = screenAgent!.result;
       if (screenAgent!.result == 'Done' ||
           screenAgent!.result ==
@@ -593,14 +734,15 @@ class FridayController extends ChangeNotifier {
           transient: privateScreen));
       busy = false;
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies)
         await speech.speak(privateScreen ? reply : spokenActionReply(reply));
       return;
     }
     final galleryIndex = GalleryCommand.parse(localText);
     if (galleryIndex != null) {
-      final reply = await router.deviceHub.galleryVideo(galleryIndex);
+      final reply =
+          await _wait(router.deviceHub.galleryVideo(galleryIndex), generation);
       messages.add(ChatMessage(
           id: '${DateTime.now().microsecondsSinceEpoch}gallery',
           role: MessageRole.friday,
@@ -610,7 +752,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies) await speech.speak(reply);
       return;
     }
@@ -618,8 +760,10 @@ class FridayController extends ChangeNotifier {
     if (compound != null && AgentGoal.parse(localText) == null) {
       // Do not pass the entire compound string to app-name matching, or let
       // a chat model invent unsupported execution of the remaining action.
-      final opened = await router.execute(
-          FridayAction(type: FridayActionType.openApp, app: compound.app));
+      final opened = await _runActions(
+          [FridayAction(type: FridayActionType.openApp, app: compound.app)],
+          generation);
+      if (generation != _requestGeneration) return;
       final reply =
           '$opened The requested action "${compound.action}" is not supported for this app yet. No such action was run.';
       messages.add(ChatMessage(
@@ -631,7 +775,7 @@ class FridayController extends ChangeNotifier {
       busy = false;
       phase = 'Ready';
       notifyListeners();
-      await chatStore.save(messages);
+      await _wait(chatStore.save(messages), generation);
       if (settings.speakReplies)
         await speech.speak(
             'That action is not supported yet. Check the app launch result.');
@@ -647,8 +791,9 @@ class FridayController extends ChangeNotifier {
     if (goldTask != null || cancelGold) {
       oroContext.clear();
       final reply = goldTask != null
-          ? await _createGoldAlert(goldTask)
-          : await _cancelGoldAlerts();
+          ? await _wait(_createGoldAlert(goldTask, generation), generation)
+          : await _wait(_cancelGoldAlerts(), generation);
+      if (generation != _requestGeneration) return;
       await _goldReply(reply);
       return;
     }
@@ -674,7 +819,12 @@ class FridayController extends ChangeNotifier {
       return;
     }
 
-    final response = await brain.ask(localText, history: List.of(messages));
+    final response = await _wait(
+        brain.ask(localText, history: List.of(messages)), generation);
+
+    // Cancelled while the model thought: never run the actions its late
+    // answer asked for, and never show the answer.
+    if (generation != _requestGeneration) return;
 
     var reply = response.reply;
     // Ignore the placeholder none action - plain conversation gets no
@@ -694,14 +844,14 @@ class FridayController extends ChangeNotifier {
       }
       // A question, not a task: no okay/done wrapper - the answer from
       // Oro's real data is the reply itself.
-      reply = await router.executeAll(actions);
+      reply = await _wait(_runActions(actions, generation), generation);
       if (reply.isEmpty) reply = "I couldn't read Sona's saved data.";
     } else if (actions.isNotEmpty) {
       oroContext.clear();
       // One final result, not a second acknowledgement bubble.
       phase = 'Doing';
       notifyListeners();
-      final outcome = await router.executeAll(actions);
+      final outcome = await _wait(_runActions(actions, generation), generation);
       // The router's outcome is the truth - the brain's reply only guessed
       // at the result ("Reminder set" before it was).
       _commandFinished(outcome);
@@ -709,6 +859,9 @@ class FridayController extends ChangeNotifier {
     }
 
     if (!infoOnly && actions.isEmpty) oroContext.clear();
+    // A cancelled request drops the late model answer; the Cancel message
+    // already told the user nothing was done.
+    if (generation != _requestGeneration) return;
     messages.add(
       ChatMessage(
         id: '${DateTime.now().microsecondsSinceEpoch}r',
@@ -722,7 +875,7 @@ class FridayController extends ChangeNotifier {
     partialHeard = '';
     notifyListeners();
 
-    await chatStore.save(messages);
+    await _wait(chatStore.save(messages), generation);
     if (settings.speakReplies) {
       await speech.speak(!infoOnly && actions.isNotEmpty
           ? spokenActionReply(reply)
@@ -798,4 +951,8 @@ class FridayController extends ChangeNotifier {
     await chatStore.clear();
     notifyListeners();
   }
+}
+
+class _RequestCancelled implements Exception {
+  const _RequestCancelled();
 }
