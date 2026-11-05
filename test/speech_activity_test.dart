@@ -72,15 +72,22 @@ void main() {
     expect(s.activity.value, SpeechActivity.idle);
     messenger.setMockMethodCallHandler(channel, null);
   });
-  testWidgets('silence and recognizer error finish once without sending partial', (t) async {
-    const channel=MethodChannel('plugin.csdcorp.com/speech_to_text');
-    final m=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    m.setMockMethodCallHandler(channel,(call)async=>true);
-    final service=SpeechService();expect(await service.initSpeech(),isTrue);
-    int done=0;service.startListening(onResult:(_){},onDone:()=>done++);
-    await t.pump(const Duration(seconds:31));expect(done,1);expect(service.lastSttError,contains('timed out'));
-    await service.stopListening();await t.pump(const Duration(seconds:3));expect(done,1);
-    m.setMockMethodCallHandler(channel,null);
+  testWidgets(
+      'silence and recognizer error finish once without sending partial',
+      (t) async {
+    const channel = MethodChannel('plugin.csdcorp.com/speech_to_text');
+    final m = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    m.setMockMethodCallHandler(channel, (call) async => true);
+    final service = SpeechService();
+    expect(await service.initSpeech(), isTrue);
+    int done = 0;
+    service.startListening(onResult: (_) {}, onDone: () => done++);
+    await t.pump(const Duration(seconds: 31));
+    expect(done, 1);
+    expect(service.lastSttError, contains('timed out'));
+    await service.stopListening();
+    await t.pump(const Duration(seconds: 3));
+    expect(done, 1);
+    m.setMockMethodCallHandler(channel, null);
   });
-
 }
