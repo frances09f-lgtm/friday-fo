@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _toggleMic() {
     final speech = _speech;
     final controller = _controller;
-    if (controller.voiceDraftActive || speech.isListening) {
+    if (controller.voiceDraftActive || _speech.isListening) {
       _listenGeneration++;
       controller.endVoiceDraft();
       unawaited(speech.stopListening());
@@ -264,16 +264,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               scale: .88,
                               child: IconButton(
                                   icon: Icon(Icons.mic,
-                                      color: context
-                                                  .read<SpeechService>()
-                                                  .isListening ||
-                                              context
-                                                  .read<FridayController>()
-                                                  .partialHeard
-                                                  .isNotEmpty
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primary
+                                      color: controller.voiceDraftActive ||
+                                              _speech.isListening
+                                          ? Stitch.cyan
                                           : null),
                                   tooltip: controller.voiceDraftActive
                                       ? 'Cancel listening'
