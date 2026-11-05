@@ -172,6 +172,19 @@ class FridayController extends ChangeNotifier {
 
   String phase = 'Ready';
   String partialHeard = '';
+  bool voiceDraftActive = false;
+  void beginVoiceDraft() {
+    voiceDraftActive = true;
+    partialHeard = '';
+    notifyListeners();
+  }
+
+  void endVoiceDraft() {
+    voiceDraftActive = false;
+    partialHeard = '';
+    notifyListeners();
+  }
+
   final oroContext = OroContext();
 
   /// Stops the running request, if any. An order already handed to Sona
