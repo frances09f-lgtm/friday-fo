@@ -109,6 +109,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     onYes: () => controller.send('Yes'),
                     onEdit: () => _edit(controller.pendingAlert!.request.canonical)) : null)));
             })),
+        if (controller.busy)
+          Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+            child: Row(children: [
+              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Expanded(child: Text('${controller.phase}...', style: Theme.of(context).textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis)),
+              TextButton.icon(key: const ValueKey('request-cancel'), onPressed: controller.cancel,
+                icon: const Icon(Icons.stop, size: 18), label: const Text('Cancel')),
+            ])),
         if (controller.partialHeard.isNotEmpty)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Align(alignment: Alignment.centerLeft,
             child: Text('${controller.partialHeard}...', style: Theme.of(context).textTheme.bodySmall))),
