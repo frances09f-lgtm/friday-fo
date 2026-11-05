@@ -28,6 +28,15 @@ class AIBrain {
   /// Plain-Markdown long-term memory (SOUL/MEMORY/USER.md). Optional: when
   /// null or unavailable the brain behaves exactly as before.
   final MemoryStore? memory;
+  int _generation = 0;
+  Future<void> cancel() async {
+    _generation++;
+    await local.cancelInference();
+  }
+
+  void _check(int generation) {
+    if (generation != _generation) throw StateError('Request cancelled');
+  }
 
   DateTime _memoryPrimedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -115,10 +124,13 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
     String userText, {
     List<ChatMessage> history = const [],
   }) async {
+    final generation = _generation;
     // Memory commands are local reads/writes, not model calls.
     final memoryReply = await _handleMemory(userText);
+    _check(generation);
     if (memoryReply != null) return memoryReply;
     final system = await _systemFor(userText);
+    _check(generation);
     // Device actions and Oro reads must not go through cloud guessing.
     final command = offline.handle(userText);
     if (GoldTaskRequest.isAlertRequest(userText) ||
@@ -127,12 +139,14 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
     if (command.allActions.any((a) => a.type != FridayActionType.none))
       return command;
     for (final provider in settings.buildProviders()) {
+      _check(generation);
       try {
         final raw = await provider.complete(
           system: system,
           history: history.where((m) => !m.localOnly).take(12).toList(),
           userText: userText,
         );
+        _check(generation);
         final parsed = parser.parse(raw, source: FridaySource.cloud);
         if (parsed.reply.trim().isNotEmpty) {
           UsageReporter.report('ai_request', {'tier': 'cloud'});
@@ -143,6 +157,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
       }
     }
 
+    _check(generation);
     if (settings.localFallbackEnabled) {
       try {
         final raw = await local.generate(
@@ -150,6 +165,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
           userText: userText,
           history: history.where((m) => !m.localOnly).take(8).toList(),
         );
+        _check(generation);
         final parsed = parser.parse(raw, source: FridaySource.local);
         if (parsed.reply.trim().isNotEmpty) {
           UsageReporter.report('ai_request', {'tier': 'local'});
@@ -160,6 +176,7 @@ Use ONLY values the user gave - never invent or guess a number. If the user conf
       }
     }
 
+    _check(generation);
     UsageReporter.report('ai_request', {'tier': 'offline'});
     return offline.handle(userText);
   }
