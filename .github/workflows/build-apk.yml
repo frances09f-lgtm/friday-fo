@@ -14,41 +14,99 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.6'
+      - name: Restore signing keystore
+        run: |
+          echo "${{ secrets.FRIDAY_KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/friday-release.jks
+          cat >> android/gradle.properties <<GP
+          FRIDAY_KEYSTORE_FILE=$RUNNER_TEMP/friday-release.jks
+          FRIDAY_KEYSTORE_PASSWORD=${{ secrets.FRIDAY_KEYSTORE_PASSWORD }}
+          FRIDAY_KEY_ALIAS=${{ secrets.FRIDAY_KEY_ALIAS }}
+          FRIDAY_KEY_PASSWORD=${{ secrets.FRIDAY_KEY_PASSWORD }}
+          GP
+      - name: CI build memory (keep local low-memory settings unchanged)
+        run: |
+          free -m
+          cat >> android/gradle.properties <<'GP'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC
+          org.gradle.workers.max=2
+          kotlin.compiler.execution.strategy=in-process
+          GP
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.168 --build-number=168
+      - name: Native task evaluation tests
+        run: cd android && ./gradlew :app:testReleaseUnitTest
+      - name: Size report and APK checks
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          SIZE=$(stat -c %s "$APK")
+          "$BT/apksigner" verify "$APK" && echo "apksigner verify: ok"
+          "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/test-cert.txt
+          CERT=$(awk '/certificate SHA-256 digest:/ {print $NF}' /tmp/test-cert.txt | sort -u)
+          test "$CERT" = '9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc'
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='168' versionName='1.0.168'"
+          sha256sum "$APK"
+      - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Install pinned upload library before credentials
-        run: npm install --prefix /tmp/firebase-stage-tools --ignore-scripts --no-audit --no-fund google-auth-library@11.2.0
-      - name: Read staged Firebase release and save private download pointer
+      - run: npm install --prefix /tmp/firebase-stage-tools --ignore-scripts --no-audit --no-fund google-auth-library@11.2.0
+      - name: Save private test APK and stage download without notifying testers
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           GH_TOKEN: ${{ github.token }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
-          cat > /tmp/firebase-pointer.cjs <<'JS'
+          set -euo pipefail
+          TAG=test-1.0.168-private
+          APK=build/app/outputs/flutter-apk/Friday.apk
+          sha256sum "$APK" > build/app/outputs/flutter-apk/Friday.apk.sha256
+          gh release create "$TAG" "$APK" build/app/outputs/flutter-apk/Friday.apk.sha256 --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Friday1.0.168 private test - do not publish' --notes 'Private test transport only.' --draft
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId,isDraft > /tmp/draft.json
+          jq -e '.isDraft == true' /tmp/draft.json
+          export DRAFT_ID=$(jq -r .databaseId /tmp/draft.json)
+          cat > /tmp/stage168.cjs <<'JS'
+          const fs=require('fs'),crypto=require('crypto');
           const {GoogleAuth}=require('/tmp/firebase-stage-tools/node_modules/google-auth-library');
-          let stage='credentials';
+          let stage='identity';
           (async()=>{
-           const c=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-           if(c.type!=='service_account'||c.project_id!=='app-testing-2cdba'||c.client_email!=='github-app-distribution@app-testing-2cdba.iam.gserviceaccount.com')throw Error('Wrong identity');
-           const client=await new GoogleAuth({credentials:c,scopes:['https://www.googleapis.com/auth/cloud-platform']}).getClient();
-           delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-           const name='projects/509368336413/apps/1:509368336413:android:bdf178861eee975f0a46f4/releases/7bt15hpcuf6og';
-           stage='Firebase release read';
-           const {data:r}=await client.request({url:'https://firebaseappdistribution.googleapis.com/v1/'+name,timeout:30000});
-           if(r.name!==name||r.buildVersion!=='167'||r.displayVersion!=='1.0.167'||!r.binaryDownloadUri)throw Error('Wrong staged release');
-           const u=new URL(r.binaryDownloadUri);
-           if(u.protocol!=='https:'||!u.hostname.endsWith('.googleapis.com'))throw Error('Wrong binary host');
-           const base='https://api.github.com/repos/'+process.env.GITHUB_REPOSITORY+'/releases/435407584';
-           const headers={Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'};
-           stage='private draft read';
-           let q=await fetch(base,{headers});if(!q.ok)throw Error('Draft read failed');
-           let d=await q.json();
-           if(d.draft!==true||d.published_at!==null||!['test-1.0.167-private-transport','untagged-790bff61e7ec67ab4f65'].includes(d.tag_name))throw Error('Not private draft');
-           stage='private draft pointer save';
-           q=await fetch(base,{method:'PATCH',headers,body:JSON.stringify({body:'Private test transport only. Not published. Temporary signed APK download pointer:\n'+u.href+'\nSHA256: 46a23fc917f19bce39532fc1450226627b5ee239717ba5819c2181547b565b87'})});
-           if(!q.ok)throw Error('Draft pointer save failed');d=await q.json();
-           if(d.draft!==true||d.published_at!==null)throw Error('Draft state changed');
-           console.log('Private pointer saved for version1.0.167/build167. No upload, publish or tester distribution called.');
-          })().catch(e=>{const safe=['Wrong identity','Wrong staged release','Wrong binary host','Draft read failed','Not private draft','Draft pointer save failed','Draft state changed'];console.error('Private pointer transport failed at '+stage+'; HTTP '+(e.response?.status||'unknown')+'; '+(safe.includes(e.message)?e.message:'Request failed')+'. No credentials or signed link printed.');process.exit(1)});
+            const c=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+            if(c.project_id!=='app-testing-2cdba'||c.client_email!=='github-app-distribution@app-testing-2cdba.iam.gserviceaccount.com')throw Error('Wrong identity');
+            const client=await new GoogleAuth({credentials:c,scopes:['https://www.googleapis.com/auth/cloud-platform']}).getClient();
+            delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+            const app='projects/509368336413/apps/1:509368336413:android:bdf178861eee975f0a46f4';
+            const bytes=fs.readFileSync('build/app/outputs/flutter-apk/Friday.apk');
+            const hash=crypto.createHash('sha256').update(bytes).digest('hex');
+            stage='Firebase upload only';
+            let r=await client.request({url:'https://firebaseappdistribution.googleapis.com/upload/v1/'+app+'/releases:upload',method:'POST',headers:{'X-Goog-Upload-Protocol':'raw','X-Goog-Upload-File-Name':'Friday.apk','Content-Type':'application/octet-stream'},data:bytes,timeout:120000});
+            const op=r.data.name;if(!op||!op.startsWith(app+'/releases/'))throw Error('Wrong operation');
+            for(let i=0;i<24;i++){
+              r=await client.request({url:'https://firebaseappdistribution.googleapis.com/v1/'+op,timeout:30000});
+              if(r.data.done){
+                if(r.data.error)throw Error('Upload failed');
+                const rel=r.data.response.release;
+                if(rel.buildVersion!=='168'||rel.displayVersion!=='1.0.168'||!rel.name.startsWith(app+'/releases/'))throw Error('Wrong version');
+                const u=new URL(rel.binaryDownloadUri);if(u.protocol!=='https:'||!u.hostname.endsWith('.googleapis.com'))throw Error('Wrong binary host');
+                stage='private draft pointer';
+                const base='https://api.github.com/repos/'+process.env.GITHUB_REPOSITORY+'/releases/'+process.env.DRAFT_ID;
+                const headers={Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'};
+                let q=await fetch(base,{headers});if(!q.ok)throw Error('Draft read failed');let d=await q.json();if(!d.draft||d.published_at!==null)throw Error('Not draft');
+                q=await fetch(base,{method:'PATCH',headers,body:JSON.stringify({body:'Private test only. Download pointer:\n'+u.href+'\nSHA256: '+hash})});if(!q.ok)throw Error('Draft save failed');d=await q.json();if(!d.draft||d.published_at!==null)throw Error('Not draft');
+                console.log(JSON.stringify({release:rel.name,version:rel.displayVersion,code:rel.buildVersion,sha256:hash,bytes:bytes.length,draftId:process.env.DRAFT_ID,html_url:d.html_url}));return;
+              }
+              await new Promise(r=>setTimeout(r,5000));
+            }
+            throw Error('Upload did not settle');
+          })().catch(e=>{console.error('Private transport failed at '+stage+' HTTP '+(e.response?.status||'unknown')+'. Inspect without printing secrets or binary links.');process.exit(1)});
           JS
-          node /tmp/firebase-pointer.cjs
+          node /tmp/stage168.cjs
