@@ -19,6 +19,7 @@ import 'package:friday/state/friday_controller.dart';
 import 'package:friday/ui/screens/home_screen.dart';
 import 'package:friday/ui/stitch_style.dart';
 import 'package:friday/ui/widgets/listening_bubble.dart';
+import 'package:friday/assistant_overlay.dart';
 
 class DraftSpeech extends SpeechService {
   bool active = false;
@@ -150,6 +151,39 @@ void main() {
       expect(find.byType(ListeningBubble), findsNothing);
       expect(c.messages, isEmpty);
       expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+              const MethodChannel('friday/assistant'),
+              (call) async =>
+                  call.method == 'launchMode' ? {'voice': true} : null);
+      await prefs.setString('orion_theme_mode', dark ? 'dark' : 'light');
+      await t.binding.setSurfaceSize(const Size(412, 260));
+      final overlayKey = GlobalKey();
+      await t.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<FridayController>.value(value: c),
+            Provider<SpeechService>.value(value: speech)
+          ],
+          child: RepaintBoundary(
+              key: overlayKey, child: const AssistantOverlayApp())));
+      await t.pump(const Duration(milliseconds: 400));
+      speech.result!(
+          List.filled(12, 'Remind me to drink water after lunch tomorrow')
+              .join(' '));
+      await t.pump(const Duration(milliseconds: 400));
+      expect(t.takeException(), isNull);
+      expect(find.byType(ListeningBubble), findsOneWidget);
+      expect(speech.isListening, isTrue);
+      await t.runAsync(() async {
+        final im = await (overlayKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary)
+            .toImage(pixelRatio: 2);
+        final bytes = await im.toByteData(format: ui.ImageByteFormat.png);
+        await File('/tmp/friday168-compact-long-${dark ? 'dark' : 'light'}.png')
+            .writeAsBytes(bytes!.buffer.asUint8List());
+        im.dispose();
+      });
       await t.pumpWidget(const SizedBox());
       await t.binding.setSurfaceSize(null);
     });
