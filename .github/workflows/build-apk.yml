@@ -55,7 +55,7 @@ jobs:
           "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/test-cert.txt
           CERT=$(awk '/certificate SHA-256 digest:/ {print $NF}' /tmp/test-cert.txt | sort -u)
           test "$CERT" = '9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc'
-          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='168' versionName='1.0.169'"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='169' versionName='1.0.169'"
           sha256sum "$APK"
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
       - uses: actions/setup-node@v4
