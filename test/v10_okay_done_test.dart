@@ -30,6 +30,12 @@ class _FakeRouter extends IntentRouter {
   @override
   Future<String> executeAll(List<FridayAction> actions) async {
     calls++;
+    if (outcome == 'Flashlight turned off.\nOpened Camera.' &&
+        actions.length == 1) {
+      return actions.single.type == FridayActionType.torchOff
+          ? 'Flashlight turned off.'
+          : 'Opened Camera.';
+    }
     return outcome;
   }
 }
@@ -61,8 +67,7 @@ Future<FridayController> _controller(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('action command: single outcome on finish',
-      () async {
+  test('action command: single outcome on finish', () async {
     final router = _FakeRouter()..outcome = 'Volume set to 40%';
     final speech = _FakeSpeech();
     final c = await _controller(
@@ -79,8 +84,7 @@ void main() {
     expect(texts, ['set volume 40', 'Volume set to 40%']);
   });
 
-  test('multi-part command: one result, every outcome line kept',
-      () async {
+  test('multi-part command: one result, every outcome line kept', () async {
     final router = _FakeRouter()
       ..outcome = 'Flashlight turned off.\nOpened Camera.';
     final speech = _FakeSpeech();
