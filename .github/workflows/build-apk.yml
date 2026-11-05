@@ -43,7 +43,7 @@ jobs:
            stage='private draft read';
            let q=await fetch(base,{headers});if(!q.ok)throw Error('Draft read failed');
            let d=await q.json();
-           if(d.draft!==true||d.published_at!==null||d.tag_name!=='test-1.0.167-private-transport')throw Error('Not private draft');
+           if(d.draft!==true||d.published_at!==null||!['test-1.0.167-private-transport','untagged-790bff61e7ec67ab4f65'].includes(d.tag_name))throw Error('Not private draft');
            stage='private draft pointer save';
            q=await fetch(base,{method:'PATCH',headers,body:JSON.stringify({body:'Private test transport only. Not published. Temporary signed APK download pointer:\n'+u.href+'\nSHA256: 46a23fc917f19bce39532fc1450226627b5ee239717ba5819c2181547b565b87'})});
            if(!q.ok)throw Error('Draft pointer save failed');d=await q.json();
