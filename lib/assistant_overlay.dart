@@ -350,6 +350,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                           if (controller.voiceDraftActive)
                             Flexible(
                                 child: SingleChildScrollView(
+                                    reverse: true,
                                     child: ListeningBubble(
                                         text: controller.partialHeard,
                                         compact: true))),
