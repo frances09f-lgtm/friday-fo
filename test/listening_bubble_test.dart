@@ -66,7 +66,7 @@ void main() {
           'SpaceGrotesk': 'assets/fonts/SpaceGrotesk.ttf',
           'JetBrainsMono': 'assets/fonts/JetBrainsMono.ttf',
           'MaterialIcons':
-              '/tmp/flutter-sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf'
+              '${Platform.environment['FLUTTER_ROOT'] ?? '/tmp/flutter-sdk'}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf'
         }.entries) {
           final l = FontLoader(e.key)
             ..addFont(Future.value(
