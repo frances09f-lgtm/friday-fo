@@ -75,6 +75,23 @@ class SpeechService {
     return chosen.isEmpty ? 'en_IN' : chosen;
   }
 
+  bool _mobileFinal = false;
+  int _listenSession = 0;
+  void Function()? _mobileDone;
+  Timer? _mobileEndTimer;
+  Timer? _mobileLimitTimer;
+  void _finishMobile(int session) {
+    if (session != _listenSession || _mobileDone == null) return;
+    if (!_mobileFinal && lastSttError == null)
+      lastSttError = 'No complete speech was captured. Try again.';
+    final done = _mobileDone;
+    _mobileDone = null;
+    _mobileEndTimer?.cancel();
+    _mobileLimitTimer?.cancel();
+    _setListening(false);
+    done?.call();
+  }
+
   bool _sttReady = false;
   bool _recListening = false;
   Timer? _maxTimer;
@@ -103,8 +120,23 @@ class SpeechService {
     if (_sttReady) return true;
     try {
       _sttReady = await _stt.initialize(
-        onStatus: (status) => _setListening(status == 'listening'),
-        onError: (_) => _setListening(false),
+        onStatus: (status) {
+          _setListening(status == 'listening');
+          if ((status == 'done' || status == 'notListening') &&
+              _mobileDone != null) {
+            final session = _listenSession;
+            _mobileEndTimer?.cancel();
+            _mobileEndTimer = Timer(const Duration(milliseconds: 500),
+                () => _finishMobile(session));
+          }
+        },
+        onError: (error) {
+          lastSttError = error.errorMsg == 'error_no_match' ||
+                  error.errorMsg == 'error_speech_timeout'
+              ? 'Nothing was heard. Try again.'
+              : 'Voice input stopped. Check microphone permission and try again.';
+          _finishMobile(_listenSession);
+        },
       );
     } catch (_) {
       _sttReady = false;
@@ -127,10 +159,27 @@ class SpeechService {
       unawaited(_startRecording());
       return;
     }
-    if (!_sttReady) return;
+    _mobileFinal = false;
+    final session = ++_listenSession;
+    _mobileEndTimer?.cancel();
+    _mobileLimitTimer?.cancel();
+    _mobileDone = onDone;
+    if (!_sttReady) {
+      lastSttError = 'Microphone is unavailable. Check its permission.';
+      _finishMobile(session);
+      return;
+    }
+    _setListening(true);
+    _mobileLimitTimer = Timer(const Duration(seconds: 30), () {
+      if (session != _listenSession) return;
+      lastSttError = 'Listening timed out. Tap the microphone to try again.';
+      _finishMobile(session);
+      unawaited(_stt.cancel());
+    });
     unawaited(_stt
         .listen(
       onResult: (r) {
+        if (session != _listenSession || _mobileDone == null) return;
         // The recognizer returns several guesses for one utterance; on the
         // final result act on the one Friday can read as a command (the
         // top guess unless it cannot be read and a close one can).
@@ -141,8 +190,9 @@ class SpeechService {
               ])
             : r.recognizedWords);
         if (r.finalResult) {
+          _mobileFinal = true;
           _setListening(false);
-          onDone();
+          _finishMobile(session);
         }
       },
       listenOptions: SpeechListenOptions(
@@ -152,8 +202,9 @@ class SpeechService {
       ),
     )
         .catchError((Object error) {
-      _setListening(false);
+      if (session != _listenSession) return;
       lastSttError = 'Could not start the microphone.';
+      _finishMobile(session);
     }));
   }
 
@@ -191,9 +242,12 @@ class SpeechService {
 
   Future<void> stopListening() async {
     if (!_isWindows) {
+      final session = _listenSession;
       try {
         await _stt.stop();
       } finally {
+        _finishMobile(session);
+        _listenSession++;
         _setListening(false);
       }
       return;
