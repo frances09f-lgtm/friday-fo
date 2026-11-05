@@ -26,25 +26,29 @@ jobs:
         run: |
           cat > /tmp/firebase-pointer.cjs <<'JS'
           const {GoogleAuth}=require('/tmp/firebase-stage-tools/node_modules/google-auth-library');
+          let stage='credentials';
           (async()=>{
            const c=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
            if(c.type!=='service_account'||c.project_id!=='app-testing-2cdba'||c.client_email!=='github-app-distribution@app-testing-2cdba.iam.gserviceaccount.com')throw Error('Wrong identity');
            const client=await new GoogleAuth({credentials:c,scopes:['https://www.googleapis.com/auth/cloud-platform']}).getClient();
            delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
            const name='projects/509368336413/apps/1:509368336413:android:bdf178861eee975f0a46f4/releases/7bt15hpcuf6og';
+           stage='Firebase release read';
            const {data:r}=await client.request({url:'https://firebaseappdistribution.googleapis.com/v1/'+name,timeout:30000});
            if(r.name!==name||r.buildVersion!=='167'||r.displayVersion!=='1.0.167'||!r.binaryDownloadUri)throw Error('Wrong staged release');
            const u=new URL(r.binaryDownloadUri);
            if(u.protocol!=='https:'||!u.hostname.endsWith('.googleapis.com'))throw Error('Wrong binary host');
            const base='https://api.github.com/repos/'+process.env.GITHUB_REPOSITORY+'/releases/435407584';
            const headers={Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'};
+           stage='private draft read';
            let q=await fetch(base,{headers});if(!q.ok)throw Error('Draft read failed');
            let d=await q.json();
            if(d.draft!==true||d.published_at!==null||d.tag_name!=='test-1.0.167-private-transport')throw Error('Not private draft');
+           stage='private draft pointer save';
            q=await fetch(base,{method:'PATCH',headers,body:JSON.stringify({body:'Private test transport only. Not published. Temporary signed APK download pointer:\n'+u.href+'\nSHA256: 46a23fc917f19bce39532fc1450226627b5ee239717ba5819c2181547b565b87'})});
            if(!q.ok)throw Error('Draft pointer save failed');d=await q.json();
            if(d.draft!==true||d.published_at!==null)throw Error('Draft state changed');
            console.log('Private pointer saved for version1.0.167/build167. No upload, publish or tester distribution called.');
-          })().catch(()=>{console.error('Private pointer transport failed; inspect without printing signed links or credentials.');process.exit(1)});
+          })().catch(e=>{const safe=['Wrong identity','Wrong staged release','Wrong binary host','Draft read failed','Not private draft','Draft pointer save failed','Draft state changed'];console.error('Private pointer transport failed at '+stage+'; HTTP '+(e.response?.status||'unknown')+'; '+(safe.includes(e.message)?e.message:'Request failed')+'. No credentials or signed link printed.');process.exit(1)});
           JS
           node /tmp/firebase-pointer.cjs
