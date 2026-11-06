@@ -91,19 +91,22 @@ class AgentGoal {
       this.commands = const []});
   static AgentGoal? parse(String task) {
     var s = task.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final ask =
-        RegExp(r'^(?:please )?ask chat\s*gpt (.+?)[.!]?$', caseSensitive: false)
-            .firstMatch(s);
-    final on = RegExp(
-            r'^(?:please )?search (?:for )?(.+?) (?:on|in|using) chat\s*gpt[.!]?$',
+    final question = RegExp(
+            r'^(?:please )?(?:ask (chat\s*gpt|gemini|deep\s*seek|deep sick) (.+?)|search (?:for )?(.+?) (?:on|in|using) (chat\s*gpt|gemini|deep\s*seek|deep sick))[.!?]?$',
             caseSensitive: false)
         .firstMatch(s);
-    if (ask != null || on != null) {
-      final query = (ask?[1] ?? on![1]!).trim();
+    if (question != null) {
+      final app =
+          (question[1] ?? question[4]!).toLowerCase().replaceAll(' ', '');
+      final query = (question[2] ?? question[3]!).trim();
       if (query.isEmpty || query.length > 250 || query.contains('\n'))
         return null;
-      return AgentGoal(task.trim(), 'com.openai.chatgpt', query,
-          workflow: 'question');
+      final package = app == 'chatgpt'
+          ? 'com.openai.chatgpt'
+          : app == 'gemini'
+              ? 'com.google.android.apps.bard'
+              : 'com.deepseek.chat';
+      return AgentGoal(task.trim(), package, query, workflow: 'question');
     }
     s = s.replaceAll(RegExp(r'chat\s+gpt', caseSensitive: false), 'ChatGPT');
     final settings = RegExp(r'^open settings and open bluetooth[.!]?$',
@@ -225,7 +228,9 @@ class AgentGoal {
         'com.google.android.youtube',
         'com.android.chrome',
         'com.instagram.android',
-        'com.openai.chatgpt'
+        'com.openai.chatgpt',
+        'com.google.android.apps.bard',
+        'com.deepseek.chat'
       }.contains(package);
   static bool unsafeLabel(String value) => RegExp(
           r'\b(send|post|buy|purchase|delete|pay|call|allow|permission|sign.?in|log.?in|subscribe|confirm)\b',
@@ -284,7 +289,8 @@ class AgentGoal {
           a.target['text']?.toString().toLowerCase() == query.toLowerCase())
         return true;
       if (workflow == 'question')
-        return RegExp(r'message|prompt|composer|ask|edittext').hasMatch(value);
+        return RegExp(r'message|prompt|composer|ask|edittext|enter|type')
+            .hasMatch(value);
       if (workflow == 'play' && value.contains(query.toLowerCase()))
         return true;
       return value.isNotEmpty &&
