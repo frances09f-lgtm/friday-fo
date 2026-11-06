@@ -55,6 +55,7 @@ class VoicePick {
     final options = heard.where((h) => h.text.trim().isNotEmpty).toList();
     if (options.isEmpty) return '';
     final top = options.first;
+    if (GoldTaskRequest.directionQuestion(top.text) != null) return top.text;
     if (understood(top.text, now: now)) return top.text;
     HeardText? best;
     for (final h in options.skip(1)) {
@@ -72,11 +73,36 @@ class CommandVocabulary {
   const CommandVocabulary._();
 
   static const words = [
-    'Friday', 'alert', 'alert me', 'notify me', 'tell me when', 'remind me',
-    'gold', 'gold price', 'silver', 'nifty', 'sensex', 'price', 'above',
-    'below', 'over', 'under', 'crosses', 'reaches', 'drops to', 'every',
-    'minutes', 'hours', 'task', 'tasks', 'Sona', 'Lookout', 'WhatsApp',
-    'volume', 'brightness', 'flashlight',
+    'Friday',
+    'alert',
+    'alert me',
+    'notify me',
+    'tell me when',
+    'remind me',
+    'gold',
+    'gold price',
+    'silver',
+    'nifty',
+    'sensex',
+    'price',
+    'above',
+    'below',
+    'over',
+    'under',
+    'crosses',
+    'reaches',
+    'drops to',
+    'every',
+    'minutes',
+    'hours',
+    'task',
+    'tasks',
+    'Sona',
+    'Lookout',
+    'WhatsApp',
+    'volume',
+    'brightness',
+    'flashlight',
   ];
 
   /// A short sample of how commands are said, for Whisper's prompt.
