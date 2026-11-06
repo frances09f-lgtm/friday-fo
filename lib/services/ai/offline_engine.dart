@@ -203,6 +203,27 @@ class OfflineEngine {
             _ => FridayActionType.stopMusic,
           }),
           source: FridaySource.offline);
+    // Song title is literal query data, never an app/action suffix.
+    final song = RegExp(
+            r'^(?:friday[,\s]+)?(?:please\s+)?play\s+(?:song\s+)?(.+?)[.!?]*$',
+            caseSensitive: false)
+        .firstMatch(text.trim());
+    if (song != null) {
+      final query = song[1]!.trim();
+      if (query.length <= 200 &&
+          !RegExp(r'^(?:my |the )?(?:music|songs?|playback)(?: please| again)?$',
+                  caseSensitive: false)
+              .hasMatch(query) &&
+          !RegExp(r'\b(?:video|videos|youtube|gallery|spotify|chrome|whatsapp|on|using|and|then|first|last|next|previous)\b',
+                  caseSensitive: false)
+              .hasMatch(query)) {
+        return FridayResponse(
+            reply: 'Searching BitChord for one exact track.',
+            action:
+                FridayAction(type: FridayActionType.playMusic, query: query),
+            source: FridaySource.offline);
+      }
+    }
     final directionQuestion = GoldTaskRequest.directionQuestion(text);
     if (directionQuestion != null)
       return FridayResponse(reply: directionQuestion);
