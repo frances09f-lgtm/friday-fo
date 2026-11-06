@@ -55,7 +55,10 @@ class VoicePick {
     final options = heard.where((h) => h.text.trim().isNotEmpty).toList();
     if (options.isEmpty) return '';
     final top = options.first;
-    if (GoldTaskRequest.directionQuestion(top.text) != null) return top.text;
+    if (GoldTaskRequest.directionQuestion(top.text) != null ||
+        (GoldTaskRequest.isAssetlessAlert(top.text) &&
+            GoldTaskRequest.directionQuestion('gold ${top.text}') != null))
+      return top.text;
     if (understood(top.text, now: now)) return top.text;
     HeardText? best;
     for (final h in options.skip(1)) {
