@@ -391,6 +391,14 @@ void main() {
           ]),
           'tell me when gold goes about 4000');
     });
+    test('assetless approximation top guess is never upgraded to above', () {
+      expect(
+          VoicePick.choose(const [
+            HeardText('tell me when it goes about 4045', 0.9),
+            HeardText('tell me when gold goes above 4045', 0.5),
+          ]),
+          'tell me when it goes about 4045');
+    });
     test('plain conversation keeps the top guess', () {
       expect(
           VoicePick.choose(const [
