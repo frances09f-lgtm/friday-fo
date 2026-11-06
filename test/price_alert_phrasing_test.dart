@@ -32,7 +32,12 @@ void expectAlert(String text, String direction, double threshold,
 class _FakeRouter extends IntentRouter {
   _FakeRouter() : super(deviceHub: DeviceHub(), reminders: ReminderService());
   @override
-  Future<String> executeAll(List<FridayAction> actions) async => '';
+  Future<String> executeAll(List<FridayAction> actions) async =>
+      actions.length == 1 &&
+              actions.single.type == FridayActionType.oroStatus &&
+              actions.single.target == 'price'
+          ? 'Gold is at 4,044.9, as of just now.'
+          : '';
 }
 
 class _FakeSpeech extends SpeechService {
@@ -44,17 +49,19 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group("Abhi's exact sentences", () {
-    test('"about" before the number is "above"', () {
-      expectAlert('tell me when gold goes about for 4000', 'above', 4000);
-      expectAlert('tell me when gold goes about 4000', 'above', 4000);
-      // As a recognizer writes it: capital, comma, full stop.
-      expectAlert('Tell me when gold goes about 4,000.', 'above', 4000);
-    });
-    test('the offline engine no longer refuses them', () {
-      for (final s in [
+    test('approximation asks for direction, never silently above', () {
+      for (final text in [
         'tell me when gold goes about for 4000',
         'tell me when gold goes about 4000',
+        'Tell me when gold goes around 4,000.'
       ]) {
+        expect(GoldTaskRequest.parse(text), isNull);
+        expect(GoldTaskRequest.directionQuestion(text),
+            contains('above 4,000 or below 4,000'));
+      }
+    });
+    test('the offline engine no longer refuses them', () {
+      for (final s in []) {
         final r = const OfflineEngine().handle(s);
         expect(r.reply, isNot(contains('No alert was created')), reason: s);
       }
@@ -102,7 +109,8 @@ void main() {
       }
     });
     test('the direction word nearest the number wins', () {
-      expectAlert('tell me if gold falls and goes back above 4000', 'above', 4000);
+      expectAlert(
+          'tell me if gold falls and goes back above 4000', 'above', 4000);
     });
   });
 
@@ -118,15 +126,22 @@ void main() {
       expectAlert('alert me when gold goes above 4 000', 'above', 4000);
       expectAlert('alert me when gold goes above four thousand', 'above', 4000);
       expectAlert('alert me when gold goes above 4012.5', 'above', 4012.5);
-      expectAlert('tell me when gold is around 4000', 'auto', 4000);
+      expect(
+          GoldTaskRequest.directionQuestion('tell me when gold is around 4000'),
+          isNotNull);
     });
     test('intervals', () {
-      expectAlert('check gold every 10 minutes and tell me if it goes above 4000',
-          'above', 4000, minutes: 10);
-      expectAlert('alert me when gold goes above 4000 every hour', 'above', 4000,
+      expectAlert(
+          'check gold every 10 minutes and tell me if it goes above 4000',
+          'above',
+          4000,
+          minutes: 10);
+      expectAlert(
+          'alert me when gold goes above 4000 every hour', 'above', 4000,
           minutes: 60);
       expectAlert('check gold every 2 hours and alert me if it is below 4150.5',
-          'below', 4150.5, minutes: 120);
+          'below', 4150.5,
+          minutes: 120);
       expectAlert('check gold every five minutes and alert me above 4000',
           'above', 4000);
     });
@@ -154,7 +169,8 @@ void main() {
       // No quote yet: either way.
       expect(r.resolve(null).direction, 'cross');
       // An explicit direction is never changed.
-      expect(GoldTaskRequest.parse('alert me when gold goes below 4000')!
+      expect(
+          GoldTaskRequest.parse('alert me when gold goes below 4000')!
               .resolve(3900)
               .direction,
           'below');
@@ -166,11 +182,11 @@ void main() {
       expect(r.resolve(null).confirmation(),
           startsWith('Alert set: gold reaches 4,000. Checking every 5 min.'));
       expect(r.resolve(null).confirmation(), contains('either side'));
-      final ok = r
-          .resolve(3962.4)
-          .createdReply('Saved a one-shot gold above 4000.0 alert, checking about every 5 minutes.',
-              currentPrice: 3962.4);
-      expect(ok, 'Alert set: gold above 4,000 (now 3,962). Checking every 5 min.');
+      final ok = r.resolve(3962.4).createdReply(
+          'Saved a one-shot gold above 4000.0 alert, checking about every 5 minutes.',
+          currentPrice: 3962.4);
+      expect(
+          ok, 'Alert set: gold above 4,000 (now 3,962). Checking every 5 min.');
       // The phone's own words when it did not save.
       expect(r.createdReply('Gold alert notifications are disabled.'),
           'Gold alert notifications are disabled.');
@@ -186,8 +202,8 @@ void main() {
       expect(GoldTaskRequest.usableQuote(3960, 3962, now - 60000, now), 3961);
       expect(GoldTaskRequest.usableQuote(3960, null, now - 60000, now), 3960);
       expect(GoldTaskRequest.usableQuote(3960, 3962, 0, now), isNull);
-      expect(
-          GoldTaskRequest.usableQuote(3960, 3962, now - 13 * 3600000, now), isNull);
+      expect(GoldTaskRequest.usableQuote(3960, 3962, now - 13 * 3600000, now),
+          isNull);
       expect(GoldTaskRequest.usableQuote(3962, 3960, now - 60000, now), 3962);
     });
     test('a cross task reads plainly on the Tasks page', () {
@@ -201,8 +217,6 @@ void main() {
   group('never a refusal when the asset and a number are there', () {
     test('every gold-and-number alert is read (or offered as a guess)', () {
       for (final s in [
-        'tell me when gold goes about for 4000',
-        'tell me when gold goes about 4000',
         'tell me when gold hits 4000',
         'when gold is 4000',
         'alert me when gold goes ebav 4000',
@@ -216,13 +230,18 @@ void main() {
       }
     });
     test('only a missing asset is asked about', () {
-      expect(GoldTaskRequest.isAssetlessAlert('tell me when the price goes above 4000'),
+      expect(
+          GoldTaskRequest.isAssetlessAlert(
+              'tell me when the price goes above 4000'),
           isTrue);
-      expect(GoldTaskRequest.isAssetlessAlert('tell me when it goes above 4000'),
+      expect(
+          GoldTaskRequest.isAssetlessAlert('tell me when it goes above 4000'),
           isTrue);
-      expect(GoldTaskRequest.isAssetlessAlert('tell me when gold goes above 4000'),
+      expect(
+          GoldTaskRequest.isAssetlessAlert('tell me when gold goes above 4000'),
           isFalse);
-      expect(GoldTaskRequest.isAssetlessAlert('tell me when battery is above 80'),
+      expect(
+          GoldTaskRequest.isAssetlessAlert('tell me when battery is above 80'),
           isFalse);
     });
     test('gold with no number asks for the price, not for a direction', () {
@@ -253,8 +272,6 @@ void main() {
   group('voice mishearings (30+ phrasings)', () {
     // [heard, direction, threshold, acted on at once?]
     final table = <(String, String, double, bool)>[
-      ('tell me when gold goes about for 4000', 'above', 4000, true),
-      ('tell me when gold goes about 4000', 'above', 4000, true),
       ('tell me when gold goes a bove 4000', 'above', 4000, true),
       ('tell me when gold goes a bow 4000', 'above', 4000, true),
       ('tell me when gold goes a bob 4000', 'above', 4000, true),
@@ -264,7 +281,6 @@ void main() {
       ('tell me when gold goes ever 4000', 'above', 4000, true),
       ('tell me when gold goes every 4000', 'above', 4000, true),
       ('tell me when gold goes ab of 4000', 'above', 4000, true),
-      ('alert me when gold trades about 4000', 'above', 4000, true),
       ('tell me when gold goes blow 3950', 'below', 3950, true),
       ('tell me when gold goes blew 3950', 'below', 3950, true),
       ('tell me when gold goes bilo 3950', 'below', 3950, true),
@@ -277,11 +293,21 @@ void main() {
       ("tell me when gold's price goes above 4000", 'above', 4000, true),
       ('a lot me when gold goes above 4000', 'above', 4000, true),
       ('tell me when gold goes above for thousand', 'above', 4000, true),
-      ('tell me when gold goes above four thousand one hundred', 'above', 4100, true),
+      (
+        'tell me when gold goes above four thousand one hundred',
+        'above',
+        4100,
+        true
+      ),
       ('tell me when gold goes below forty one hundred', 'below', 4100, true),
       ('tell me when gold goes above 4 thousand', 'above', 4000, true),
       ('tell me when gold goes bilo for thousand', 'below', 4000, true),
-      ('notify me when gold goes above three thousand nine hundred fifty', 'above', 3950, true),
+      (
+        'notify me when gold goes above three thousand nine hundred fifty',
+        'above',
+        3950,
+        true
+      ),
       // Sound-alike guesses: asked as "Did you mean ...?", never refused.
       ('tell me when cold goes above 4000', 'above', 4000, false),
       // An unknown word before the number: no guess needed, the saved
@@ -291,7 +317,12 @@ void main() {
       ('tell me when gold goes belwo 3950', 'auto', 3950, true),
       ('tell me when gold goes ebav 4000', 'auto', 4000, true),
       ('tell me when cold goes abuv 4000', 'above', 4000, false),
-      ('check old every 5 minutes and tell me feed goes above 4185', 'above', 4185, false),
+      (
+        'check old every 5 minutes and tell me feed goes above 4185',
+        'above',
+        4185,
+        false
+      ),
     ];
     for (final (heard, direction, threshold, certain) in table) {
       test(heard, () {
@@ -306,10 +337,11 @@ void main() {
         expect(again?.threshold, threshold, reason: r.request.canonical);
       });
     }
-    test('there are at least 30 of them', () => expect(table.length, greaterThanOrEqualTo(30)));
+    test('there are at least 30 of them',
+        () => expect(table.length, greaterThanOrEqualTo(30)));
     test('an unrunnable interval becomes a question with a runnable one', () {
-      final r =
-          GoldTaskRequest.read('check gold every 1 minute and tell me if it goes below 4150')!;
+      final r = GoldTaskRequest.read(
+          'check gold every 1 minute and tell me if it goes below 4150')!;
       expect(r.certain, isFalse);
       expect(r.request.intervalMinutes, 5);
       expect(r.request.readable, 'alert when gold goes below 4,150');
@@ -334,13 +366,15 @@ void main() {
     test('known fixes only fire right before the number', () {
       // "about" as "approximately" with no number after it is left alone.
       expect(VoiceRepair.known('tell me about gold').$1, 'tell me about gold');
-      expect(VoiceRepair.known('tell me when gold goes about 4000').$2,
-          ['about -> above']);
+      expect(
+          VoiceRepair.known('tell me when gold goes about 4000').$2, isEmpty);
     });
   });
 
   group('picking among recognizer alternatives', () {
-    test('a close alternative that reads as a command beats an unreadable top guess', () {
+    test(
+        'a close alternative that reads as a command beats an unreadable top guess',
+        () {
       expect(
           VoicePick.choose(const [
             HeardText('tell me when cold goes abeve 4000', 0.62),
@@ -367,8 +401,11 @@ void main() {
       expect(VoicePick.choose(const []), '');
     });
     test('reminders count as understood', () {
-      expect(VoicePick.understood('remind me to stretch in 30 minutes'), isTrue);
-      expect(ReminderParser.parseForChat('remind me when gold hits 4000', DateTime(2026)),
+      expect(
+          VoicePick.understood('remind me to stretch in 30 minutes'), isTrue);
+      expect(
+          ReminderParser.parseForChat(
+              'remind me when gold hits 4000', DateTime(2026)),
           isNull);
     });
   });
@@ -394,7 +431,8 @@ void main() {
       expect(c.messages.last.text,
           'Did you mean: alert when gold goes above 4,000? Tap Yes to set it, or Edit to fix it.');
       expect(c.pendingAlert?.messageId, c.messages.last.id);
-      expect(c.pendingAlert?.request.canonical, 'alert me when gold goes above 4000');
+      expect(c.pendingAlert?.request.canonical,
+          'alert me when gold goes above 4000');
       await c.send('Yes');
       expect(c.pendingAlert, isNull);
       // Off Android the task service says where alerts run - the create
@@ -408,12 +446,39 @@ void main() {
       expect(c.pendingAlert, isNull);
       expect(c.messages.last.text, startsWith('Okay, no alert was set.'));
     });
-    test("Abhi's sentences go straight to creating the alert", () async {
+    test('approximation clarifies direction without pending above action',
+        () async {
       final c = await controller();
       await c.send('tell me when gold goes about for 4000');
       expect(c.pendingAlert, isNull);
-      expect(c.messages.last.text, isNot(contains('No alert was created')));
+      expect(c.messages.last.text, contains('above 4,000 or below 4,000'));
+      expect(c.messages.last.text, contains('No alert was set'));
+    });
+    test('successful price query supplies gold subject only, across targets',
+        () async {
+      for (final threshold in [4045, 4100, 3920]) {
+        final c = await controller();
+        await c.send("what's current gold price");
+        expect(c.messages.last.text, startsWith('Gold is at '));
+        await c.send('tell me when it goes about $threshold');
+        expect(c.messages.last.text, contains('Do you mean gold above'));
+        expect(c.messages.last.text, isNot(contains('Which one')));
+        expect(c.pendingAlert, isNull);
+      }
+    });
+    test('explicit direction with carried subject reaches task path', () async {
+      final c = await controller();
+      await c.send("what's current gold price");
+      await c.send('tell me when it goes above 4150');
       expect(c.messages.last.text, contains('Android phone'));
+    });
+    test('unrelated turn invalidates subject; literal messages unchanged',
+        () async {
+      final c = await controller();
+      await c.send("what's current gold price");
+      await c.send('hello');
+      await c.send('tell me when it goes above 4150');
+      expect(c.messages.last.text, startsWith('Which one'));
     });
     test('a missing asset is the one thing asked', () async {
       final c = await controller();
