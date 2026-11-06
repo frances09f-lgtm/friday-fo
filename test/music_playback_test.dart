@@ -15,7 +15,7 @@ void main() {
     final music = File(
             'android/app/src/main/kotlin/com/friday/assistant/MusicPlayback.kt')
         .readAsStringSync();
-    expect(music, contains('SpotifySessionControl.execute'));
+    expect(music, contains('BitChordSessionControl.execute'));
     expect(music, isNot(contains('dispatchMediaKeyEvent')));
     final router = File('lib/services/intent_router.dart').readAsStringSync();
     expect(router, contains('No new playback change verified'));
@@ -63,7 +63,7 @@ void main() {
             'android/app/src/main/kotlin/com/friday/assistant/MusicPlayback.kt')
         .readAsStringSync();
     expect(native,
-        contains('SpotifySessionControl.execute(context,command,result)'));
+        contains('BitChordSessionControl.execute(context,command,result)'));
   });
   test('play/resume routes locally to media playback, never generic app launch',
       () {
@@ -94,7 +94,7 @@ void main() {
             'android/app/src/main/kotlin/com/friday/assistant/MusicPlayback.kt')
         .readAsStringSync();
     expect(native,
-        contains('SpotifySessionControl.execute(context,"play",result)'));
+        contains('BitChordSessionControl.execute(context,"play",result)'));
     expect(native, isNot(contains('KEYCODE_MEDIA_PLAY_PAUSE')));
     expect(native, isNot(contains('startActivity')));
     expect(native, isNot(contains('dispatchMediaKeyEvent')));
