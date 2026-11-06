@@ -56,6 +56,7 @@ object DeviceBridge {
                 }
                 "getInstalledApps" -> result.success(installedApps(context))
                 "searchApp" -> {result.success(searchApp(context,call.argument<String>("app")?:"",call.argument<String>("query")?:""))}
+                "bitchordState" -> result.success(BitChordSessionControl.state(context))
                 "spotifyState" -> result.success(SpotifySessionControl.state(context))
                 "spotifySettings" -> {SpotifySessionControl.settings(context);result.success(true)}
                 "musicControl" -> MusicPlayback.control(context, call.argument<String>("command") ?: "", result)
