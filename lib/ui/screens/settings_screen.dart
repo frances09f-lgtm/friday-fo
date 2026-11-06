@@ -6,6 +6,7 @@ import 'local_model_setup_screen.dart';
 import '../../services/agent/friday_agent.dart';
 import 'commands_screen.dart';
 import 'spotify_controls_screen.dart';
+import 'bitchord_controls_screen.dart';
 import 'package:flutter/material.dart';
 import 'assistant_setup_screen.dart';
 import 'device_link_screen.dart';
@@ -188,6 +189,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const AssistantSetupScreen())).then((_) => _readPermissions())),
               _tile(title: const Text('Floating assistant'), subtitle: Text(_permissions == null ? 'Permission not checked' : _permissions!['overlay'] == true ? 'Display over other apps allowed' : 'Display-over-apps permission needed'),
                 onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const AssistantSetupScreen())).then((_) => _readPermissions())),
+              if (!kIsWeb && Platform.isAndroid)
+                _tile(title: const Text('BitChord controls'), subtitle: const Text('Default music app · optional notification access'),
+                  onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const BitChordControlsScreen()))),
               if (!kIsWeb && Platform.isAndroid)
                 _tile(title: const Text('Spotify controls'), subtitle: const Text('Optional notification access'),
                   onTap: () => Navigator.push(context, MotionRoute(builder: (_) => const SpotifyControlsScreen()))),
