@@ -163,6 +163,9 @@ class WorkflowPlanner {
         return null; // Wait for explicit response evidence, don't duplicate submit.
       final fields = es.where((e) => e['editable'] == true).toList();
       if (fields.length != 1) return null;
+      if (g.package != 'com.openai.chatgpt' &&
+          (fields.single['text']?.toString().trim() ?? '').isNotEmpty &&
+          fields.single['text'] != g.query) return null;
       if (fields.single['text'] == g.query) {
         return choose(
             'submit',
