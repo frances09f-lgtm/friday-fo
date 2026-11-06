@@ -1,3 +1,4 @@
+import 'chrome_controls.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -126,7 +127,7 @@ class LocalBrain implements AgentBrain, CancellableAgentBrain {
             confidence: 1,
             reason: waits < 2
                 ? 'Wait for supported task controls to load'
-                : 'Search/navigation controls could not be uniquely identified. Observed ${elements.length} elements, ${elements.where((e) => e['editable'] == true).length} editors; capture ${screen['truncated'] == true ? 'incomplete' : 'within limits'}. Open the target app screen and inspect its controls; no control was guessed.');
+                : '${goal.package == 'com.android.chrome' ? '[${ChromeControls.failure(elements.map((e) => Map<String, dynamic>.from(e)).toList())}] ' : ''}Search/navigation controls could not be uniquely identified. Observed ${elements.length} elements, ${elements.where((e) => e['editable'] == true).length} editors; capture ${screen['truncated'] == true ? 'incomplete' : 'within limits'}. Open the target app screen and inspect its controls; no control was guessed.');
       }
     }
     // The installed local engine has a small context window. Rank the whole
