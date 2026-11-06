@@ -1,3 +1,4 @@
+import 'chrome_controls.dart';
 import 'agent_contract.dart';
 import 'element_order.dart';
 
@@ -141,19 +142,7 @@ class WorkflowPlanner {
       // Chrome's NTP can expose a search-box container, clear button and
       // actual editor together. Only one real editor is authoritative; never
       // disambiguate two editable fields by choosing the first.
-      final controls = es
-          .where((e) =>
-              !clearControl(label(e)) &&
-              RegExp(r'url_bar|search_box|omnibox|search or type|search or enter',
-                      caseSensitive: false)
-                  .hasMatch(label(e)))
-          .toList();
-      final editors = controls.where((e) => e['editable'] == true).toList();
-      final bars = editors.isNotEmpty
-          ? editors
-          : controls
-              .where((e) => e['clickable'] == true && e['editable'] != true)
-              .toList();
+      final bars = ChromeControls.candidates(es);
       if (bars.length != 1) return null;
       final bar = bars.single;
       if (bar['editable'] != true || bar['focused'] != true) {
