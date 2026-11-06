@@ -60,7 +60,8 @@ object DeviceBridge {
                 "spotifyState" -> result.success(SpotifySessionControl.state(context))
                 "spotifySettings" -> {SpotifySessionControl.settings(context);result.success(true)}
                 "musicControl" -> MusicPlayback.control(context, call.argument<String>("command") ?: "", result)
-                "playMusic" -> MusicPlayback.resume(context, result)
+                "cancelMusicSearch" -> {BitChordSongSearch.cancel();result.success(true)}
+                "playMusic" -> MusicPlayback.resume(context, call.argument<String>("query") ?: "", result)
                 "openApp" -> result.success(openApp(context, call.argument<String>("package")))
                 "readSms" -> result.success(
                     readSms(
