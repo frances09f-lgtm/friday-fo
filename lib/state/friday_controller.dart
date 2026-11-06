@@ -7,6 +7,7 @@ import '../services/agent/workflow_planner.dart';
 import '../services/agent/friday_agent.dart';
 
 import '../services/context/oro_context.dart';
+import '../services/context/price_subject_context.dart';
 import '../services/oro/trade_command.dart';
 import '../services/oro/trade_flow.dart';
 import '../services/oro/oro_bridge.dart';
@@ -186,6 +187,7 @@ class FridayController extends ChangeNotifier {
   }
 
   final oroContext = OroContext();
+  final priceSubjectContext = PriceSubjectContext();
 
   /// Stops the running request, if any. An order already handed to Sona
   /// cannot be unsent: then this only stops the wait, and Sona's real result
@@ -521,7 +523,12 @@ class FridayController extends ChangeNotifier {
     final original =
         isLiteralWhatsApp ? text : text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (original.isEmpty || busy) return;
-    final clean = oroContext.resolve(original, DateTime.now()) ?? original;
+    final now = DateTime.now();
+    final clean = priceSubjectContext.resolve(original, now) ??
+        oroContext.resolve(original, now) ??
+        original;
+    // Context is one-turn and must be earned again by an observed result.
+    priceSubjectContext.clear();
 
     final userMessage = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -794,6 +801,13 @@ class FridayController extends ChangeNotifier {
             'That action is not supported yet. Check the app launch result.');
       return;
     }
+    final directionQuestion = GoldTaskRequest.directionQuestion(clean);
+    if (directionQuestion != null) {
+      oroContext.clear();
+      priceSubjectContext.remember('gold', DateTime.now());
+      await _goldReply(directionQuestion);
+      return;
+    }
     final goldReading = GoldTaskRequest.read(clean);
     final goldTask =
         goldReading != null && goldReading.certain ? goldReading.request : null;
@@ -859,6 +873,12 @@ class FridayController extends ChangeNotifier {
       // Oro's real data is the reply itself.
       reply = await _wait(_runActions(actions, generation), generation);
       if (reply.isEmpty) reply = "I couldn't read Sona's saved data.";
+      if (actions.length == 1 &&
+          actions.single.type == FridayActionType.oroStatus &&
+          (actions.single.target.isEmpty || actions.single.target == 'price') &&
+          reply.startsWith('Gold is at ')) {
+        priceSubjectContext.remember('gold', DateTime.now());
+      }
     } else if (actions.isNotEmpty) {
       oroContext.clear();
       // One final result, not a second acknowledgement bubble.
