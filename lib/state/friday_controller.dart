@@ -50,7 +50,7 @@ class FridayController extends ChangeNotifier {
       return 'Done';
     bool verified(String line) =>
         line.startsWith('Media volume verified by two readbacks.') ||
-        line.startsWith('Spotify ') &&
+        (line.startsWith('Spotify ') || line.startsWith('BitChord ')) &&
             line.contains(' verified from playback or track state.') ||
         line.startsWith('Reminder registered for ') ||
         line.trim() == 'Done.';
