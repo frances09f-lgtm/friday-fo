@@ -203,6 +203,9 @@ class OfflineEngine {
             _ => FridayActionType.stopMusic,
           }),
           source: FridaySource.offline);
+    final directionQuestion = GoldTaskRequest.directionQuestion(text);
+    if (directionQuestion != null)
+      return FridayResponse(reply: directionQuestion);
     final goldReading = GoldTaskRequest.read(text);
     if (goldReading != null) {
       // The chat on the phone creates the alert (it reads Sona's quote to
@@ -213,7 +216,8 @@ class OfflineEngine {
               : 'Did you mean: ${goldReading.request.readable}?',
           source: FridaySource.offline);
     }
-    if (GoldTaskRequest.isWatchLike(text) || GoldTaskRequest.isAlertRequest(text)) {
+    if (GoldTaskRequest.isWatchLike(text) ||
+        GoldTaskRequest.isAlertRequest(text)) {
       return const FridayResponse(
           reply:
               'What price should I watch gold for? For example: "alert me when gold goes above 4000". Friday checks Sona\'s saved quote every 5 minutes, not a live market feed.',
