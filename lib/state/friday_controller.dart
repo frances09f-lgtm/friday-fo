@@ -194,6 +194,7 @@ class FridayController extends ChangeNotifier {
   /// is still reported when it arrives.
   void cancel() {
     if (!busy) return;
+    unawaited(router.deviceHub.cancelMusicSearch());
     _requestGeneration++;
     if (_abort?.isCompleted == false) _stopWork();
     final inFlight = _tradeInFlight;
