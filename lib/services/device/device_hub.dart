@@ -27,7 +27,9 @@ class DeviceHub {
       final r =
           await _channel.invokeMapMethod('galleryVideo', {'index': index}) ??
               {};
-      if (r['success'] == true && r['status'] == 'GALLERY_DISPATCHED' && r['package'] == 'com.oneplus.gallery')
+      if (r['success'] == true &&
+          r['status'] == 'GALLERY_DISPATCHED' &&
+          r['package'] == 'com.oneplus.gallery')
         return 'Requested gallery video #$index in OnePlus Gallery, ordered newest-added first. Playback inside Gallery is not verified.';
       return r['errorMessage']?.toString() ??
           'Could not open gallery video. No playback claimed.';
@@ -104,9 +106,17 @@ class DeviceHub {
     }
   }
 
-  Future<String> playMusic() async {
+  Future<void> cancelMusicSearch() async {
     try {
-      return await _channel.invokeMethod<String>('playMusic') ?? 'error';
+      await _channel.invokeMethod('cancelMusicSearch');
+    } catch (_) {}
+  }
+
+  Future<String> playMusic({String query = ''}) async {
+    try {
+      return await _channel
+              .invokeMethod<String>('playMusic', {'query': query}) ??
+          'error';
     } on Exception {
       return 'error';
     }
@@ -329,8 +339,8 @@ class DeviceHub {
   Future<String> oroTradeSubmit(String orderJson) async {
     if (_isWindows || kIsWeb) return 'unavailable';
     try {
-      return await _channel.invokeMethod<String>(
-              'oroTradeSubmit', {'order': orderJson}) ??
+      return await _channel
+              .invokeMethod<String>('oroTradeSubmit', {'order': orderJson}) ??
           'error';
     } catch (_) {
       return 'error';
@@ -402,7 +412,11 @@ class DeviceHub {
       'tiffin': 'com.ambi.tiffe',
       'look out': 'com.ambi.lookout',
       'replier': 'com.ambi.replier',
-      'replyer': 'com.ambi.replier'
+      'replyer': 'com.ambi.replier',
+      'deep sick': 'com.deepseek.chat',
+      'deep seek': 'com.deepseek.chat',
+      'deepseek': 'com.deepseek.chat',
+      'gemini': 'com.google.android.apps.bard'
     }[q];
     if (namedPackage != null) {
       final found = apps.where((a) => a.packageName == namedPackage).toList();
