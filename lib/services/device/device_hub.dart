@@ -38,6 +38,16 @@ class DeviceHub {
 
   static bool get _isWindows => !kIsWeb && Platform.isWindows;
 
+  Future<Map<String, dynamic>> bitchordState() async {
+    try {
+      return Map<String, dynamic>.from(
+        await _channel.invokeMapMethod('bitchordState') ?? {},
+      );
+    } catch (_) {
+      return {'enabled': false, 'error': 'BitChord session status unavailable'};
+    }
+  }
+
   Future<Map<String, dynamic>> spotifyState() async {
     try {
       return Map<String, dynamic>.from(
