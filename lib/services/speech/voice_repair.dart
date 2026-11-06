@@ -2,8 +2,7 @@
 /// alert commands, without a cloud model.
 ///
 /// Two strengths of repair:
-/// * [known] - mishearings seen in real use ("goes about 4000" for "goes
-///   above 4000", "blow" for "below", "goal" for "gold"). Each fix only
+/// * [known] - mishearings seen in real use ("blow" for "below", "goal" for "gold"). Each fix only
 ///   fires in its slot (a direction word right before the target number,
 ///   the asset word in an alert), so it cannot turn some other sentence
 ///   into a command. Friday acts on these directly.
@@ -144,7 +143,6 @@ class VoiceRepair {
   // --- known mishearings -------------------------------------------------
 
   static final _aboveHeard = [
-    'about',
     'abaut',
     'abut',
     'abot',
@@ -326,7 +324,6 @@ class VoiceRepair {
     'this',
     'that',
     'its',
-    'about',
     'above',
     'below',
     'mark',
