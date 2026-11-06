@@ -108,6 +108,24 @@ class IntentRouter {
         return 'No active BitChord session. Open BitChord and choose a track or queue first.';
       case 'ambiguous_bitchord_session':
         return 'More than one BitChord session is active. Choose the player in BitChord first.';
+      case 'bitchord_verified_song':
+        return 'BitChord is playing the unique matching catalog track, verified by media ID and playback state.';
+      case 'bitchord_search_ambiguous':
+        return 'I could not identify one exact track. Add the artist, for example "play song title by artist", or choose the track in BitChord. No song was selected.';
+      case 'bitchord_search_no_match':
+        return 'No exact matching playable track was found in BitChord. Try the full title and artist. No song was selected.';
+      case 'bitchord_song_unverified':
+        return 'BitChord was asked to play the matched track, but playback was not verified. Check BitChord before retrying.';
+      case 'bitchord_search_busy':
+        return 'A BitChord search is already running. Wait or cancel it first.';
+      case 'bitchord_search_cancelled':
+        return 'BitChord search cancelled before a song was selected.';
+      case 'bitchord_search_timeout':
+        return 'BitChord search timed out. No song was selected.';
+      case 'bitchord_search_invalid':
+        return 'Give a song title of up to 200 characters.';
+      case 'bitchord_search_unavailable':
+        return 'BitChord catalog search is unavailable on this installed version or connection. Choose the song in BitChord. No song was selected.';
       case 'unsupported_bitchord_action':
         return 'BitChord does not expose this control for the current session or queue. No command sent.';
       case 'bitchord_already_playing':
@@ -174,7 +192,7 @@ class IntentRouter {
             ? "I couldn't send that media command."
             : 'Requested $command, but the player or track change could not be verified. No completion claimed.';
       case FridayActionType.playMusic:
-        final playback = await deviceHub.playMusic();
+        final playback = await deviceHub.playMusic(query: action.query);
         final spotify = bitchordReply(playback) ?? spotifyReply(playback);
         if (spotify != null) return spotify;
         switch (playback) {
