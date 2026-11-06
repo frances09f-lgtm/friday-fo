@@ -41,6 +41,27 @@ class GoldTaskRequest {
             .hasMatch(t);
   }
 
+  /// Approximation is not a directional crossing and has no supported
+  /// tolerance semantics. Preserve the user's words and ask, never repair it.
+  static String? directionQuestion(String text) {
+    final t = VoiceRepair.numbers(text).toLowerCase();
+    if (!RegExp(_asset).hasMatch(t) ||
+        !_intent.hasMatch(t) ||
+        _tradeWords.hasMatch(t)) return null;
+    final approx = RegExp(
+            r'\b(?:about|around|near|approximately)\s+(?:for\s+)?[₹$]?\s*(\d+(?:\.\d+)?)(?:\s*k\b)?')
+        .firstMatch(t);
+    if (approx == null) return null;
+    // "above around 4000" already gives a direction explicitly.
+    final before = t.substring(0, approx.start);
+    if (_upWords.hasMatch(before) || _downWords.hasMatch(before)) return null;
+    final n =
+        double.parse(approx[1]!) * (approx[0]!.trim().endsWith('k') ? 1000 : 1);
+    if (!n.isFinite || n <= 0) return null;
+    final target = formatPrice(n);
+    return 'Do you mean gold above $target or below $target? "About" does not specify a direction. Say "alert me when gold goes above $target" or "alert me when gold goes below $target". No alert was set.';
+  }
+
   // Words that mean "go up to/over the target".
   static final _upWords = RegExp(
       r'(?:>=|≥|>|\bmore than\b|\bgreater than\b|\bhigher than\b|\bbigger than\b|\bexceeds?\b|\bexceeding\b'
@@ -48,7 +69,7 @@ class GoldTaskRequest {
       r'|\bbreaks? above\b|\bcross(?:es|ed)? above\b|\bcross(?:es|ed)? over\b'
       r'|\b(?:goes|go|going|gets|moves|climbs?|rises?|rising|jumps?|shoots?|runs?|pumps?|spikes?) up\b'
       r'|\b(?:rises?|rising|rose|climbs?|climbing|jumps?|jumping|rallies|rally|surges?|spikes?|soars?)\b'
-      r'|\b(?:goes|go|going|gets|moves|trades?|trading|climbs?) about\b|\babout for\b)');
+      r')');
 
   // Words that mean "go down to/under the target".
   static final _downWords = RegExp(
@@ -67,7 +88,7 @@ class GoldTaskRequest {
       r'\b(?:ping|alert|alerts|notify|notification|tell|warn|inform|let me know|message me|remind|watch|monitor|track|buzz|ring)\b|\b(?:whenever|once|as soon as)\b|\bwhen\b(?!\s+(?:was|did|were|has|had|is the)\b)');
 
   /// Reads a gold alert in any everyday phrasing, including the words a
-  /// speech recognizer commonly gets wrong ("goes about 4000"). Returns null
+  /// speech recognizer commonly gets wrong. Approximation asks first. Returns null
   /// when the text is not a gold alert Friday can act on without asking.
   static GoldTaskRequest? parse(String text) {
     final r = read(text);
@@ -78,6 +99,7 @@ class GoldTaskRequest {
   /// first ([GoldAlertReading.certain] false): sound-alike words, or an
   /// interval the phone cannot run.
   static GoldAlertReading? read(String text) {
+    if (directionQuestion(text) != null) return null;
     final numbered = VoiceRepair.numbers(text);
     final (fixed, fixes) = VoiceRepair.known(numbered);
     final exact = _core(fixed);
