@@ -33,7 +33,8 @@ import io.flutter.plugin.common.MethodChannel
 class FridayAccessibilityService : AccessibilityService() {
  companion object {
   var current: FridayAccessibilityService? = null
-  val supported = setOf("com.google.android.youtube", "com.android.chrome", "com.instagram.android", "com.android.settings", "com.whatsapp", "com.openai.chatgpt")
+  val questionApps = setOf("com.openai.chatgpt","com.google.android.apps.bard","com.deepseek.chat")
+  val supported = setOf("com.google.android.youtube", "com.android.chrome", "com.instagram.android", "com.android.settings", "com.whatsapp", "com.openai.chatgpt", "com.google.android.apps.bard", "com.deepseek.chat")
   fun register(m: BinaryMessenger, c: Context) {
    MethodChannel(m,"friday/agent").setMethodCallHandler { call,result ->
     val s=current
@@ -215,16 +216,17 @@ class FridayAccessibilityService : AccessibilityService() {
   val node=matches.single();val labels=label(node)
   if(action=="tap"&&workflow!="commands"&&Regex("clear|dismiss|close|reset",RegexOption.IGNORE_CASE).containsMatchIn(labels)){result.success(fail("Clear or dismiss is not a search-opening action",true));return}
   if(node.isPassword||!node.isEnabled){result.success(fail("Protected or disabled target",true));return}
-  if(protected(labels)&&!(workflow=="question"&&action=="submit"&&allowed=="com.openai.chatgpt"&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString())))){result.success(fail("Action needs review or is outside task scope",true));return}
+  if(protected(labels)&&!(workflow=="question"&&action=="submit"&&allowed in questionApps&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString())))){result.success(fail("Action needs review or is outside task scope",true));return}
   if(action=="type"){
    val exact=if(workflow=="commands")commands.any{it["action"]=="type"&&it["text"]==text}else text==query
-   val fieldSafe=when(workflow){"commands"-> !protected(labels);"question"->allowed=="com.openai.chatgpt";else->search(labels)}
+   if(workflow=="question"&&allowed!="com.openai.chatgpt"&&node.text?.toString()?.isNotBlank()==true&&node.text?.toString()!=query){result.success(fail("Existing draft needs user review",true));return}
+   val fieldSafe=when(workflow){"commands"-> !protected(labels);"question"->allowed in questionApps;else->search(labels)}
    if(settings||!exact||!node.isEditable||!fieldSafe||(allowed=="com.whatsapp"&&!search(labels))){result.success(fail("Typing allowed only in the requested safe field; WhatsApp message composer is blocked",true));return}
    youtubeEditorAttempted=false;youtubeImeAttempted=false;youtubeKeyboardAttempted=false
    resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)}));return
   }
   if(action=="submit"||(action=="tap"&&node.isEditable&&node.isFocused&&node.text?.toString()==query)){
-   if(workflow=="question"&&allowed=="com.openai.chatgpt"&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString()))) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
+   if(workflow=="question"&&allowed in questionApps&&text==query&&nodes.count{it.isEditable&&it.text?.toString()==query}==1&&Regex("^(send|send prompt|send message|submit)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString()))) {resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable&&search(labels)&&Regex("^(search|submit search)$",RegexOption.IGNORE_CASE).matches(FieldLabelPolicy.primary(node.contentDescription?.toString(),node.text?.toString()))&&nodes.count{it.isEditable&&it.text?.toString()==query}==1){resultAnswer(result,node.performAction(AccessibilityNodeInfo.ACTION_CLICK));return}
    if(!node.isEditable||!search(labels)||node.text?.toString()!=query){result.success(fail("Submit limited to the exact requested search",true));return}
    val youtube=allowed=="com.google.android.youtube" && workflow in setOf("search","play")
