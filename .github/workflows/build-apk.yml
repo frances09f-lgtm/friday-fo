@@ -2,7 +2,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [test/bitchord]
+    branches: [release/all-fixes-171]
 jobs:
   build:
     concurrency:
@@ -43,7 +43,7 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
-      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.170 --build-number=170
+      - run: flutter build apk --release --target-platform android-arm64 --build-name=1.0.171 --build-number=171
       - name: Native task evaluation tests
         run: cd android && ./gradlew :app:testReleaseUnitTest
       - name: Size report and APK checks
@@ -55,7 +55,7 @@ jobs:
           "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/test-cert.txt
           CERT=$(awk '/certificate SHA-256 digest:/ {print $NF}' /tmp/test-cert.txt | sort -u)
           test "$CERT" = '9ca9b3638f3580bfff9d01883515dbaaf44b8e74617fd4e6119228f54785e2fc'
-          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='170' versionName='1.0.170'"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.friday.assistant' versionCode='171' versionName='1.0.171'"
           sha256sum "$APK"
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Friday.apk"
       - uses: actions/setup-node@v4
@@ -68,14 +68,14 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           set -euo pipefail
-          TAG=test-1.0.170-private
+          TAG=test-1.0.171-private
           APK=build/app/outputs/flutter-apk/Friday.apk
           sha256sum "$APK" > build/app/outputs/flutter-apk/Friday.apk.sha256
-          gh release create "$TAG" "$APK" build/app/outputs/flutter-apk/Friday.apk.sha256 --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Friday1.0.170 private test - do not publish' --notes 'Private test transport only.' --draft
+          gh release create "$TAG" "$APK" build/app/outputs/flutter-apk/Friday.apk.sha256 --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Friday1.0.171 private test - do not publish' --notes 'Private test transport only.' --draft
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId,isDraft > /tmp/draft.json
           jq -e '.isDraft == true' /tmp/draft.json
           export DRAFT_ID=$(jq -r .databaseId /tmp/draft.json)
-          cat > /tmp/stage170.cjs <<'JS'
+          cat > /tmp/stage171.cjs <<'JS'
           const fs=require('fs'),crypto=require('crypto');
           const {GoogleAuth}=require('/tmp/firebase-stage-tools/node_modules/google-auth-library');
           let stage='identity';
@@ -95,7 +95,7 @@ jobs:
               if(r.data.done){
                 if(r.data.error)throw Error('Upload failed');
                 const rel=r.data.response.release;
-                if(rel.buildVersion!=='170'||rel.displayVersion!=='1.0.170'||!rel.name.startsWith(app+'/releases/'))throw Error('Wrong version');
+                if(rel.buildVersion!=='171'||rel.displayVersion!=='1.0.171'||!rel.name.startsWith(app+'/releases/'))throw Error('Wrong version');
                 const u=new URL(rel.binaryDownloadUri);if(u.protocol!=='https:'||!u.hostname.endsWith('.googleapis.com'))throw Error('Wrong binary host');
                 stage='private draft pointer';
                 const base='https://api.github.com/repos/'+process.env.GITHUB_REPOSITORY+'/releases/'+process.env.DRAFT_ID;
@@ -109,4 +109,4 @@ jobs:
             throw Error('Upload did not settle');
           })().catch(e=>{console.error('Private transport failed at '+stage+' HTTP '+(e.response?.status||'unknown')+'. Inspect without printing secrets or binary links.');process.exit(1)});
           JS
-          node /tmp/stage170.cjs
+          node /tmp/stage171.cjs
