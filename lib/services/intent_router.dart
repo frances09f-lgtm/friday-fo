@@ -100,6 +100,32 @@ class IntentRouter {
     return null;
   }
 
+  static String? bitchordReply(String outcome) {
+    switch (outcome) {
+      case 'bitchord_access_required':
+        return 'BitChord session access is off. Open Settings > BitChord controls, review Android notification access, then enable Friday yourself if you agree.';
+      case 'no_bitchord_session':
+        return 'No active BitChord session. Open BitChord and choose a track or queue first.';
+      case 'ambiguous_bitchord_session':
+        return 'More than one BitChord session is active. Choose the player in BitChord first.';
+      case 'unsupported_bitchord_action':
+        return 'BitChord does not expose this control for the current session or queue. No command sent.';
+      case 'bitchord_already_playing':
+        return 'BitChord was already playing. No new change made.';
+      case 'bitchord_already_inactive':
+        return 'BitChord was already paused or stopped. No new change made.';
+      case 'bitchord_metadata_unavailable':
+        return 'BitChord accepted the request but track metadata is unavailable. Track change not verified.';
+      case 'bitchord_session_lost':
+        return 'BitChord session disconnected before verification. No completion claimed.';
+    }
+    if (outcome.startsWith('bitchord_verified_'))
+      return 'BitChord ${outcome.substring(18)} verified from playback or track state.';
+    if (outcome.startsWith('bitchord_unverified_'))
+      return 'BitChord ${outcome.substring(20)} requested, but state did not change. Check the queue. No completion claimed.';
+    return null;
+  }
+
   /// Only router-owned terminal execution results may clear the panel early.
   /// Unknown results, failed actions and permission/recipient questions stay visible.
   /// A launch/draft result means dispatch finished, not verified app visibility
@@ -108,7 +134,7 @@ class IntentRouter {
     if (outcome.isEmpty) return true;
     return outcome.split('\n').every((line) =>
         line.startsWith('Media volume verified by two readbacks.') ||
-        line.startsWith('Spotify ') &&
+        (line.startsWith('Spotify ') || line.startsWith('BitChord ')) &&
             line.endsWith(' verified from playback or track state.') ||
         line.startsWith('Reminder registered for ') ||
         line.startsWith('Launch requested for ') &&
@@ -138,7 +164,7 @@ class IntentRouter {
                 ? 'previous'
                 : 'stop';
         final outcome = await deviceHub.musicControl(command);
-        final spotify = spotifyReply(outcome);
+        final spotify = bitchordReply(outcome) ?? spotifyReply(outcome);
         if (spotify != null) return spotify;
         if (outcome == 'stopped')
           return 'Audio changed from active to inactive after Stop. Track/session state is not available.';
@@ -149,7 +175,7 @@ class IntentRouter {
             : 'Requested $command, but the player or track change could not be verified. No completion claimed.';
       case FridayActionType.playMusic:
         final playback = await deviceHub.playMusic();
-        final spotify = spotifyReply(playback);
+        final spotify = bitchordReply(playback) ?? spotifyReply(playback);
         if (spotify != null) return spotify;
         switch (playback) {
           case 'already_active':
